@@ -1,5 +1,5 @@
+import { executionWorkspace } from "./variants.mjs";
 import { startProcess } from "../adapter-api/node.mjs";
-import { workspacePath } from "./workspaces.mjs";
 import { labConfig } from "./runtime.mjs";
 const sessions = new Map();
 export function validatePreview(preview) {
@@ -21,11 +21,12 @@ export async function stopPreview(id) {
   const session = sessions.get(id);
   if (session) {
     await session.stop();
+    await session.cleanup?.();
     sessions.delete(id);
   }
   return { running: false };
 }
-export async function startPreview(root, id) {
+export async function startPreview(root, id, variant = "playground") {
   const config = await labConfig(root, id);
   if (!config.preview) throw new Error("This lab has no preview");
   await stopPreview(id);
@@ -43,22 +44,26 @@ export async function startPreview(root, id) {
   }
   let output = "",
     finished = false;
+  const workspace = await executionWorkspace(root, id, variant);
   const session = startProcess(command[0], command.slice(1), {
-    workspaceRoot: workspacePath(root, id),
+    workspaceRoot: workspace.path,
     env: { PORT: String(port), HOST: "127.0.0.1" },
     emit: (e) => {
       output = (output + e.text).slice(-10000);
     },
   });
+  session.cleanup = workspace.cleanup;
   session.port = port;
   sessions.set(id, session);
   session.completion.then(
     () => {
       finished = true;
+      workspace.cleanup().catch(() => {});
       if (sessions.get(id) === session) sessions.delete(id);
     },
     () => {
       finished = true;
+      workspace.cleanup().catch(() => {});
       if (sessions.get(id) === session) sessions.delete(id);
     },
   );

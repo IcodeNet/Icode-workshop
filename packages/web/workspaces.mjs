@@ -70,3 +70,78 @@ export async function resetWorkspace(root, id) {
     throw error;
   }
 }
+
+export async function listBackups(root, id) {
+  workspacePath(root, id);
+  const { readdir } = await import("node:fs/promises");
+  const { assertSafePath } = await import("./files.mjs");
+  const parent = join(resolve(root), ".workshop", "playgrounds");
+  await assertSafePath(parent);
+  try {
+    return (await readdir(parent, { withFileTypes: true }))
+      .filter(
+        (item) => item.isDirectory() && item.name.startsWith(id + ".backup-"),
+      )
+      .map((item) => item.name)
+      .sort()
+      .reverse();
+  } catch (e) {
+    if (e.code === "ENOENT") return [];
+    throw e;
+  }
+}
+
+export async function replaceWorkspace(
+  root,
+  id,
+  { sourceId = id, variant = "problem", backup } = {},
+) {
+  const { rename } = await import("node:fs/promises");
+  const { randomUUID } = await import("node:crypto");
+  const { assertSafePath, variantRoot, listFiles } =
+    await import("./files.mjs");
+  const path = workspacePath(root, id);
+  await labConfig(root, id);
+  let source;
+  if (backup !== undefined) {
+    if (
+      typeof backup !== "string" ||
+      !(await listBackups(root, id)).includes(backup)
+    )
+      throw new Error("Unknown backup");
+    source = join(resolve(root), ".workshop", "playgrounds", backup);
+  } else {
+    source = variantRoot(root, sourceId, variant);
+    await listFiles(root, sourceId, variant);
+  }
+  await assertSafePath(path);
+  await assertSafePath(source);
+  await mkdir(join(resolve(root), ".workshop", "playgrounds"), {
+    recursive: true,
+  });
+  const token = Date.now() + "-" + randomUUID();
+  const staging = path + ".staging-" + token,
+    previous = path + ".backup-" + token;
+  // Stage first: a failed source copy must never remove the learner's workspace.
+  try {
+    await cp(source, staging, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    });
+    const hadPrevious = await exists(path);
+    if (hadPrevious) await rename(path, previous);
+    try {
+      await rename(staging, path);
+    } catch (e) {
+      if (hadPrevious) await rename(previous, path);
+      throw e;
+    }
+    return {
+      ...(await selectWorkspace(root, id)),
+      backup: hadPrevious ? previous : null,
+    };
+  } finally {
+    await rm(staging, { recursive: true, force: true });
+  }
+}

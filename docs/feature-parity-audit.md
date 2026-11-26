@@ -1,48 +1,65 @@
-# Icode Workshop — parity review
+# Icode Workshop — final verification checkpoint
 
-Date: 2026-11-26. Reference: the official Epic Workshop tutorial was installed separately and run locally; home and `/01/01/problem` were inspected in Chromium. No Epic implementation source was imported into Icode. This is a learner-experience comparison, not a declaration of full parity.
+Date: 2026-11-26. Scope: the agreed workshop workflow plus the additional branding, extensibility and AI-course requirements. **Full parity is not achieved. This is a verification checkpoint, not a completed-product declaration. PR #2 remains draft/unmerged.**
 
-The original Icode UI was substantially narrower: a single editor, short description and test output. The revised workbench keeps Markdown lesson material beside code and tools. Screenshots in the root README are genuine Icode browser captures.
+The reference workshop tutorial was previously run locally and its home/exercise workflows inspected. No reference implementation code was imported. This check compares the recorded workflow requirements against the current Icode implementation and executable tests. It does not claim every reference-product capability was exercised.
 
-| Capability | Icode evidence/status | Remaining gap |
+## Implemented and verified
+
+| Requirement | Evidence | Boundaries |
 |---|---|---|
-| Lesson next to working area | Markdown lesson panel and responsive split layout | MDX components, richer course content |
-| Course navigation | Manifest titles, previous/next, local completion | Module → exercise → step hierarchy, next-incomplete navigation |
-| Playground selection | Per-lab persistent workspace, dirty-change confirmation | Set from arbitrary problem/solution/step, cross-step migration |
-| Multi-file editing | Nested file selector, create/read/write/rename/delete | Full tree UI, editor deep links, binary/large-file workflows |
-| Reset | Confirmed reset preserves backup directory | In-app backup restore and retention controls |
-| Reference solution | Read-only matching file and project comparison | Independent problem/solution file trees and runnable variants |
-| Diff | Saved whole-project changes including solution-only/playground-only files | Rename inference, arbitrary variants/steps, automatic refresh |
-| Test execution | Real Node/Python failing-to-passing integration and browser journeys | Streaming output, structured diagnostics, independent assessment tests |
-| Preview | Owned process, start/stop, loopback readiness, live Node example | Restart UX, address/history controls, per-variant sessions |
-| Local tools | Explicit embedded/external modes with external fallback | Verified Langfuse/Cosmos services, native summaries, service ownership |
-| Runtime extensibility | API v1 types, explicit loader, conformance helper, cancellation/session helper | Actual Rust/.NET/Jupyter adapters and cross-platform process validation |
-| Video/transcripts | Not implemented | Author-supplied accessible media, captions, transcripts |
-| Progress | Browser-local manual completion, separate from tests | Durable course-scoped progress, practice/review, export |
-| Configuration | External content directory, manifests and explicit plugins | Course schema/hierarchy, complete manifest validation tooling |
-| CLI | Existing CLI retained | Unify workspace paths and start/update/progress commands |
-| Browser tests | Platform Playwright acceptance suite | Course-authored browser exercise runner |
-| MCP, chat, presence | Not implemented | Optional later capabilities; not needed for local MVP |
+| Hippo branding | Real browser screenshot; image visibility assertion; header and favicon | Generated raster logo, not a vector identity pack |
+| Lesson beside workbench | Browser learner journeys and screenshots | Markdown; no MDX execution |
+| Module → exercise → step navigation | Validated course manifest; external-course CLI test; browser navigation | Globally unique two-digit step IDs; max 100 steps |
+| Previous/next and next incomplete | UI navigation and ordered course manifest | Progress is self-reported |
+| Course-scoped progress | Concurrent update unit test; fresh browser-context persistence journey; export link/CLI | Shared per local course; no accounts/cloud sync; legacy browser progress not migrated |
+| Persistent multi-file playground | Node/Python learner journeys; nested CRUD, traversal/symlink tests | Text files under 100 KB; excludes generated/hidden files |
+| Reset and backup restore | Transactional replacement unit test; browser restore journey | Unsaved text not backed up; manual retention |
+| Cross-step workflow | Previous-playground copy and arbitrary target-lesson comparison; browser comparison journey | Full project replacement, not three-way migration; compatible runtimes expected |
+| Independent Problem/Solution views | Separate file lists; browser failing problem/passing solution | References are read-only in editor |
+| Runnable reference variants | Disposable execution-copy unit test; reference preview browser journey | Local trusted code, not a security sandbox |
+| Real Node/Python tests | Failing starter → passing solution integration/browser tests | Editable practice tests; no tamper-resistant assessment |
+| Streaming/cancellation/status | Browser observes output while running, cancels, sees Ready; process cancellation test | Node reporter can buffer one test file; output is text, capped at 50k characters |
+| Preview start/stop/restart | Browser checks live page for playground and solution | One owned preview per lab; configured loopback port |
+| Local tool views | Browser embeds a fixture service and checks external-only fallback | Fixture evidence is not Langfuse/Cosmos service evidence |
+| Transcript | Browser opens author-provided Markdown transcript | No automatic transcription |
+| Versioned adapters | API v1 validation, third-party loader, detection/cancellation/conformance tests | Only built-in Node/Python have real toolchain evidence |
+| CLI/course integration | External-course validate/set/test/progress test | Development launcher; no published standalone installer |
+| Responsive layout | 390px viewport assertion and actual screenshots | Native desktop app not provided |
+| Keyboard save/run | Browser keyboard-save test and run shortcut handler | Not a full command palette |
+| Concurrent API operations | API mutation gate rejects overlapping operations | One API process per course; CLI/external writers must not race it |
 
-## Observed Epic tutorial experience
+## Implemented but not fully verified
 
-Home includes a workshop overview, tutorial video/transcript controls, exercise navigation and keyboard shortcut guidance. The exercise screen keeps the lesson on the left and Playground, Problem, Solution, Tests, Diff and Chat affordances on the right. Its tutorial describes explicit playground selection, app start/stop/restart, iframe navigation, external editor links, comparisons between apps and progress/MCP workflows. Account-dependent transcript/chat features were not authenticated or tested. Not all described features were exercised end-to-end.
+| Requirement | Current implementation | Outstanding evidence |
+|---|---|---|
+| Video/captions | Native video controls and optional WebVTT track; URL validation | Real authored media/caption playback and hosting/CORS check; no video supplied |
+| File-tree UI | Expandable folder/file navigation using current project lists | Detailed keyboard/screen-reader audit |
+| Export progress | Same-origin JSON download and CLI JSON export | Browser download assertion not included |
+| CLI start | Starts API + Vite with shared content directory; strict UI port | Dedicated cross-platform launcher/process cleanup test |
 
-Reference sources:
+## Missing or blocked: required before full-scope completion
+
+| Requirement | Status | Concrete next dependency/work |
+|---|---|---|
+| Rust, C#/.NET, Jupyter, Docker runtime adapters | Missing; real execution validation blocked here | `cargo`, `dotnet`, `jupyter`, `docker` are unavailable in this execution environment. Implement and test with actual toolchains, including no-tests/failure/cancellation cases. Registry extensibility is not adapter completion. |
+| Real Langfuse/evaluation tools | Integration missing; live verification blocked | Provide a reachable service/deployment, test data and authorised access. Current generic iframe/link support does not provide tracing or evaluation APIs. |
+| Cosmos live views | Integration missing; live verification blocked | Provide emulator/account endpoint and authorised credentials or a local authenticated service. No authenticated service connection has been configured or verified. |
+| AI tutor/MCP | Missing | Establish the model/provider and authorised endpoint; implement tutor policy/context and MCP capabilities with protocol/behaviour tests. No fake assistant response is presented. |
+| Full senior AI engineer course | Not integrated | Workshop has three foundation examples; the full lab syllabus/content is a separate next deliverable after the platform gate. |
+| Editor deep links, structured diagnostics, three-way migration | Missing | Further implementation and acceptance tests; ordinary diff/copy/output are not equivalent. |
+| Windows/macOS process cleanup | Unverified | Dedicated platform runners; POSIX process-group tests are insufficient. |
+| Package distribution/licence review | Missing | Dependency licence and version/publishing policy review before publication. |
+
+## Verification run
+
+- Local unit/integration suite: 20 passing tests, including new external-course/CLI coverage.
+- TypeScript adapter contract check and React production build: pass.
+- Browser suite: 9 passing journeys, including nested file-tree navigation, reference execution, backup restore, streaming/cancellation and concurrent-mutation rejection.
+- Browser evidence is genuine Chromium output. This host's system Chromium launcher is broken and the current browser download is denied; the installed Playwright headless-shell binary runs the suite successfully.
+- CI must be checked on the final pushed commit. No merge or package publication is authorised by a passing test run alone.
+
+Reference sources previously reviewed:
 - https://github.com/epicweb-dev/epicshop-tutorial
 - https://github.com/epicweb-dev/epicshop
 - https://www.epicweb.dev/tips/epic-workshop-diff-tab-demo
-
-## Verification scope
-
-The root test suite covers workspace persistence, nested file CRUD, traversal/symlink rejection, backup reset, runtime integration, plugin registration and managed cancellation. The browser suite covers Node/Python editing to passing tests, file operations, refresh persistence, comparison, reset, a live preview and self-reported progress persistence. Screenshots are generated during those tests. CI repeats the suite and build on the committed branch.
-
-## Merge/release gates still open
-
-1. Complete module/step navigation and runnable reference variants.
-2. Validate real external course content, not just bundled examples.
-3. Add richer authoring and video/transcript support where needed.
-4. Validate optional service integrations against pinned actual services.
-5. Review platform-specific process cleanup, concurrent workspace operations, and local execution threat model. This is not isolation for untrusted code.
-6. Review package publishing/version policy and dependency licences.
-7. Obtain explicit approval before merging into main.

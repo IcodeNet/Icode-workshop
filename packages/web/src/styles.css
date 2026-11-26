@@ -742,3 +742,115 @@ textarea {
   font-size: 12px;
   margin-left: 8px;
 }
+
+.hippo-logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  flex: none;
+}
+.activity-bar {
+  min-height: 38px;
+  padding: 8px 28px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #111c31;
+  border-bottom: 1px solid #334155;
+  font-size: 12px;
+  color: #fed7aa;
+}
+.shortcut-help {
+  margin-left: auto;
+  color: #94a3b8;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #475569;
+  border-top-color: #fdba74;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+.course-module h3 {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 24px 0 8px;
+}
+.next-incomplete,
+.activity-bar button {
+  padding: 8px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  background: #1e293b;
+  color: #fed7aa;
+  font-size: 12px;
+}
+.lesson-media video {
+  width: 100%;
+  margin: 16px 0;
+}
+.lesson-media summary {
+  cursor: pointer;
+  color: #fed7aa;
+}
+@media (max-width: 700px) {
+  .shortcut-help {
+    display: none;
+  }
+  .activity-bar {
+    padding: 8px 16px;
+    flex-wrap: wrap;
+  }
+  .brand strong {
+    font-size: 18px;
+  }
+}
+.exercise-group h4 {
+  margin: 14px 0 6px 10px;
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+.project-tree {
+  padding: 12px 18px;
+  background: #111c31;
+  font-size: 12px;
+  border-bottom: 1px solid #334155;
+}
+.project-tree summary {
+  cursor: pointer;
+  color: #fed7aa;
+}
+.project-tree ul {
+  list-style: none;
+  padding-left: 16px;
+}
+.project-tree li {
+  margin-top: 5px;
+}
+.project-tree button {
+  border: 0;
+  color: #cbd5e1;
+  background: transparent;
+  padding: 4px;
+}
+.project-tree button[aria-current="true"] {
+  color: #fed7aa;
+  text-decoration: underline;
+}
+.progress-export {
+  color: #fed7aa;
+  font-size: 12px;
+  margin: 12px 0;
+}

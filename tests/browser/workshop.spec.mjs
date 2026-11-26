@@ -27,7 +27,8 @@ test("Node and Python learner journeys, multi-file CRUD, persistence, compare an
   await expect(page.getByText("src/value.mjs — playground only")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: /01 Approved/ }).click();
-  await page.getByLabel("Project file").selectOption("src/value.mjs");
+  await page.getByText("Project file tree", { exact: true }).click();
+  await page.getByRole("button", { name: "value.mjs", exact: true }).click();
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   await expect(editor).toHaveValue("export const helper = 42\n");
   page.once("dialog", (d) => d.accept());
@@ -158,4 +159,143 @@ test("API rejects hostile browser origins, host headers and traversal", async ({
     data: { id: "01", name: "../escape", code: "bad" },
   });
   expect(path.status()).toBe(400);
+});
+
+test("hippo, module navigation, independent reference execution and durable progress", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/");
+  await expect(page.getByAltText("Icode hippo")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "01 · Trusted retrieval" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /01 Approved/ }).click();
+  await page.getByRole("tab", { name: "Solution", exact: true }).click();
+  await expect(page.getByLabel("Reference file")).toHaveValue("index.mjs");
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("PASS · solution");
+  await page.getByRole("tab", { name: "Problem", exact: true }).click();
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("FAIL · problem");
+  await page
+    .getByRole("button", { name: "Mark complete", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Mark incomplete", exact: true }),
+  ).toBeVisible();
+  const context = await browser.newContext();
+  const other = await context.newPage();
+  await other.goto("http://127.0.0.1:5173");
+  await other.getByRole("button", { name: /01 Approved/ }).click();
+  await expect(
+    other.getByRole("button", { name: "Mark incomplete", exact: true }),
+  ).toBeVisible();
+  await context.close();
+});
+
+test("running indicator, streamed output, cancellation and keyboard save", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /01 Approved/ }).click();
+  await page.getByRole("tab", { name: "Playground", exact: true }).click();
+  page.once("dialog", (d) => d.accept("slow.test.mjs"));
+  await page.getByRole("button", { name: "New file", exact: true }).click();
+  await page
+    .getByLabel("Playground code editor")
+    .fill(
+      'import test from "node:test"; test("slow", async () => { console.log("streaming marker"); await new Promise(r => setTimeout(r, 10000)); });',
+    );
+  await page.getByLabel("Playground code editor").press("Control+s");
+  await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
+  await expect(page.getByLabel("Workshop activity")).toContainText(
+    "Running playground tests",
+  );
+  // Node's reporter may buffer the slow file; earlier completed tests must stream before the run finishes.
+  await expect(page.getByRole("status")).toContainText("approved");
+  const overlapping = await page.request.put("/api/file", {
+    data: {
+      id: "01",
+      name: "index.mjs",
+      code: "// must not overwrite during a run",
+    },
+  });
+  expect(overlapping.status()).toBe(409);
+  await page.getByRole("button", { name: "Cancel test run" }).click();
+  await expect(page.getByRole("status")).toContainText("Test run cancelled");
+  await expect(page.getByLabel("Workshop activity")).toContainText("Ready");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+});
+
+test("reference preview restart and backup restoration preserve the learner workspace", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: /03 Your first live preview/ })
+    .click();
+  await page.getByRole("tab", { name: "Solution", exact: true }).click();
+  await page.getByRole("tab", { name: "Preview", exact: true }).click();
+  await page.getByRole("button", { name: "Start app", exact: true }).click();
+  await expect(
+    page.frameLocator('iframe[title="Live preview"]').locator("body"),
+  ).toContainText("Hello, Icode Workshop!");
+  await page.getByRole("button", { name: "Restart app", exact: true }).click();
+  await expect(
+    page.frameLocator('iframe[title="Live preview"]').locator("body"),
+  ).toContainText("Hello, Icode Workshop!");
+  await page.getByRole("button", { name: "Stop app", exact: true }).click();
+  await page.getByRole("tab", { name: "Playground", exact: true }).click();
+  await page
+    .getByLabel("Playground code editor")
+    .fill('export const message = () => "My saved work";');
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("tab", { name: "Problem", exact: true }).click();
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("button", { name: "Use problem in playground", exact: true })
+    .click();
+  await expect(page.getByLabel("Playground code editor")).not.toHaveValue(
+    /My saved work/,
+  );
+  const accept = (d) =>
+    d.accept(d.type() === "prompt" ? d.defaultValue() : undefined);
+  page.on("dialog", accept);
+  await page
+    .getByRole("button", { name: "Restore backup", exact: true })
+    .click();
+  await expect(page.getByLabel("Playground code editor")).toHaveValue(
+    'export const message = () => "My saved work";',
+  );
+  page.off("dialog", accept);
+});
+
+test("comparison supports other lessons and transcript remains alongside the workspace", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: /03 Your first live preview/ })
+    .click();
+  await page.getByText("Lesson transcript", { exact: true }).click();
+  await expect(page.getByRole("article")).toContainText(
+    "A preview is a running local application.",
+  );
+  await page.getByRole("tab", { name: "Compare", exact: true }).click();
+  await page
+    .getByLabel("Compare from", { exact: true })
+    .selectOption("problem");
+  await page.getByLabel("Compare target lesson").selectOption("01");
+  await expect(
+    page.getByText("Refresh comparison to view the selected projects."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Refresh comparison" }).click();
+  await expect(
+    page.getByText("index.mjs — solution only", { exact: true }),
+  ).toBeVisible();
 });

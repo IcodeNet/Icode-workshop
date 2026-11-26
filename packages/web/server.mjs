@@ -1,3 +1,5 @@
+import { courseConfig, readProgress, updateProgress } from "./course.mjs";
+import { executionWorkspace } from "./variants.mjs";
 import { startPreview, stopPreview, stopAllPreviews } from "./previews.mjs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -11,9 +13,11 @@ import {
 } from "./files.mjs";
 import { labConfig, testLab } from "./runtime.mjs";
 import { fileURLToPath } from "node:url";
-import { listExercises, validateId } from "../core/index.mjs";
+import { validateId } from "../core/index.mjs";
 import {
   resetWorkspace,
+  replaceWorkspace,
+  listBackups,
   selectWorkspace,
   saveWorkspace,
   workspacePath,
@@ -35,12 +39,13 @@ const json = (res, code, body) => {
   res.end(JSON.stringify(body));
 };
 async function readBody(req) {
+  if (req.parsedBody !== undefined) return req.parsedBody;
   let body = "";
   for await (const chunk of req) {
     body += chunk;
     if (body.length > 100_000) throw new Error("Request too large");
   }
-  return JSON.parse(body || "{}");
+  return (req.parsedBody = JSON.parse(body || "{}"));
 }
 async function readText(path) {
   return readFile(path, "utf8");
@@ -64,6 +69,7 @@ async function load(id) {
     solution: await readProjectFile(root, id, config.entry, "solution"),
   };
 }
+let mutationActive = false;
 const server = createServer(async (req, res) => {
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(req.headers.host))
     return json(res, 403, { error: "Host denied" });
@@ -77,20 +83,44 @@ const server = createServer(async (req, res) => {
     });
     return res.end();
   }
+  let ownsMutation = false;
   try {
     const url = new URL(req.url, "http://localhost");
+    if (!["GET", "HEAD"].includes(req.method)) {
+      if (mutationActive)
+        return json(res, 409, {
+          error:
+            "Another workshop operation is still running. Please retry when it finishes.",
+        });
+      mutationActive = true;
+      ownsMutation = true;
+    }
     if (
       ["/api/start", "/api/stop"].includes(url.pathname) &&
       req.method === "POST"
     ) {
-      const { id } = await readBody(req);
+      const { id, variant } = await readBody(req);
       validateId(id);
       return json(
         res,
         200,
         url.pathname === "/api/start"
-          ? await startPreview(root, id)
+          ? await startPreview(root, id, variant)
           : await stopPreview(id),
+      );
+    }
+    if (url.pathname === "/api/backups" && req.method === "GET")
+      return json(res, 200, {
+        backups: await listBackups(root, url.searchParams.get("id")),
+      });
+    if (url.pathname === "/api/replace-workspace" && req.method === "POST") {
+      const { id, sourceId, variant, backup } = await readBody(req);
+      validateId(id);
+      await stopPreview(id);
+      return json(
+        res,
+        200,
+        await replaceWorkspace(root, id, { sourceId, variant, backup }),
       );
     }
     if (url.pathname === "/api/reset" && req.method === "POST") {
@@ -101,15 +131,18 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/api/compare" && req.method === "GET") {
       const id = url.searchParams.get("id"),
-        local = await listFiles(root, id, "playground"),
-        reference = await listFiles(root, id, "solution");
+        targetId = url.searchParams.get("targetId") || id,
+        from = url.searchParams.get("from") || "playground",
+        to = url.searchParams.get("to") || "solution",
+        local = await listFiles(root, id, from),
+        reference = await listFiles(root, targetId, to);
       const changes = [];
       for (const name of [...new Set([...local, ...reference])].sort()) {
         const before = local.includes(name)
-          ? await readProjectFile(root, id, name, "playground")
+          ? await readProjectFile(root, id, name, from)
           : null;
         const after = reference.includes(name)
-          ? await readProjectFile(root, id, name, "solution")
+          ? await readProjectFile(root, targetId, name, to)
           : null;
         if (before !== after)
           changes.push({
@@ -118,9 +151,9 @@ const server = createServer(async (req, res) => {
             after,
             status:
               before === null
-                ? "solution only"
+                ? to + " only"
                 : after === null
-                  ? "playground only"
+                  ? from + " only"
                   : "modified",
           });
       }
@@ -155,16 +188,26 @@ const server = createServer(async (req, res) => {
       else throw new Error("Unsupported file operation");
       return json(res, 200, { saved: true });
     }
-    if (req.method === "GET" && url.pathname === "/api/exercises")
+    if (url.pathname === "/api/progress") {
+      if (req.method === "GET") return json(res, 200, await readProgress(root));
+      if (req.method === "PUT") {
+        const { id, complete } = await readBody(req);
+        return json(res, 200, await updateProgress(root, id, complete));
+      }
+    }
+    if (req.method === "GET" && url.pathname === "/api/exercises") {
+      const course = await courseConfig(root);
       return json(res, 200, {
-        ids: await listExercises(root),
+        course,
+        ids: course.ids,
         exercises: await Promise.all(
-          (await listExercises(root)).map(async (id) => ({
+          course.ids.map(async (id) => ({
             id,
             ...(await labConfig(root, id)),
           })),
         ),
       });
+    }
     if (req.method === "GET" && url.pathname === "/api/exercise")
       return json(res, 200, await load(url.searchParams.get("id")));
     if (req.method === "GET" && url.pathname === "/api/playground") {
@@ -197,14 +240,62 @@ const server = createServer(async (req, res) => {
       await saveWorkspace(root, id, code);
       return json(res, 200, { saved: true });
     }
-    if (req.method === "POST" && url.pathname === "/api/test") {
-      const { id } = await readBody(req);
+    if (
+      req.method === "POST" &&
+      ["/api/test", "/api/test-stream"].includes(url.pathname)
+    ) {
+      const { id, variant = "playground" } = await readBody(req);
       validateId(id);
-      return json(res, 200, await testLab(root, id));
+      const workspace = await executionWorkspace(root, id, variant);
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      res.on("close", cancel);
+      try {
+        if (url.pathname === "/api/test-stream") {
+          res.writeHead(200, {
+            "content-type": "application/x-ndjson",
+            "cache-control": "no-store",
+          });
+          const send = (event) => {
+            if (!res.destroyed) res.write(JSON.stringify(event) + "\n");
+          };
+          send({ type: "started", variant });
+          const result = await testLab(root, id, {
+            workspaceRoot: workspace.path,
+            signal: controller.signal,
+            emit: send,
+          });
+          await workspace.cleanup();
+          send({ type: "result", ...result });
+          res.end();
+        } else {
+          const result = await testLab(root, id, {
+            workspaceRoot: workspace.path,
+            signal: controller.signal,
+          });
+          await workspace.cleanup();
+          return json(res, 200, result);
+        }
+      } finally {
+        res.off("close", cancel);
+        await workspace.cleanup();
+      }
+      return;
     }
     return json(res, 404, { error: "Not found" });
   } catch (error) {
-    json(res, 400, { error: error.message });
+    if (res.headersSent) {
+      if (!res.destroyed)
+        res.end(
+          JSON.stringify({
+            type: "result",
+            passed: false,
+            output: error.message,
+          }) + "\n",
+        );
+    } else json(res, 400, { error: error.message });
+  } finally {
+    if (ownsMutation) mutationActive = false;
   }
 });
 server.listen(port, host, () =>

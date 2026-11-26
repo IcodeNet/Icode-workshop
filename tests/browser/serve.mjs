@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const root = await mkdtemp(join(tmpdir(), "icode-browser-"));
 await cp("examples/exercises", join(root, "exercises"), { recursive: true });
+await cp("examples/course.json", join(root, "course.json"));
 const manifestPath = join(root, "exercises", "03", "lab.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+manifest.media = { transcript: "A preview is a running local application." };
 manifest.tools = [
   {
     id: "fixture",

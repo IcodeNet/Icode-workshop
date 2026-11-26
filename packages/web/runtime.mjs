@@ -1,3 +1,4 @@
+import { validateMedia } from "./course.mjs";
 import { validatePreview } from "./previews.mjs";
 import { validateTools } from "./tools.mjs";
 import { readFile, readdir } from "node:fs/promises";
@@ -40,6 +41,7 @@ export async function labConfig(root, id) {
   if (config.entry?.split("/").includes(".."))
     throw new Error("Invalid entry file");
   return {
+    media: validateMedia(config.media),
     tools: validateTools(config.tools),
     preview: validatePreview(config.preview),
     runtime: config.runtime,
@@ -50,18 +52,29 @@ export async function labConfig(root, id) {
   };
 }
 
-export async function testLab(root, id, { timeoutMs = 15000 } = {}) {
+export async function testLab(
+  root,
+  id,
+  { timeoutMs = 15000, workspaceRoot, emit, signal } = {},
+) {
   const config = await labConfig(root, id);
   const adapter = registry.require(config.runtime);
   const controller = new AbortController();
   const events = [];
+  const cancel = () => controller.abort();
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) controller.abort();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const context = {
-      workspaceRoot: join(root, ".workshop", "playgrounds", id),
+      workspaceRoot:
+        workspaceRoot || join(root, ".workshop", "playgrounds", id),
       signal: controller.signal,
       emit: (event) => {
-        if (events.join("").length < 50000) events.push(event.text);
+        if (events.join("").length < 50000) {
+          events.push(event.text);
+          emit?.(event);
+        }
       },
     };
     const diagnostics = await adapter.detect(context);
@@ -103,5 +116,6 @@ export async function testLab(root, id, { timeoutMs = 15000 } = {}) {
     };
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }

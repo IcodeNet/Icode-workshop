@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "title": "AI Engineering Foundations",
+  "modules": [
+    {
+      "id": "retrieval",
+      "title": "01 \u00b7 Trusted retrieval",
+      "exercises": [
+        {
+          "id": "approval",
+          "title": "Approval filtering",
+          "steps": ["01", "02"]
+        }
+      ]
+    },
+    {
+      "id": "applications",
+      "title": "02 \u00b7 Application workbench",
+      "exercises": [
+        {
+          "id": "preview",
+          "title": "Live applications",
+          "steps": ["03"]
+        }
+      ]
+    }
+  ]
+}
