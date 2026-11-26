@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createAdapterRegistry } from '../adapter-api/index.mjs'
 import { nodeAdapter } from '../adapter-api/node-adapter.mjs'
@@ -30,6 +30,9 @@ export async function testLab(root,id,{timeoutMs=15000}={}) {
     const context={workspaceRoot:join(root,'.workshop','playgrounds',id),signal:controller.signal,emit:event=>{if(events.join('').length<50000)events.push(event.text)}}
     const diagnostics=await adapter.detect(context)
     if(diagnostics.some(item=>item.level==='error')) return {passed:false,runtime:config.runtime,output:diagnostics.map(item=>item.message).join('\n')}
+    const entries = await readdir(context.workspaceRoot)
+    const hasTests = entries.some(name => config.runtime === 'python' ? /^test_.*\.py$|^.*_test\.py$/.test(name) : /(?:^test.*|.*\.test)\.(?:mjs|js|cjs)$/.test(name))
+    if (!hasTests) return {passed:false,runtime:config.runtime,output:'No test files found; cannot report a passing lab.'}
     await adapter.prepare(context)
     const result=await adapter.run('test',context)
     return {passed:result.exitCode===0&&!result.aborted,runtime:config.runtime,output:events.join('').slice(0,50000)+(result.aborted?'\nExecution timed out.':'')}
