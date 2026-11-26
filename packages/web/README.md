@@ -15,6 +15,6 @@ In the second terminal:
 pnpm --dir packages/web dev
 ```
 
-Open http://127.0.0.1:5173 and select exercise 01. Changes are saved to `examples/playground/index.mjs`; tests run using Node's built-in test runner. Switching exercises backs up the playground.
+Open http://127.0.0.1:5173 and select exercise 01. Changes are saved to `examples/playground/index.mjs`; tests run using Node's built-in test runner. Each exercise retains its own playground in `examples/.workshop/playgrounds/<id>/` when you switch away and return.
 
-Security: the API binds only to loopback and checks browser Origin. It runs user-authored exercise code, so **only use locally with trusted exercises**. Do not expose this service on a public network. This is an MVP: exercise selection currently creates a new playground even when reselecting an exercise; per-exercise persistent workspaces and full diff rendering remain future work. Build and test execution have not yet been independently verified.
+Security: the API binds only to loopback and checks browser Origin. It runs user-authored exercise code, so **only use locally with trusted exercises**. Do not expose this service on a public network. This is an MVP: full diff rendering and build verification remain future work. Build and test execution have not yet been independently verified.
