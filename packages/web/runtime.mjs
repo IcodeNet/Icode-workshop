@@ -1,3 +1,9 @@
+import {
+  createRustAdapter,
+  createDotnetAdapter,
+  createJupyterAdapter,
+  createDockerAdapter,
+} from "../adapter-api/extra-adapters.mjs";
 import { validateMedia } from "./course.mjs";
 import { validatePreview } from "./previews.mjs";
 import { validateTools } from "./tools.mjs";
@@ -11,6 +17,13 @@ import { validateId } from "../core/index.mjs";
 export const registry = createAdapterRegistry();
 registry.register(nodeAdapter);
 registry.register(createPythonAdapter());
+for (const adapter of [
+  createRustAdapter(),
+  createDotnetAdapter(),
+  createJupyterAdapter(),
+  createDockerAdapter(),
+])
+  registry.register(adapter);
 // Explicit operator configuration, never derived from exercise manifests.
 await loadAdapters(registry, JSON.parse(process.env.WORKSHOP_ADAPTERS || "[]"));
 
@@ -52,10 +65,10 @@ export async function labConfig(root, id) {
   };
 }
 
-export async function testLab(
+async function runLab(
   root,
   id,
-  { timeoutMs = 15000, workspaceRoot, emit, signal } = {},
+  { timeoutMs, workspaceRoot, emit, signal } = {},
 ) {
   const config = await labConfig(root, id);
   const adapter = registry.require(config.runtime);
@@ -64,7 +77,10 @@ export async function testLab(
   const cancel = () => controller.abort();
   signal?.addEventListener("abort", cancel, { once: true });
   if (signal?.aborted) controller.abort();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(
+    () => controller.abort(),
+    timeoutMs ?? (["node", "python"].includes(config.runtime) ? 15000 : 120000),
+  );
   try {
     const context = {
       workspaceRoot:
@@ -81,6 +97,8 @@ export async function testLab(
     if (diagnostics.some((item) => item.level === "error"))
       return {
         passed: false,
+        status: "unavailable",
+        diagnostics,
         runtime: config.runtime,
         output: diagnostics.map((item) => item.message).join("\n"),
       };
@@ -97,12 +115,22 @@ export async function testLab(
       return {
         passed: false,
         runtime: config.runtime,
+        status: "no-tests",
         output: "No test files found; cannot report a passing lab.",
       };
     await adapter.prepare(context);
     const result = await adapter.run("test", context);
     return {
       passed: result.exitCode === 0 && !result.aborted,
+      status: result.aborted
+        ? signal?.aborted
+          ? "cancelled"
+          : "timeout"
+        : result.exitCode === 0
+          ? "passed"
+          : "failed",
+      exitCode: result.exitCode,
+      diagnostics,
       runtime: config.runtime,
       output:
         events.join("").slice(0, 50000) +
@@ -112,10 +140,30 @@ export async function testLab(
     return {
       passed: false,
       runtime: config.runtime,
+      status: controller.signal.aborted
+        ? signal?.aborted
+          ? "cancelled"
+          : "timeout"
+        : "error",
       output: events.join("").slice(0, 45000) + "\n" + error.message,
     };
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", cancel);
   }
+}
+
+export async function testLab(root, id, options = {}) {
+  const started = Date.now();
+  const result = await runLab(root, id, options);
+  return {
+    ...result,
+    summary: {
+      status: result.status || (result.passed ? "passed" : "failed"),
+      runtime: result.runtime,
+      durationMs: Date.now() - started,
+      exitCode: result.exitCode ?? null,
+      diagnostics: result.diagnostics || [],
+    },
+  };
 }

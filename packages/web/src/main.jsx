@@ -85,6 +85,13 @@ function FileTree({ names, selected, busy, onSelect }) {
 }
 function App() {
   const [preview, setPreview] = useState(null);
+  const [integrations, setIntegrations] = useState([]);
+  const [serviceData, setServiceData] = useState(null);
+  const [serviceError, setServiceError] = useState("");
+  const [tutorEnabled, setTutorEnabled] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [conversation, setConversation] = useState([]);
+  const [tutorError, setTutorError] = useState("");
   const [toolId, setToolId] = useState("");
   const [changes, setChanges] = useState([]);
   const [compareFrom, setCompareFrom] = useState("playground");
@@ -110,10 +117,17 @@ function App() {
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
   const [result, setResult] = useState("");
+  const [testSummary, setTestSummary] = useState(null);
   const [panel, setPanel] = useState("console");
   const [busy, setBusy] = useState(false);
   const variant = ["problem", "solution"].includes(tab) ? tab : "playground";
   useEffect(() => {
+    api("/integrations")
+      .then((data) => setIntegrations(data.integrations))
+      .catch(() => {});
+    api("/tutor")
+      .then((data) => setTutorEnabled(data.enabled))
+      .catch(() => {});
     api("/progress")
       .then((data) => setCompleted(data.completed))
       .catch((e) => setResult(e.message));
@@ -288,6 +302,70 @@ function App() {
       setBusy(false);
     }
   }
+  async function migrate() {
+    const sourceId = ids[ids.indexOf(selected) - 1];
+    if (
+      !sourceId ||
+      !window.confirm(
+        "Migrate saved edits from the previous lesson onto this lesson's starter? Current saved files will be backed up. Unsaved edits will be discarded only if migration succeeds.",
+      )
+    )
+      return;
+    setBusy(true);
+    setActivity("Reconciling lesson changes");
+    try {
+      const data = await api("/migrate", {
+        method: "POST",
+        body: JSON.stringify({ sourceId, targetId: selected, apply: true }),
+      });
+      if (!data.applied) {
+        setResult(
+          "Migration blocked by conflicts; your playground is unchanged.\n" +
+            data.conflicts.map((item) => item.name).join("\n"),
+        );
+        setPanel("console");
+        return;
+      }
+      await refreshFiles();
+      const item = await api("/select", {
+        method: "POST",
+        body: JSON.stringify({ id: selected }),
+      });
+      setFile(item.entry);
+      setDraft(item.code);
+      setDirty(false);
+      setPreview(null);
+      setTab("playground");
+      setPanel("console");
+      setResult("Migration completed. Previous target files are backed up.");
+    } catch (e) {
+      setResult(e.message);
+      setPanel("console");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function openEditor() {
+    setBusy(true);
+    setActivity("Opening external editor");
+    try {
+      const name = ["problem", "solution"].includes(tab) ? referenceFile : file;
+      const data = await api(
+        "/editor?id=" +
+          selected +
+          "&variant=" +
+          variant +
+          "&name=" +
+          encodeURIComponent(name),
+      );
+      window.location.href = data.url;
+    } catch (e) {
+      setResult(e.message);
+      setPanel("console");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function replaceFrom(sourceId, sourceVariant, backup) {
     if (
       !window.confirm(
@@ -450,6 +528,9 @@ function App() {
       setCompareTarget(id);
       setCompareFrom("playground");
       setCompareTo("solution");
+      setConversation([]);
+      setQuestion("");
+      setTutorError("");
       setSelected(id);
       setExercise(item);
       setDraft(data.code);
@@ -482,9 +563,55 @@ function App() {
       setBusy(false);
     }
   }
+  async function loadIntegration(id) {
+    setBusy(true);
+    setActivity("Reading " + id);
+    setServiceError("");
+    setServiceData(null);
+    try {
+      setServiceData(
+        await api("/integrations/read", {
+          method: "POST",
+          body: JSON.stringify({ id }),
+        }),
+      );
+    } catch (e) {
+      setServiceError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function ask() {
+    if (!question.trim() || busy) return;
+    setBusy(true);
+    setActivity("Waiting for tutor");
+    setTutorError("");
+    try {
+      const data = await api("/tutor", {
+        method: "POST",
+        body: JSON.stringify({
+          id: selected,
+          name: file || undefined,
+          question,
+          history: conversation.slice(-12),
+        }),
+      });
+      setConversation((previous) => [
+        ...previous,
+        { role: "user", content: question },
+        { role: "assistant", content: data.answer },
+      ]);
+      setQuestion("");
+    } catch (e) {
+      setTutorError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function test() {
     setBusy(true);
     setActivity("Running " + variant + " tests");
+    setTestSummary(null);
     setPanel("tests");
     setResult("Starting tests…\n");
     const controller = new AbortController();
@@ -519,6 +646,7 @@ function App() {
           const event = JSON.parse(line);
           if (event.type === "result") {
             finished = true;
+            setTestSummary(event.summary);
             setResult(
               (event.passed ? "PASS" : "FAIL") +
                 " · " +
@@ -669,6 +797,9 @@ function App() {
                       {exercise.media.src && (
                         <video
                           controls
+                          crossOrigin={
+                            exercise.media.captions ? "anonymous" : undefined
+                          }
                           preload="metadata"
                           src={exercise.media.src}
                           aria-label="Lesson video"
@@ -853,6 +984,20 @@ function App() {
                         </button>
                       </div>
                     )}
+                    <div className="file-tools">
+                      <button
+                        disabled={busy || !(file || referenceFile)}
+                        onClick={openEditor}
+                      >
+                        Open in VS Code
+                      </button>
+                      <button
+                        disabled={busy || ids.indexOf(selected) < 1}
+                        onClick={migrate}
+                      >
+                        Migrate previous edits
+                      </button>
+                    </div>
                     <FileTree
                       names={
                         ["problem", "solution"].includes(tab)
@@ -1018,21 +1163,72 @@ function App() {
                       role="tablist"
                       aria-label="Output panels"
                     >
-                      {["preview", "tools", "console", "tests"].map((item) => (
-                        <button
-                          key={item}
-                          role="tab"
-                          aria-selected={panel === item}
-                          className={panel === item ? "tab selected" : "tab"}
-                          onClick={() => setPanel(item)}
-                        >
-                          {item === "tests"
-                            ? "Test results"
-                            : item[0].toUpperCase() + item.slice(1)}
-                        </button>
-                      ))}
+                      {["preview", "tools", "console", "tests", "tutor"].map(
+                        (item) => (
+                          <button
+                            key={item}
+                            role="tab"
+                            aria-selected={panel === item}
+                            className={panel === item ? "tab selected" : "tab"}
+                            onClick={() => setPanel(item)}
+                          >
+                            {item === "tests"
+                              ? "Test results"
+                              : item[0].toUpperCase() + item.slice(1)}
+                          </button>
+                        ),
+                      )}
                     </div>
-                    {panel === "preview" && exercise.preview ? (
+                    {panel === "tutor" ? (
+                      <div className="tutor-panel">
+                        {!tutorEnabled ? (
+                          <p>
+                            The tutor is not configured. Set a model endpoint
+                            and model on the workshop server to enable it.
+                          </p>
+                        ) : (
+                          <>
+                            <p>
+                              Asking sends this lesson, the saved selected file
+                              and recent conversation to your configured model.
+                              Unsaved edits are not sent. Answers are guidance,
+                              not verified test results.
+                            </p>
+                            <div
+                              className="tutor-conversation"
+                              aria-label="Tutor conversation"
+                            >
+                              {conversation.map((message, index) => (
+                                <section key={index}>
+                                  <strong>
+                                    {message.role === "user" ? "You" : "Tutor"}
+                                  </strong>
+                                  <Markdown>{message.content}</Markdown>
+                                </section>
+                              ))}
+                            </div>
+                            <label htmlFor="tutor-question">
+                              Ask about this lesson
+                            </label>
+                            <textarea
+                              id="tutor-question"
+                              maxLength={4000}
+                              value={question}
+                              disabled={busy}
+                              onChange={(e) => setQuestion(e.target.value)}
+                            />
+                            <button
+                              className="primary"
+                              disabled={busy || !question.trim()}
+                              onClick={ask}
+                            >
+                              Ask tutor
+                            </button>
+                          </>
+                        )}
+                        {tutorError && <p role="alert">{tutorError}</p>}
+                      </div>
+                    ) : panel === "preview" && exercise.preview ? (
                       <div className="tools-panel">
                         <button
                           disabled={busy}
@@ -1071,6 +1267,30 @@ function App() {
                       </div>
                     ) : panel === "tools" ? (
                       <div className="tools-panel">
+                        <h3>Connected services</h3>
+                        <p>
+                          Load a read-only snapshot from a configured service.
+                        </p>
+                        {integrations.map((item) => (
+                          <p key={item.id}>
+                            <button
+                              disabled={busy || !item.enabled}
+                              onClick={() => loadIntegration(item.id)}
+                            >
+                              {item.title}
+                            </button>{" "}
+                            {item.enabled ? "Configured" : "Not configured"}
+                          </p>
+                        ))}
+                        {serviceError && <p role="alert">{serviceError}</p>}
+                        {serviceData && (
+                          <section>
+                            <h4>{serviceData.title}</h4>
+                            <pre className="notice">
+                              {JSON.stringify(serviceData.rows, null, 2)}
+                            </pre>
+                          </section>
+                        )}
                         <label>
                           Local tool{" "}
                           <select
@@ -1128,11 +1348,25 @@ function App() {
                           ))}
                       </div>
                     ) : (
-                      <pre className="notice" role="status">
-                        {panel === "preview"
-                          ? "Preview is available for labs that provide a browser application. This lab uses the console and test runner."
-                          : result || "Run tests to view output here."}
-                      </pre>
+                      <>
+                        {panel === "tests" && testSummary && (
+                          <div className="execution-summary">
+                            <strong>{testSummary.status}</strong> ·{" "}
+                            {testSummary.runtime} ·{" "}
+                            {(testSummary.durationMs / 1000).toFixed(2)}s
+                            {testSummary.diagnostics.map((item, index) => (
+                              <p key={index}>
+                                {item.level}: {item.message}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        <pre className="notice" role="status">
+                          {panel === "preview"
+                            ? "Preview is available for labs that provide a browser application. This lab uses the console and test runner."
+                            : result || "Run tests to view output here."}
+                        </pre>
+                      </>
                     )}
                   </section>
                 </div>

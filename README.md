@@ -54,14 +54,16 @@ The CLI uses the same per-step playgrounds as the UI. Run `pnpm workshop validat
 
 ## Parity and roadmap
 
-The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. Full parity still includes unresolved capabilities and external integrations; see the explicit release-gate table in the audit. Editor deep links, three-way migration, automated transcription and structured test diagnostics are not yet implemented.
+The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. Full parity still includes unresolved capabilities and external integrations; see the explicit release-gate table in the audit. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
 
-Rust, C#/.NET and Jupyter remain future adapters. The registry accepts new runtime IDs without changes to the core, but no corresponding real toolchain has been verified yet.
+Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI requires real failing/passing/no-assessment journeys for all four; local unavailable runtimes are explicitly reported. See [AI and runtime setup](docs/ai-and-runtime-setup.md) for contracts and environment requirements.
 
+- [AI, MCP, service and runtime setup](docs/ai-and-runtime-setup.md)
+- [Dependency licence inventory](docs/dependency-licenses.json)
 - [Course authoring and persistence](docs/course-authoring.md)
 - [Evidence-based parity audit](docs/feature-parity-audit.md)
 - [Runtime architecture](docs/multi-language-architecture.md)
 - [Langfuse, evaluation courses and embedded tools](docs/local-tools-and-ai-courses.md)
 - [Development PR #2](https://github.com/IcodeNet/Icode-workshop/pull/2)
 
-No package has been published. Full parity, cross-platform process cleanup and real Langfuse/Cosmos integrations remain release gates.
+No package has been published or merged. Real model/service acceptance requires configured endpoints and credentials; all remaining validation boundaries are recorded in the parity audit.

@@ -127,3 +127,32 @@ test("CLI validates an external course and shares web playground and progress pa
   const course = await courseConfig(root);
   assert.equal(course.modules[0].exercises[0].title, "Approval filtering");
 });
+
+test("three-way migration carries independent edits and refuses conflicting changes without mutation", async (t) => {
+  const { mkdir } = await import("node:fs/promises");
+  const { migrateWorkspace } = await import("./migration.mjs");
+  const root = await fixture(t);
+  await mkdir(join(root, "exercises", "04"), { recursive: true });
+  await cp(
+    join(root, "exercises", "01", "problem"),
+    join(root, "exercises", "04", "problem"),
+    { recursive: true },
+  );
+  await selectWorkspace(root, "01");
+  await selectWorkspace(root, "04");
+  await writeProjectFile(root, "01", "notes.txt", "learner note", {
+    create: true,
+  });
+  assert.equal((await migrateWorkspace(root, "01", "04")).applied, true);
+  assert.equal(await readProjectFile(root, "04", "notes.txt"), "learner note");
+  await writeProjectFile(root, "01", "index.mjs", "// source edit");
+  await writeFile(
+    join(root, "exercises", "04", "problem", "index.mjs"),
+    "// different target edit",
+  );
+  const before = await readProjectFile(root, "04", "index.mjs");
+  const outcome = await migrateWorkspace(root, "01", "04");
+  assert.equal(outcome.applied, false);
+  assert.equal(outcome.conflicts[0].name, "index.mjs");
+  assert.equal(await readProjectFile(root, "04", "index.mjs"), before);
+});

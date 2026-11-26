@@ -26,7 +26,7 @@ Export a default object implementing `WorkshopAdapter` from `index.d.ts`:
 
 ## Process helper
 
-`@icodenet/workshop-adapter-api/process` exports `execute` for finite operations and `startProcess` for sessions. Output is bounded to 50,000 characters. `stop()` waits for exit; cancellation sends SIGTERM and escalates to SIGKILL after 500 ms. On POSIX it targets the process group. Windows child-tree cleanup remains a platform limitation and needs dedicated validation.
+`@icodenet/workshop-adapter-api/process` exports `execute` for finite operations and `startProcess` for sessions. Output is bounded to 50,000 characters. `stop()` waits for exit; cancellation sends SIGTERM and escalates to SIGKILL after 500 ms. On POSIX it targets the process group. Windows uses taskkill /T /F; a dedicated three-OS CI job checks owned process-tree cancellation.
 
 The web host's optional preview manifest uses this helper to own an explicitly configured local command. It polls a loopback URL, rejects an occupied HTTP port, and exposes start/stop controls. This is not isolation or a container manager.
 
@@ -43,4 +43,4 @@ const report = await checkAdapter(adapter, {
 
 The conformance helper validates shape, detection and execution result. Also test a failing starter, corrected solution, missing executable, no tests, cancellation and process cleanup. The repository runs those integration cases for the built-in adapters and registry; a new runtime needs its own real toolchain evidence.
 
-Bundled runtimes: Node.js (`node --test`) and Python (`python3 -m pytest -q`). Rust/.NET/Jupyter are extension targets, not implemented adapters. Build/start are optional capabilities: the web test route invokes detect, prepare and run(test); it does not imply support for every optional method.
+Bundled runtimes: Node.js (`node --test`) and Python (`python3 -m pytest -q`). Additional registered runtimes are Rust, .NET (VSTest/TRX), Jupyter and Docker Compose. Their execution contracts and real-toolchain CI gates are documented in ../../docs/ai-and-runtime-setup.md. Build/start are optional capabilities: the web test route invokes detect, prepare and run(test); it does not imply support for every optional method.

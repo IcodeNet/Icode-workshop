@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,7 +23,14 @@ export function startProcess(command, args, context) {
   const kill = (signal) => {
     try {
       if (process.platform !== "win32") process.kill(-child.pid, signal);
-      else child.kill(signal);
+      else {
+        const result = spawnSync(
+          "taskkill",
+          ["/PID", String(child.pid), "/T", "/F"],
+          { windowsHide: true, stdio: "ignore", timeout: 3000 },
+        );
+        if (result.error || result.status !== 0) child.kill(signal);
+      }
     } catch (e) {
       if (e.code !== "ESRCH") throw e;
     }

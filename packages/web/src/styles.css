@@ -854,3 +854,41 @@ textarea {
   font-size: 12px;
   margin: 12px 0;
 }
+.tutor-panel {
+  padding: 18px;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.app .tutor-panel textarea {
+  min-height: 90px;
+  margin: 8px 0 12px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+}
+.tutor-conversation {
+  max-height: 400px;
+  overflow: auto;
+}
+.tutor-conversation section {
+  padding: 12px;
+  margin: 12px 0;
+  border-left: 2px solid #fdba74;
+  background: #111c31;
+}
+.tutor-conversation pre {
+  overflow: auto;
+}
+.execution-summary {
+  padding: 12px 18px;
+  border-bottom: 1px solid #334155;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+.execution-summary strong {
+  color: #fed7aa;
+  text-transform: uppercase;
+}
+.execution-summary p {
+  margin: 4px 0;
+}

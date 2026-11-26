@@ -33,29 +33,29 @@ The reference workshop tutorial was previously run locally and its home/exercise
 
 | Requirement | Current implementation | Outstanding evidence |
 |---|---|---|
-| Video/captions | Native video controls and optional WebVTT track; URL validation | Real authored media/caption playback and hosting/CORS check; no video supplied |
-| File-tree UI | Expandable folder/file navigation using current project lists | Detailed keyboard/screen-reader audit |
-| Export progress | Same-origin JSON download and CLI JSON export | Browser download assertion not included |
+| Video/captions | Native video controls and optional WebVTT track; URL validation | Generated WebM/VTT fixture playback and CORS verified in Chromium; actual course videos still need author-supplied content |
+| File-tree UI | Expandable folder/file navigation using current project lists | Nested file selection verified; detailed screen-reader audit remains |
+| Export progress | Same-origin JSON download and CLI JSON export | Browser download parses the exported JSON successfully |
 | CLI start | Starts API + Vite with shared content directory; strict UI port | Dedicated cross-platform launcher/process cleanup test |
 
 ## Missing or blocked: required before full-scope completion
 
 | Requirement | Status | Concrete next dependency/work |
 |---|---|---|
-| Rust, C#/.NET, Jupyter, Docker runtime adapters | Missing; real execution validation blocked here | `cargo`, `dotnet`, `jupyter`, `docker` are unavailable in this execution environment. Implement and test with actual toolchains, including no-tests/failure/cancellation cases. Registry extensibility is not adapter completion. |
-| Real Langfuse/evaluation tools | Integration missing; live verification blocked | Provide a reachable service/deployment, test data and authorised access. Current generic iframe/link support does not provide tracing or evaluation APIs. |
-| Cosmos live views | Integration missing; live verification blocked | Provide emulator/account endpoint and authorised credentials or a local authenticated service. No authenticated service connection has been configured or verified. |
-| AI tutor/MCP | Missing | Establish the model/provider and authorised endpoint; implement tutor policy/context and MCP capabilities with protocol/behaviour tests. No fake assistant response is presented. |
+| Rust, C#/.NET, Jupyter, Docker runtime adapters | Implemented; mandatory CI runtime gate pending | Real failing/passing/no-assessment tests are mandatory in CI. Locally Cargo/.NET/Docker are absent and Jupyter kernel sockets are prohibited; these are explicit skips, not passes. |
+| Real Langfuse/evaluation tools | Read-only observations integration implemented; live verification blocked | Configure a supported v4/Cloud service and authorised project keys. Bounded API projection tests use fixtures; they do not prove a real service connection. Evaluation course content follows the platform work. |
+| Cosmos live views | Fixed-query Azure SDK view implemented; live verification blocked | Configure a reachable account/emulator, database, container and authorised key. No account is provisioned and no data is written. |
+| Live AI tutor acceptance | Connection layer and UI implemented; live model verification blocked | Configure the endpoint/model. Transport and error handling are tested with explicit fixtures; real model quality is not yet evaluated. MCP stdio is implemented and tested with a real client. |
 | Full senior AI engineer course | Not integrated | Workshop has three foundation examples; the full lab syllabus/content is a separate next deliverable after the platform gate. |
-| Editor deep links, structured diagnostics, three-way migration | Missing | Further implementation and acceptance tests; ordinary diff/copy/output are not equivalent. |
-| Windows/macOS process cleanup | Unverified | Dedicated platform runners; POSIX process-group tests are insufficient. |
-| Package distribution/licence review | Missing | Dependency licence and version/publishing policy review before publication. |
+| Editor deep links, structured diagnostics, three-way migration | Implemented | Browser verifies VS Code URI; structured execution status/duration/readiness is shown. Migration tests verify independent edits and conflict refusal. File-level reconciliation does not auto-merge conflicting hunks. |
+| Windows/macOS process cleanup | Implemented; three-OS CI gate pending | Windows taskkill tree cleanup and POSIX process-group cleanup are exercised by an owned-descendant test. |
+| Package distribution/licence review | Inventory complete; publishing intentionally gated | docs/dependency-licenses.json records installed versions/licences. semaphore declares MIT in its README despite missing package metadata. Current release format is the source monorepo; public package licensing/version approval remains an owner decision. |
 
 ## Verification run
 
-- Local unit/integration suite: 20 passing tests, including new external-course/CLI coverage.
+- Local unit/integration suite: 27 passing tests and 4 explicit environment skips before CI, including real MCP protocol, migration and integration contract coverage.
 - TypeScript adapter contract check and React production build: pass.
-- Browser suite: 9 passing journeys, including nested file-tree navigation, reference execution, backup restore, streaming/cancellation and concurrent-mutation rejection.
+- Browser suite: 12 browser journeys pass locally, covering tutor UI, real media/captions, export and editor URI in addition to the original flows. Mandatory native-runtime and portability CI results remain pending.
 - Browser evidence is genuine Chromium output. This host's system Chromium launcher is broken and the current browser download is denied; the installed Playwright headless-shell binary runs the suite successfully.
 - CI must be checked on the final pushed commit. No merge or package publication is authorised by a passing test run alone.
 

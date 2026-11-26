@@ -1,3 +1,6 @@
+import { integrationStatus, readIntegration } from "./integrations.mjs";
+import { planMigration, migrateWorkspace } from "./migration.mjs";
+import { askTutor, tutorConfig } from "./tutor.mjs";
 import { courseConfig, readProgress, updateProgress } from "./course.mjs";
 import { executionWorkspace } from "./variants.mjs";
 import { startPreview, stopPreview, stopAllPreviews } from "./previews.mjs";
@@ -6,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import {
   listFiles,
+  variantRoot,
   readProjectFile,
   writeProjectFile,
   deleteProjectFile,
@@ -108,6 +112,51 @@ const server = createServer(async (req, res) => {
           ? await startPreview(root, id, variant)
           : await stopPreview(id),
       );
+    }
+    if (url.pathname === "/api/integrations" && req.method === "GET")
+      return json(res, 200, { integrations: integrationStatus() });
+    if (url.pathname === "/api/integrations/read" && req.method === "POST")
+      return json(res, 200, await readIntegration((await readBody(req)).id));
+    if (url.pathname === "/api/editor" && req.method === "GET") {
+      const id = url.searchParams.get("id"),
+        name = url.searchParams.get("name"),
+        variant = url.searchParams.get("variant") || "playground";
+      await readProjectFile(root, id, name, variant);
+      return json(res, 200, {
+        url:
+          "vscode://file" +
+          encodeURI(join(variantRoot(root, id, variant), name))
+            .replaceAll("#", "%23")
+            .replaceAll("?", "%3F"),
+      });
+    }
+    if (url.pathname === "/api/migrate" && req.method === "POST") {
+      const { sourceId, targetId, apply = false } = await readBody(req);
+      if (apply) await stopPreview(targetId);
+      return json(
+        res,
+        200,
+        apply
+          ? await migrateWorkspace(root, sourceId, targetId)
+          : await planMigration(root, sourceId, targetId),
+      );
+    }
+    if (url.pathname === "/api/tutor" && req.method === "GET")
+      return json(res, 200, { enabled: Boolean(tutorConfig()) });
+    if (url.pathname === "/api/tutor" && req.method === "POST") {
+      const input = await readBody(req);
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      res.on("close", cancel);
+      try {
+        return json(
+          res,
+          200,
+          await askTutor(root, input, { signal: controller.signal }),
+        );
+      } finally {
+        res.off("close", cancel);
+      }
     }
     if (url.pathname === "/api/backups" && req.method === "GET")
       return json(res, 200, {

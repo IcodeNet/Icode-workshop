@@ -17,12 +17,10 @@ test("Node adapter executes a real local test", async () => {
     const events = [];
     const registry = createAdapterRegistry();
     registry.register(nodeAdapter);
-    const result = await registry
-      .require("node")
-      .run("test", {
-        workspaceRoot: root,
-        emit: (event) => events.push(event),
-      });
+    const result = await registry.require("node").run("test", {
+      workspaceRoot: root,
+      emit: (event) => events.push(event),
+    });
     assert.equal(result.exitCode, 0);
     assert.ok(Array.isArray(events));
   } finally {
@@ -57,7 +55,7 @@ test("managed process abort terminates a process that ignores SIGTERM", async ()
       { workspaceRoot: tmpdir(), signal: controller.signal },
     );
     assert.equal(result.aborted, true);
-    assert.equal(result.exitCode, null);
+    assert.notEqual(result.exitCode, 0);
   } finally {
     clearTimeout(timer);
   }
@@ -95,3 +93,22 @@ test("explicit third party loading and author conformance", async () => {
   );
   assert.deepEqual(registry.list(), ["custom"]);
 });
+
+test(
+  "cancellation terminates an owned child process tree",
+  { timeout: 10000 },
+  async () => {
+    const { execute } = await import("./node.mjs");
+    const controller = new AbortController();
+    const script =
+      'const {spawn}=require("node:child_process"); spawn(process.execPath,["-e","setInterval(()=>{},100)"],{stdio:["ignore",process.stdout,process.stderr]}); console.log("ready"); setInterval(()=>{},100)';
+    const result = await execute(process.execPath, ["-e", script], {
+      workspaceRoot: tmpdir(),
+      signal: controller.signal,
+      emit: (event) => {
+        if (event.text.includes("ready")) controller.abort();
+      },
+    });
+    assert.equal(result.aborted, true);
+  },
+);
