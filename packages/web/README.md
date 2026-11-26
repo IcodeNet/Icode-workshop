@@ -1,12 +1,20 @@
-# Icode Workshop web prototype
+# Icode Workshop web
 
-Visual design based on the user's own `IcodeNet/homer-ai/docs/neural-network-building.html` CSS palette: white/ink, slate blue, red accent, Georgia headings, system sans-serif, responsive layout and optional dark mode.
+React interface with local filesystem-backed playground and test execution. Visual palette and typography follow the user's own `IcodeNet/homer-ai/docs/neural-network-building.html`.
 
-Run from the repository root:
+From the repository root, open two terminal windows:
 
 ```sh
 pnpm install
+node packages/web/server.mjs
+```
+
+In the second terminal:
+
+```sh
 pnpm --dir packages/web dev
 ```
 
-The interface currently provides browser-session editing and read-only problem/solution/diff views. **The Run tests button does not execute code**; it explicitly directs users to the working CLI. Browser storage, filesystem persistence, real diff rendering and test execution require backend integration. No third-party workshop framework or source code is used.
+Open http://127.0.0.1:5173 and select exercise 01. Changes are saved to `examples/playground/index.mjs`; tests run using Node's built-in test runner. Switching exercises backs up the playground.
+
+Security: the API binds only to loopback and checks browser Origin. It runs user-authored exercise code, so **only use locally with trusted exercises**. Do not expose this service on a public network. This is an MVP: exercise selection currently creates a new playground even when reselecting an exercise; per-exercise persistent workspaces and full diff rendering remain future work. Build and test execution have not yet been independently verified.
