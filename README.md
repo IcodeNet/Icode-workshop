@@ -2,7 +2,7 @@
 
 **Learn by building.** A local-first, extensible learning workbench for programming and AI engineering.
 
-> **Development preview — not yet released.** The React interface exists on the `feat/react-workshop-ui` branch. The screenshots below are *design direction*, not captures of a verified running application. Builds, browser interactions and end-to-end tests are still awaiting verification.
+> **Development preview — not yet released.** The React interface and Node/Python runtime wiring exist on the `feat/react-workshop-ui` branch. The screenshots below are *design direction*, not captures of a verified running application. Builds, browser interactions and end-to-end tests are still awaiting verification.
 
 [Explore the React app](packages/web) · [Feature parity audit](docs/feature-parity-audit.md) · [Multi-language architecture](docs/multi-language-architecture.md) · [Adapter API](packages/adapter-api) · [Development PR #2](https://github.com/IcodeNet/Icode-workshop/pull/2)
 
@@ -47,7 +47,7 @@ pnpm --dir packages/web dev
 
 Open **http://127.0.0.1:5173** and select lab **01**. The API listens on loopback port **4317**. Edit the playground, save, run tests and compare your work against the solution. Playground edits are stored per exercise under `examples/.workshop/playgrounds/<id>/`.
 
-**Current limitation:** The test button invokes Node's built-in test runner, but actual test discovery and an end-to-end passing exercise have not been confirmed. Do not treat a displayed PASS as verified coverage until that is fixed.
+**Current limitation:** The test button routes through the registered Node or Python adapter. Integration tests now cover a failing starter and passing corrected solution for both runtimes; execution in CI remains unverified. Do not treat a displayed PASS as verified coverage until that is fixed.
 
 ## CLI workflow
 
@@ -108,7 +108,7 @@ node --test packages/adapter-api/index.test.mjs
 pnpm --dir packages/web build
 ```
 
-These commands have **not yet been confirmed passing** on this branch. The root `pnpm test` script currently covers core tests only; web and adapter tests must be included in CI.
+These commands have **not yet been confirmed passing** on this branch. The root `pnpm test` script now includes core, web and adapter tests, including Node/Python integration tests.
 
 ## Packages
 
