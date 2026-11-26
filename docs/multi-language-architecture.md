@@ -62,3 +62,31 @@ preview:
 - Unavailable runtimes show setup instructions rather than claiming a test passed.
 
 **Status:** This is an architecture specification and implementation backlog. The current app does not yet implement these adapters.
+
+## Third-party adapter extension contract
+
+External developers should be able to publish an adapter as an independent npm package, for example `@community/icode-ruby-adapter`. Adapters are installed explicitly and declared in a trusted workshop configuration; **never download or execute a package merely because a lab manifest names it**.
+
+The public `@icodenet/workshop-adapter-api` package should expose a versioned TypeScript contract. Proposed shape:
+
+```ts
+export interface WorkshopAdapter {
+  id: string
+  apiVersion: 1
+  detect(context: RuntimeContext): Promise<Diagnostic[]>
+  prepare(context: RuntimeContext): Promise<void>
+  run(command: 'build' | 'test' | 'start', context: RuntimeContext): Promise<RunResult>
+  stop?(context: RuntimeContext): Promise<void>
+}
+export interface RuntimeContext {
+  workspaceRoot: string
+  signal: AbortSignal
+  emit(event: { type: 'stdout' | 'stderr' | 'diagnostic'; text: string }): void
+}
+export interface RunResult {
+  exitCode: number | null
+  previewUrl?: string
+}
+```
+
+This is a **design proposal**, not a currently published API. Define runtime lifecycle and subprocess ownership carefully: long-running `start` should return a managed process/session handle rather than block indefinitely, and `stop` must clean up processes. Validate adapter identifiers, API compatibility, capabilities and configuration at load time. Document plugin authoring, provide a test harness and a sample community adapter. Treat adapters as trusted executable code with the user's local permissions; use explicit opt-in and recommend containers for untrusted labs. Maintain a stable core that can register adapters without importing any language-specific code.
