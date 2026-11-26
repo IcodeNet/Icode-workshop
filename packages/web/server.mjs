@@ -3,7 +3,8 @@ import { readFile, writeFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { listExercises, setExercise, validateId } from '../core/index.mjs'
+import { listExercises, validateId } from '../core/index.mjs'
+import { selectWorkspace, saveWorkspace, workspacePath } from './workspaces.mjs'
 
 const root = resolve(process.env.WORKSHOP_CONTENT ?? fileURLToPath(new URL('../../examples', import.meta.url)))
 const port = Number(process.env.WORKSHOP_API_PORT ?? 4317)
@@ -21,9 +22,9 @@ async function load(id) {
   const base = join(root, 'exercises', id)
   return { id, title: id === '01' ? 'Approved documents only' : 'Exercise '+id, topic: 'AI engineering', description: 'Complete the exercise and run its tests.', problem: await readText(join(base,'problem','index.mjs')), solution: await readText(join(base,'solution','index.mjs')) }
 }
-function testPlayground() {
+function testPlayground(id) {
   return new Promise((done) => {
-    const child = spawn(process.execPath, ['--test'], { cwd:join(root,'playground'), shell:false, env:{PATH:process.env.PATH ?? ''}, stdio:['ignore','pipe','pipe'] })
+    const child = spawn(process.execPath, ['--test'], { cwd:workspacePath(root,id), shell:false, env:{PATH:process.env.PATH ?? ''}, stdio:['ignore','pipe','pipe'] })
     let output = ''
     const add = chunk => { output = (output + chunk.toString()).slice(0,50000) }
     child.stdout.on('data',add); child.stderr.on('data',add)
@@ -40,13 +41,13 @@ const server = createServer(async (req,res) => {
     if (req.method === 'GET' && url.pathname === '/api/exercises') return json(res,200,{ids:await listExercises(root)})
     if (req.method === 'GET' && url.pathname === '/api/exercise') return json(res,200,await load(url.searchParams.get('id')))
     if (req.method === 'GET' && url.pathname === '/api/playground') {
-      const path=join(root,'playground','index.mjs')
+      const path=join(workspacePath(root,url.searchParams.get('id')),'index.mjs')
       try { return json(res,200,{code:await readText(path)}) } catch(error) { if(error.code==='ENOENT') return json(res,404,{error:'Playground not created'}); throw error }
     }
     if (req.method === 'POST' && url.pathname === '/api/select') {
       const {id}=await readBody(req); validateId(id)
-      const result=await setExercise(root,id)
-      return json(res,200,{code:await readText(join(result.playground,'index.mjs')),backup:result.backup})
+      const result=await selectWorkspace(root,id)
+      return json(res,200,{code:result.code,restored:true})
     }
     if (req.method === 'PUT' && url.pathname === '/api/playground') {
       const {code}=await readBody(req)
@@ -57,7 +58,7 @@ const server = createServer(async (req,res) => {
       await writeFile(path,code,'utf8')
       return json(res,200,{saved:true})
     }
-    if (req.method === 'POST' && url.pathname === '/api/test') return json(res,200,await testPlayground())
+    if (req.method === 'POST' && url.pathname === '/api/test') { const {id}=await readBody(req); validateId(id); return json(res,200,await testPlayground(id)) }
     return json(res,404,{error:'Not found'})
   } catch(error) { json(res,400,{error:error.message}) }
 })
