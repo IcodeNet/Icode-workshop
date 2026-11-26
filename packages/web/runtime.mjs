@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { createAdapterRegistry } from '../adapter-api/index.mjs'
 import { nodeAdapter } from '../adapter-api/node-adapter.mjs'
 import { createPythonAdapter } from '../adapter-api/python-adapter.mjs'
-import { workspacePath } from './workspaces.mjs'
 import { validateId } from '../core/index.mjs'
 
 export const registry = createAdapterRegistry()
@@ -28,7 +27,7 @@ export async function testLab(root,id,{timeoutMs=15000}={}) {
   const events=[]
   const timer=setTimeout(()=>controller.abort(),timeoutMs)
   try {
-    const context={workspaceRoot:workspacePath(root,id),signal:controller.signal,emit:event=>{if(events.join('').length<50000)events.push(event.text)}}
+    const context={workspaceRoot:join(root,'.workshop','playgrounds',id),signal:controller.signal,emit:event=>{if(events.join('').length<50000)events.push(event.text)}}
     const diagnostics=await adapter.detect(context)
     if(diagnostics.some(item=>item.level==='error')) return {passed:false,runtime:config.runtime,output:diagnostics.map(item=>item.message).join('\n')}
     await adapter.prepare(context)
