@@ -3,9 +3,17 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./index.mjs"
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs"
+    },
+    "./process": {
+      "types": "./node.d.ts",
+      "import": "./node.mjs"
+    }
   },
   "scripts": {
     "test": "node --test"
-  }
+  },
+  "types": "./index.d.ts"
 }

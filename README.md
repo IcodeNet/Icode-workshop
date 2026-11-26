@@ -1,132 +1,65 @@
 # Icode Workshop
 
-**Learn by building.** A local-first, extensible learning workbench for programming and AI engineering.
+A local-first learning workbench for programming and AI engineering. **Development preview: full Epic Workshop parity is not yet complete. PR #2 remains unmerged.**
 
-> **Development preview — not yet released.** The React interface and Node/Python runtime wiring exist on the `feat/react-workshop-ui` branch. The screenshots below are *design direction*, not captures of a verified running application. Builds, browser interactions and end-to-end tests are still awaiting verification.
+## Running application
 
-[Explore the React app](packages/web) · [Feature parity audit](docs/feature-parity-audit.md) · [Multi-language architecture](docs/multi-language-architecture.md) · [Adapter API](packages/adapter-api) · [Development PR #2](https://github.com/IcodeNet/Icode-workshop/pull/2)
+These are real Chromium captures from the automated learner journeys, not design mock-ups. They show the current feature branch, not a promise of the final product.
 
-## What the learner sees
+![Icode Workshop: lesson beside a working application preview](docs/screenshots/workshop-live-preview.png)
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Icode Workshop                       Local learning environment             │
-├──────────────────┬──────────────────────────────────────────────────────────┤
-│ LABS             │ Approved documents only                                  │
-│                  │ Implement a retrieval filter for approved documents      │
-│ 01  Approved     │                                                          │
-│     documents    │ [Lab description] [Playground] [Solution] [Compare]       │
-│                  │ ┌──────────────────────────────────────────────────────┐ │
-│                  │ │ index.mjs                                            │ │
-│                  │ │ // Edit your solution here                           │ │
-│                  │ └──────────────────────────────────────────────────────┘ │
-│                  │ [Save] [Run tests]                                       │
-│                  │ [Preview] [Console] [Test results]                       │
-└──────────────────┴──────────────────────────────────────────────────────────┘
-```
+![Icode Workshop: Python exercise passing pytest](docs/screenshots/workshop-python.png)
 
-*Illustrative layout only.* The implemented UI uses a deep-navy, peach-accented theme. Preview is currently a placeholder for this Node.js exercise. The editor supports one file, not full project trees yet.
+## Implemented
 
-## Local development
+- Persistent Markdown lesson beside the workbench, metadata-driven lab titles, previous/next navigation and browser-local self-reported completion.
+- Independent filesystem playgrounds, nested file editing, create/rename/delete, confirmed reset with backup, saved project comparison including added/deleted files.
+- Real Node.js and Python test execution; automated failing-starter → passing-solution journeys.
+- Managed loopback app preview with start/stop, readiness checks and a multi-file Node example.
+- Per-lab Tools tabs: embedded local services when permitted, or external links when embedding is blocked.
+- Versioned adapter registry, TypeScript contract, explicit third-party module loading, author conformance helper and cancellable process/session helper.
 
-**Prerequisites:** Node.js 22+ and pnpm 10. Do not expose the local API to a public network: exercises execute local code.
+## Run locally
 
-```bash
-# Clone and check out the development branch
-git clone https://github.com/IcodeNet/Icode-workshop.git
-cd Icode-workshop
-git checkout feat/react-workshop-ui
-pnpm install
+Prerequisites: Node.js 22+, pnpm 10, Python 3 and pytest for Python labs.
 
-# Terminal 1: local API
+```sh
+pnpm install --frozen-lockfile
+python3 -m pip install pytest
+# Terminal 1
 node packages/web/server.mjs
-
-# Terminal 2: React/Vite frontend
+# Terminal 2
 pnpm --dir packages/web dev
 ```
 
-Open **http://127.0.0.1:5173** and select lab **01**. The API listens on loopback port **4317**. Edit the playground, save, run tests and compare your work against the solution. Playground edits are stored per exercise under `examples/.workshop/playgrounds/<id>/`.
+Open http://127.0.0.1:5173. Labs 01/02 teach an approval filter in Node/Python. Lab 03 demonstrates a real live preview. Workspaces live at `examples/.workshop/playgrounds/<id>/`. Reset keeps the previous directory as `<id>.backup-<timestamp>`; restoring a backup is currently a manual filesystem operation.
 
-**Current limitation:** The test button routes through the registered Node or Python adapter. Integration tests now cover a failing starter and passing corrected solution for both runtimes; execution in CI remains unverified. Do not treat a displayed PASS as verified coverage until that is fixed.
+Only run trusted local exercises and adapters. Code executes with your local permissions; loopback binding, Host/Origin checks and file validation are not an execution sandbox. Do not expose the API publicly. The file editor excludes dotfiles, generated directories, binary content and files over 100 KB. Symlinks are rejected by file operations; concurrent external filesystem mutation is outside the threat model.
 
-## CLI workflow
+`WORKSHOP_CONTENT` selects an external content directory containing `exercises/<id>/lab.json`, `README.md`, `problem/` and `solution/`. `WORKSHOP_API_PORT` changes the API port (also update the Vite proxy). `WORKSHOP_ADAPTERS` explicitly lists installed plugin modules as a JSON array. See the [adapter contract](packages/adapter-api/README.md).
 
-The earlier CLI uses a *different* single-playground workflow from the React app:
+## Verify
 
-```bash
-pnpm workshop list --content ./examples
-pnpm workshop set 01 --content ./examples
-pnpm workshop test --content ./examples
-pnpm workshop diff 01 --content ./examples
-```
-
-The CLI's `set` operation replaces `examples/playground` after backing it up. The React UI instead retains a separate workspace for every lab. Unifying these paths is an outstanding integration task.
-
-## Designed learning pathways
-
-| Track | Example exercises | Runtime direction |
-| --- | --- | --- |
-| TypeScript & APIs | TypeScript, Fastify, streaming AI responses | Node.js |
-| Python | Fundamentals, pytest, FastAPI, machine learning | Python |
-| Rust | Ownership, borrowing, Cargo, async services | Rust |
-| C# & .NET | ASP.NET Core, xUnit, Azure AI | .NET |
-| Notebooks | Data analysis, model experiments | Jupyter |
-| AI engineering | RAG, MCP, agents, evaluation, observability | Multiple runtimes |
-
-These are **planned tracks**, not a claim that the corresponding runtime adapters or lessons are already implemented.
-
-## Architecture
-
-```text
-                     Icode Workshop
-            ┌───────────────────────────┐
-            │ React UI / CLI            │
-            │ Lessons · Files · Results │
-            └─────────────┬─────────────┘
-                          │
-            ┌─────────────▼─────────────┐
-            │ Workshop core             │
-            │ Workspaces · Lab metadata │
-            └─────────────┬─────────────┘
-                          │
-            ┌─────────────▼─────────────┐
-            │ Runtime adapter registry  │
-            │ Versioned contract (v1)   │
-            └─────────────┬─────────────┘
-                          │
-       Node · Python · Rust · .NET · Jupyter · Custom
-```
-
-The diagram describes the **target architecture**. Today, the Node-oriented core, React prototype and explicit adapter registry are present, but runtime adapters are not yet wired into the execution engine.
-
-## Build and tests
-
-```bash
+```sh
 pnpm test
-node --test packages/web/workspaces.test.mjs
-node --test packages/adapter-api/index.test.mjs
 pnpm --dir packages/web build
+pnpm exec playwright install chromium
+pnpm test:browser
 ```
 
-These commands have **not yet been confirmed passing** on this branch. The root `pnpm test` script now includes core, web and adapter tests, including Node/Python integration tests.
+CI installs Python/pytest, runs unit/integration tests, builds React, runs Chromium acceptance tests and uploads screenshot evidence. Browser tests use disposable content directories. An optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` selects an already installed browser for restricted environments.
 
-## Packages
+The original CLI remains available (`pnpm workshop list --content ./examples`). Its single `examples/playground` path is not yet unified with the web application's per-lab workspace paths.
 
-| Package | Purpose | Current status |
-| --- | --- | --- |
-| `packages/core` | Exercise discovery and CLI workspace operations | Implemented scaffold |
-| `packages/cli` | Terminal exercise commands | Implemented scaffold |
-| `packages/web` | React learning interface and local API | Prototype |
-| `packages/adapter-api` | Explicit third-party adapter registration and contract checks | Experimental, unpublished |
+## Parity and roadmap
 
-## Roadmap and release gates
+The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. Remaining work includes module/step hierarchy, runnable problem/solution variants, cross-step comparison/migration, rich video/transcript support, editor links, keyboard shortcuts, streaming diagnostics, and broader CLI/content integration.
 
-1. Make complete multi-file projects editable, testable and comparable.
-2. Add language/runtime adapters, beginning with Node, Python, Rust and .NET.
-3. Support managed preview processes and Jupyter integration.
-4. Add structured Markdown lessons, modules, steps and progress tracking.
-5. Integrate external learning content from `senior-ai-engineer-labs`.
-6. Run automated builds, regression tests, security review and real browser acceptance tests.
-7. Review licensing, package versioning and publishing before merging or releasing.
+Rust, C#/.NET and Jupyter remain future adapters. The registry accepts new runtime IDs without changes to the core, but no corresponding real toolchain has been verified yet.
 
-**Status:** No npm release, no verified production build and no completed EpicShop feature parity yet. Contributions are welcome through issues and pull requests; the third-party adapter API is experimental and may change.
+- [Evidence-based parity audit](docs/feature-parity-audit.md)
+- [Runtime architecture](docs/multi-language-architecture.md)
+- [Langfuse, evaluation courses and embedded tools](docs/local-tools-and-ai-courses.md)
+- [Development PR #2](https://github.com/IcodeNet/Icode-workshop/pull/2)
+
+No package has been published. Full parity, cross-platform process cleanup and real Langfuse/Cosmos integrations remain release gates.

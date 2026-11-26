@@ -1,49 +1,48 @@
-# Icode Workshop — feature parity audit
+# Icode Workshop — parity review
 
-Audit date: 2026-11-26. Scope: current `feat/react-workshop-ui` branch compared with the documented EpicShop learner experience. This is a **source review**, not a successful end-to-end runtime test. "Implemented" means code exists, not that it has passed acceptance testing.
+Date: 2026-11-26. Reference: the official Epic Workshop tutorial was installed separately and run locally; home and `/01/01/problem` were inspected in Chromium. No Epic implementation source was imported into Icode. This is a learner-experience comparison, not a declaration of full parity.
 
-Sources: https://github.com/epicweb-dev/epicshop ; https://www.epicweb.dev/get-started ; https://foundations.epicweb.dev/guide ; https://get-started.epicreact.dev/guide
+The original Icode UI was substantially narrower: a single editor, short description and test output. The revised workbench keeps Markdown lesson material beside code and tools. Screenshots in the root README are genuine Icode browser captures.
 
-| Feature | Current Icode Workshop | Gap / acceptance criterion | Priority |
-|---|---|---|---|
-| Lab discovery and navigation | Basic exercise IDs and sidebar | Module > exercise > step hierarchy; metadata-driven titles | P0 |
-| Problem and solution | Read-only single index.mjs | Arbitrary project trees and runnable variants | P0 |
-| Playground selection | Separate persistent workspace per ID | Explicit selection, reset/restore, cross-step migration, clear state | P0 |
-| Playground editing | Single textarea | File explorer, multiple files, create/delete, external editor links | P0 |
-| Tests | Node --test button and output | Validate tests are actually copied and discovered; streaming, failure diagnostics, exit handling | P0 |
-| Diff | Line-level LCS for one file | Multi-file diffs, additions/deletions/renames, diff against other steps | P0 |
-| Lesson material | Short hard-coded description | Markdown/MDX, code examples, objectives, prerequisites | P0 |
-| Preview / run app | Placeholder panel only | Per-variant process lifecycle and iframe/new-tab preview | P0 for web labs |
-| Progress | None | Completion tracking and next-incomplete navigation | P1 |
-| CLI | Basic core commands | Reliable init/start/update/list/progress workflow | P1 |
-| Video lessons | None | Video and transcripts/captions where applicable | P1 |
-| Editor file links | None | Configurable editor integration | P1 |
-| Browser test runner | None | Support browser-oriented exercises where needed | P1 |
-| Workshop configuration | Hard-coded paths/ports/labels | Typed config, external content repo, per-lab scripts | P0 |
-| MCP assistant context | None | Read-only exercise context, opt-in progress tools | P2 |
-| Authentication / cloud sync | None | Not needed for local-first MVP | Later |
-| Practice/review mode | None | Revisit completed steps | P2 |
-| Updates and presence | None | Optional; not required for first release | Later |
+| Capability | Icode evidence/status | Remaining gap |
+|---|---|---|
+| Lesson next to working area | Markdown lesson panel and responsive split layout | MDX components, richer course content |
+| Course navigation | Manifest titles, previous/next, local completion | Module → exercise → step hierarchy, next-incomplete navigation |
+| Playground selection | Per-lab persistent workspace, dirty-change confirmation | Set from arbitrary problem/solution/step, cross-step migration |
+| Multi-file editing | Nested file selector, create/read/write/rename/delete | Full tree UI, editor deep links, binary/large-file workflows |
+| Reset | Confirmed reset preserves backup directory | In-app backup restore and retention controls |
+| Reference solution | Read-only matching file and project comparison | Independent problem/solution file trees and runnable variants |
+| Diff | Saved whole-project changes including solution-only/playground-only files | Rename inference, arbitrary variants/steps, automatic refresh |
+| Test execution | Real Node/Python failing-to-passing integration and browser journeys | Streaming output, structured diagnostics, independent assessment tests |
+| Preview | Owned process, start/stop, loopback readiness, live Node example | Restart UX, address/history controls, per-variant sessions |
+| Local tools | Explicit embedded/external modes with external fallback | Verified Langfuse/Cosmos services, native summaries, service ownership |
+| Runtime extensibility | API v1 types, explicit loader, conformance helper, cancellation/session helper | Actual Rust/.NET/Jupyter adapters and cross-platform process validation |
+| Video/transcripts | Not implemented | Author-supplied accessible media, captions, transcripts |
+| Progress | Browser-local manual completion, separate from tests | Durable course-scoped progress, practice/review, export |
+| Configuration | External content directory, manifests and explicit plugins | Course schema/hierarchy, complete manifest validation tooling |
+| CLI | Existing CLI retained | Unify workspace paths and start/update/progress commands |
+| Browser tests | Platform Playwright acceptance suite | Course-authored browser exercise runner |
+| MCP, chat, presence | Not implemented | Optional later capabilities; not needed for local MVP |
 
-## Verified source-level findings
+## Observed Epic tutorial experience
 
-- `packages/web/server.mjs` runs Node's `--test` in the selected workspace. It does **not** stream output to the UI, and has no verified end-to-end test execution result.
-- `packages/web/workspaces.mjs` copies the starter directory once and preserves separate per-ID directories.
-- `packages/web/src/main.jsx` supports selection, saving, code comparison and output tabs; Preview is explicitly a placeholder.
-- `packages/web/workspaces.test.mjs` provides a persistence regression test, but its execution has not been confirmed.
-- The current single-file editor is insufficient for real RAG/MCP/agent projects.
+Home includes a workshop overview, tutorial video/transcript controls, exercise navigation and keyboard shortcut guidance. The exercise screen keeps the lesson on the left and Playground, Problem, Solution, Tests, Diff and Chat affordances on the right. Its tutorial describes explicit playground selection, app start/stop/restart, iframe navigation, external editor links, comparisons between apps and progress/MCP workflows. Account-dependent transcript/chat features were not authenticated or tested. Not all described features were exercised end-to-end.
 
-## Release gates
+Reference sources:
+- https://github.com/epicweb-dev/epicshop-tutorial
+- https://github.com/epicweb-dev/epicshop
+- https://www.epicweb.dev/tips/epic-workshop-diff-tab-demo
 
-1. Build the web app and run all unit tests in CI; fix failures.
-2. Run an actual exercise from problem to passing solution, confirming test discovery and output.
-3. Verify switching between two labs, refreshing browser, preserving work, and rejecting unsaved navigation.
-4. Implement and test multi-file workspace CRUD and per-file diffs.
-5. Implement runnable web previews with bounded processes and no public network exposure.
-6. Load a lab from `senior-ai-engineer-labs` using external configuration rather than a copied sample.
-7. Security review: local command execution, loopback API origin/host checks, symlinks, path validation, child process timeouts and resource limits.
-8. Only after all P0 gates pass, consider merging PR #2 and publishing a package.
+## Verification scope
 
-## Architecture decision
+The root test suite covers workspace persistence, nested file CRUD, traversal/symlink rejection, backup reset, runtime integration, plugin registration and managed cancellation. The browser suite covers Node/Python editing to passing tests, file operations, refresh persistence, comparison, reset, a live preview and self-reported progress persistence. Screenshots are generated during those tests. CI repeats the suite and build on the committed branch.
 
-Keep `icode-workshop` separate from `senior-ai-engineer-labs`. Reuse general-purpose permissively licensed packages where appropriate, but implement Icode's original UI and orchestration. Do not import GPL-only workshop code without a deliberate licensing decision.
+## Merge/release gates still open
+
+1. Complete module/step navigation and runnable reference variants.
+2. Validate real external course content, not just bundled examples.
+3. Add richer authoring and video/transcript support where needed.
+4. Validate optional service integrations against pinned actual services.
+5. Review platform-specific process cleanup, concurrent workspace operations, and local execution threat model. This is not isolation for untrusted code.
+6. Review package publishing/version policy and dependency licences.
+7. Obtain explicit approval before merging into main.

@@ -1,92 +1,50 @@
 # Multi-language learning architecture
 
-## Product scope
+## Implemented execution path
 
-Icode Workshop teaches languages from beginner through advanced, as well as applied AI engineering. A course is composed of modules, lessons and steps. Each step owns instructions, a starter project, a reference solution, tests, and an optional preview. The engine must not assume JavaScript, a single file, or a running web app.
+React → loopback HTTP API → per-lab workspace → explicit adapter registry → detect → prepare → run(test). The CLI still uses the earlier single-workspace path and must be unified separately.
 
-## Runtime contract (proposed, not yet implemented)
+The core registry contains no language-specific imports. The web composition root registers Node and Python and explicitly loads operator-selected third-party modules. Lab metadata can select an already registered runtime but cannot install a package. API v1 is described by the [TypeScript declarations](../packages/adapter-api/index.d.ts) and [author guide](../packages/adapter-api/README.md). The custom-node example demonstrates loading a third-party-shaped module through the actual web execution path.
 
-A runtime adapter provides: validate environment, prepare workspace, build, test, start/stop processes, collect bounded output, and report preview URL. Runtime commands execute only in locally trusted projects; adapters must use argument arrays rather than shell interpolation. Runtime selection is explicit in the lab manifest.
+## Current manifest
 
-| Runtime | Build/check | Test | Interactive execution |
-|---|---|---|---|
-| TypeScript / Node | pnpm exec tsc --noEmit | pnpm test | Node process, optional HTTP preview |
-| Python | python -m compileall | python -m pytest | Python process, optional FastAPI preview |
-| Rust | cargo check | cargo test | cargo run, optional HTTP preview |
-| C# / .NET | dotnet build | dotnet test | dotnet run, optional HTTP preview |
-| Jupyter | Validate notebook structure | nbclient or pytest-notebook where appropriate | JupyterLab launched locally; notebook outputs remain notebook-native |
-| Docker Compose | docker compose config | project-specific tests | Explicitly approved services, ports and teardown |
-
-## Suggested manifest
-
-```yaml
-schemaVersion: 1
-id: python-foundations/variables
-runtime: python
-level: beginner
-starter: ./problem
-solution: ./solution
-instructions: ./README.md
-commands:
-  test: [python, -m, pytest, -q]
-  run: [python, main.py]
-preview:
-  type: console
-```
-
-## Curriculum examples
-
-- Python: syntax, functions, classes, typing, virtual environments, pytest, FastAPI, notebooks, ML, AI agents.
-- Rust: ownership, borrowing, lifetimes, traits, error handling, Cargo tests, async Tokio, Axum, systems integrations.
-- TypeScript: types, async, Fastify, Vercel AI SDK, tools, streaming, MCP.
-- C#: language fundamentals, ASP.NET Core, xUnit, dependency injection, Azure AI and production services.
-
-## Implementation order
-
-1. Introduce versioned manifest schema and validate every lab before running it.
-2. Replace single-file API with safe multi-file listing/read/write within a per-lab workspace.
-3. Add adapter interface and Node, Python, Rust and .NET adapters, each with environment checks.
-4. Add real tests and sample beginner labs for Python and Rust; test the problem fails and the solution passes.
-5. Add per-runtime process management, output streaming and HTTP previews.
-6. Add notebook adapter by integrating an existing Jupyter runtime rather than rebuilding notebook execution.
-7. Add course/module/lesson navigation, Markdown instructions, completion and reset.
-8. Integrate external `senior-ai-engineer-labs` content, run builds and acceptance tests before release.
-
-## Acceptance criteria
-
-- A Python learner edits multiple files, runs pytest, and sees actionable failures.
-- A Rust learner edits a crate, runs cargo test, and sees compiler diagnostics.
-- A .NET learner runs build and xUnit tests in a solution.
-- A TypeScript learner starts a Fastify server and accesses its local preview.
-- Switching between labs never overwrites work, and reset requires confirmation.
-- Unavailable runtimes show setup instructions rather than claiming a test passed.
-
-**Status:** This is an architecture specification and implementation backlog. The current app does not yet implement these adapters.
-
-## Third-party adapter extension contract
-
-External developers should be able to publish an adapter as an independent npm package, for example `@community/icode-ruby-adapter`. Adapters are installed explicitly and declared in a trusted workshop configuration; **never download or execute a package merely because a lab manifest names it**.
-
-The public `@icodenet/workshop-adapter-api` package should expose a versioned TypeScript contract. Proposed shape:
-
-```ts
-export interface WorkshopAdapter {
-  id: string
-  apiVersion: 1
-  detect(context: RuntimeContext): Promise<Diagnostic[]>
-  prepare(context: RuntimeContext): Promise<void>
-  run(command: 'build' | 'test' | 'start', context: RuntimeContext): Promise<RunResult>
-  stop?(context: RuntimeContext): Promise<void>
-}
-export interface RuntimeContext {
-  workspaceRoot: string
-  signal: AbortSignal
-  emit(event: { type: 'stdout' | 'stderr' | 'diagnostic'; text: string }): void
-}
-export interface RunResult {
-  exitCode: number | null
-  previewUrl?: string
+```json
+{
+  "schemaVersion": 1,
+  "runtime": "node",
+  "entry": "message.mjs",
+  "title": "Your first live preview",
+  "description": "Build and inspect a local application.",
+  "preview": {"command": ["node", "server.mjs"], "port": 4403},
+  "tools": [{"id":"explorer","title":"Local Explorer","url":"http://localhost:1234","mode":"embed"}]
 }
 ```
 
-This is a **design proposal**, not a currently published API. Define runtime lifecycle and subprocess ownership carefully: long-running `start` should return a managed process/session handle rather than block indefinitely, and `stop` must clean up processes. Validate adapter identifiers, API compatibility, capabilities and configuration at load time. Document plugin authoring, provide a test harness and a sample community adapter. Treat adapters as trusted executable code with the user's local permissions; use explicit opt-in and recommend containers for untrusted labs. Maintain a stable core that can register adapters without importing any language-specific code.
+Legacy manifests without schemaVersion remain compatible with v1. README.md is rendered as lesson content; raw HTML is not enabled. The lab owns `problem/` and `solution/`; playground copies are per ID. Runtime and entry names, preview configuration and tool URLs are validated. Exercise IDs currently remain two-digit flat IDs: hierarchical module/step addressing is not yet implemented.
+
+A manifest is trusted local course configuration. Preview commands use argv arrays and run only after a learner clicks Start app. HOST/PORT environment variables request loopback binding, but the platform cannot force an arbitrary program to honour them; isolation requires a separate container/process policy. Local Tools metadata does not start or install external services.
+
+## Process lifecycle
+
+Finite test runs have a deadline, cancellation and bounded output. The shared process helper supports owned sessions, completion promises and stop with termination escalation. The web preview host checks readiness and uses the same helper. Preview shutdown occurs on explicit stop, lab switch, reset or normal API termination. Browser reload retains the backend process until stopped/restarted; crash recovery and multi-client ownership require further work. POSIX groups are handled; Windows descendant cleanup has not been verified.
+
+## Runtime status
+
+| Runtime | Current status | Next evidence required |
+|---|---|---|
+| Node.js | Real tests, failing-to-passing integration/browser flow, multi-file HTTP preview | TypeScript package-script variants and broader process tests |
+| Python | Real pytest failing-to-passing integration/browser flow | Virtual-environment selection, FastAPI preview course |
+| Custom Node example | Explicit plugin load and real test execution verified | Independent packaging/publishing |
+| Rust | Registry supports a future adapter | cargo check/test/run fixtures and compiler diagnostics |
+| C#/.NET | Registry supports a future adapter | dotnet build/test, xUnit fixture and HTTPS preview |
+| Jupyter | Contract can represent a managed session | Kernel ownership, notebook-native outputs, nbclient tests |
+
+The public optional start contract is an extension point; built-in adapters implement finite test/run operations. The web preview path is a host-managed manifest command, not a claim that every adapter implements interactive execution.
+
+## Course services and assessment
+
+Separate runtime, service ownership, tool presentation and assessment contracts. A Langfuse course should attach to a learner-owned instance or explicitly provision a course-owned stack; preserve volumes and keep credentials server-side. Cosmos readiness and explorer endpoints are distinct. See [local tools and AI courses](local-tools-and-ai-courses.md) for researched constraints and a phased design.
+
+## Outstanding release work
+
+Module/lesson/step hierarchy; runnable reference variants; arbitrary cross-step comparisons; richer authoring/video; progress portability; external `senior-ai-engineer-labs` acceptance; streaming results; actual future language adapters; service health/secret management; Windows/macOS runtime checks; concurrency and isolation review; package release policy.

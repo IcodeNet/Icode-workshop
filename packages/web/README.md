@@ -1,22 +1,9 @@
 # Icode Workshop web
 
-React interface with local filesystem-backed playground and test execution. Visual palette and typography follow the user's own `IcodeNet/homer-ai/docs/neural-network-building.html`.
+React learning workbench with Markdown lessons, multi-file filesystem playgrounds, Node/Python tests, project comparisons, local completion and managed live previews.
 
-From the repository root, open two terminal windows:
+From the root, run `pnpm install --frozen-lockfile`, then `node packages/web/server.mjs` and (in another terminal) `pnpm --dir packages/web dev`. Open http://127.0.0.1:5173.
 
-```sh
-pnpm install
-node packages/web/server.mjs
-```
+Each lab owns `examples/.workshop/playgrounds/<id>/`. Tests execute saved code; Run tests first saves the current dirty file. Reset confirms and retains a timestamped backup. The API binds to loopback and validates Host/Origin and file paths. It runs trusted local code, not sandboxed code.
 
-In the second terminal:
-
-```sh
-pnpm --dir packages/web dev
-```
-
-Open http://127.0.0.1:5173 and select exercise 01. Changes are saved to `examples/.workshop/playgrounds/<id>/index.mjs`; the test button invokes Node's built-in test runner from that exercise workspace. Successful test discovery and execution are not yet verified. Each exercise retains its own playground in `examples/.workshop/playgrounds/<id>/` when you switch away and return.
-
-Security: the API binds only to loopback and checks browser Origin. It runs user-authored exercise code, so **only use locally with trusted exercises**. Do not expose this service on a public network. This is an MVP: single-file line diffs are implemented, but multi-file diff rendering and build verification remain future work. Build and test execution have not yet been independently verified.
-
-See [feature parity audit](../../docs/feature-parity-audit.md) for gaps, priorities and release gates.
+For checks run `pnpm test`, `pnpm --dir packages/web build`, and `pnpm test:browser` after installing Playwright Chromium. See the root README for screenshots and limitations, and the [parity audit](../../docs/feature-parity-audit.md) for outstanding work.
