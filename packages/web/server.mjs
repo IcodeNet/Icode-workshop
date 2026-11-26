@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { readFile, writeFile, stat } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -20,7 +20,7 @@ async function readText(path) { return readFile(path, 'utf8') }
 async function load(id) {
   validateId(id)
   const base = join(root, 'exercises', id)
-  return { id, title: id === '01' ? 'Approved documents only' : 'Exercise '+id, topic: 'AI engineering', description: 'Complete the exercise and run its tests.', problem: await readText(join(base,'problem','index.mjs')), solution: await readText(join(base,'solution','index.mjs')) }
+  return { id, title: id === '01' ? 'Approved documents only' : 'Exercise '+id, topic: 'AI engineering', description: id === '01' ? 'Implement a retrieval filter that returns approved documents only. Run the tests to confirm unapproved documents never appear in results.' : 'Complete the exercise and run its tests.', problem: await readText(join(base,'problem','index.mjs')), solution: await readText(join(base,'solution','index.mjs')) }
 }
 function testPlayground(id) {
   return new Promise((done) => {
@@ -50,12 +50,9 @@ const server = createServer(async (req,res) => {
       return json(res,200,{code:result.code,restored:true})
     }
     if (req.method === 'PUT' && url.pathname === '/api/playground') {
-      const {code}=await readBody(req)
-      if(typeof code!=='string'||code.length>50000) return json(res,400,{error:'Invalid code'})
-      const path=join(root,'playground','index.mjs')
-      const info=await stat(path)
-      if(!info.isFile()) return json(res,400,{error:'Invalid playground'})
-      await writeFile(path,code,'utf8')
+      const {id,code}=await readBody(req)
+      validateId(id)
+      await saveWorkspace(root,id,code)
       return json(res,200,{saved:true})
     }
     if (req.method === 'POST' && url.pathname === '/api/test') { const {id}=await readBody(req); validateId(id); return json(res,200,await testPlayground(id)) }
