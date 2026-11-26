@@ -13,7 +13,7 @@ pnpm install
 pnpm workshop list --content ./examples
 pnpm workshop set 01 --content ./examples
 pnpm workshop test --content ./examples
-pnpm workshop diff --content ./examples
+pnpm workshop diff 01 --content ./examples
 pnpm test
 ```
 
