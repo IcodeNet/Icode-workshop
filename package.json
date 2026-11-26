@@ -1,0 +1,14 @@
+{
+  "name": "icode-workshop-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "test": "node --test packages/core/test/*.test.mjs",
+    "workshop": "node packages/cli/bin.mjs"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}
