@@ -36,3 +36,9 @@
 .app .primary:hover{background:#fed7aa}
 .app .workbench-head{flex-wrap:wrap}
 @media(max-width:650px){.app .workbench-head{padding:16px}.app .tabs{padding:0 8px}.app .tab{padding:12px 10px}.app .code,.app textarea{padding:14px;font-size:12px}}
+
+.app .diff-lines{max-height:560px;min-height:320px;overflow:auto;background:#020617;padding:14px 0;font:13px/1.65 ui-monospace,Menlo,Consolas,monospace;white-space:pre}
+.app .diff-line{padding:0 20px;min-height:21px}
+.app .diff-line.added{background:rgba(34,197,94,.14);color:#bbf7d0}
+.app .diff-line.removed{background:rgba(248,113,113,.14);color:#fecaca}
+.app .diff-line.same{color:#cbd5e1}
