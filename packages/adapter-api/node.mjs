@@ -6,7 +6,11 @@ export async function execute(command, args, context) {
   if (!context || typeof context.workspaceRoot !== 'string') throw new TypeError('workspaceRoot required')
   if (context.signal?.aborted) return { exitCode: null, aborted: true }
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: context.workspaceRoot, shell: false, stdio: ['ignore','pipe','pipe'], env: { ...process.env, ...context.env } })
+    // A workshop test may be launched from another node:test process. Do not pass
+    // its internal test-runner context to the independent playground process.
+    const env = { ...process.env, ...context.env }
+    delete env.NODE_TEST_CONTEXT
+    const child = spawn(command, args, { cwd: context.workspaceRoot, shell: false, stdio: ['ignore','pipe','pipe'], env })
     let settled = false
     const finish = (result, error) => { if (settled) return; settled = true; context.signal?.removeEventListener('abort', abort); error ? reject(error) : resolve(result) }
     const abort = () => child.kill('SIGTERM')
