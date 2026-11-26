@@ -8,5 +8,5 @@ test('rejects unsafe exercise identifiers', () => {
   for (const id of ['../', '1', '01/../../', 'abc']) assert.throws(() => validateId(id))
 })
 test('discovers example exercise', async () => {
-  assert.deepEqual(await listExercises(examples), ['01'])
+  assert.deepEqual(await listExercises(examples), ['01', '02'])
 })
