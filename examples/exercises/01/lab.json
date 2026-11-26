@@ -1,0 +1,5 @@
+{
+  "runtime": "node",
+  "title": "Approved documents only",
+  "description": "Implement a retrieval filter that returns approved documents only. Run the tests to ensure unapproved documents are excluded."
+}
