@@ -1,0 +1,5 @@
+{
+  "runtime": "python",
+  "title": "Python approved documents",
+  "description": "Implement approved_only in Python and run pytest."
+}

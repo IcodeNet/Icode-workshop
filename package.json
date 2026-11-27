@@ -5,10 +5,18 @@
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "scripts": {
-    "test": "node --test packages/core/test/*.test.mjs",
-    "workshop": "node packages/cli/bin.mjs"
+    "test": "node --test packages/core/test/*.test.mjs packages/web/*.test.mjs packages/adapter-api/*.test.mjs packages/mcp/*.test.mjs",
+    "workshop": "node packages/cli/bin.mjs",
+    "test:browser": "playwright test",
+    "typecheck": "tsc -p packages/adapter-api/tsconfig.json",
+    "mcp": "node packages/mcp/server.mjs"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "prettier": "^3.10.1",
+    "typescript": "^7.0.2"
+  }
 }

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+examples/.workshop/
+playwright-report/
+test-results/
+__pycache__/
+.pytest_cache/
