@@ -18,6 +18,7 @@ These are real Chromium captures from the automated learner journeys, not design
 - Managed loopback preview with start/stop/restart and readiness checks. Problem/Solution tests and previews run in disposable copies; authored sources remain unchanged.
 - Hippo branding and favicon; optional authored video/captions/Markdown transcript; progress export.
 - Per-lab Tools tabs: embedded local services when permitted, or external links when embedding is blocked.
+- Course actions (course `package.json` scripts) with typed confirmation, cost/indicator banners, sidecar processes with retained logs, a Processes view, confirmed freeing of a configured preview port, ANSI-coloured output, live reload from disk, local editor launch at line/column and a dependency install check. See [running and operating a course](docs/course-operations.md).
 - Versioned adapter registry, TypeScript contract, explicit third-party module loading, author conformance helper and cancellable process/session helper.
 
 ## Run locally
@@ -54,13 +55,14 @@ The CLI uses the same per-step playgrounds as the UI. Its start command owns API
 
 ## Parity and roadmap
 
-The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. The agreed platform feature set is implemented; live authenticated integration acceptance and the subsequent senior AI course remain explicit dependencies in the audit. This is not a claim of every Epic product capability. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
+The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. The agreed platform feature set is implemented; live authenticated integration acceptance and the subsequent senior AI course remain explicit dependencies in the audit. This is not a claim of every Epic product capability. Editor launch with a VS Code link fallback, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
 
 Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI requires real failing/passing/no-assessment journeys for all four; local unavailable runtimes are explicitly reported. See [AI and runtime setup](docs/ai-and-runtime-setup.md) for contracts and environment requirements.
 
 - [AI, MCP, service and runtime setup](docs/ai-and-runtime-setup.md)
 - [Dependency licence inventory](docs/dependency-licenses.json)
 - [Course authoring and persistence](docs/course-authoring.md)
+- [Running and operating a course: actions, indicators, sidecars, processes](docs/course-operations.md)
 - [Evidence-based parity audit](docs/feature-parity-audit.md)
 - [Runtime architecture](docs/multi-language-architecture.md)
 - [Langfuse, evaluation courses and embedded tools](docs/local-tools-and-ai-courses.md)

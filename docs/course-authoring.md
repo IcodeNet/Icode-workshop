@@ -58,7 +58,7 @@ node packages/cli/bin.mjs diff 01 --content /absolute/path/to/course
 node packages/cli/bin.mjs progress --content /absolute/path/to/course
 ```
 
-`start` starts the development API and Vite UI. The UI stays on port 5173 and fails clearly if occupied. `WORKSHOP_API_PORT` is honoured by both the API and Vite proxy. CLI tests and the UI use the same per-step workspace. The CLI `reset <id>` creates a backup before replacing work.
+`validate` also checks actions, indicators and sidecars against `package.json` scripts. `doctor` reports whether course dependencies are installed and match `package-lock.json`, with the command to fix them. `start` starts the development API (and the course sidecars) and Vite UI. The UI stays on port 5173 and fails clearly if occupied. `WORKSHOP_API_PORT` is honoured by both the API and Vite proxy. CLI tests and the UI use the same per-step workspace. The CLI `reset <id>` creates a backup before replacing work.
 
 ## Persistence and reference execution
 
@@ -69,6 +69,28 @@ Problem and Solution views have independent file lists. Test and preview executi
 Replacing a playground from a reference or the previous step stages the source first and backs up existing files. Restore Backup selects an earlier saved directory; the current state is backed up before restoration. Unsaved editor text is not included in filesystem backups. Backup retention is manual. Copy Previous replaces the whole project. Migrate Previous Edits instead performs a conservative three-way comparison of the source starter, saved source edits and target starter. Independent file changes carry forward; conflicting files stop migration without overwriting the target. It does not merge conflicting hunks automatically. Matching runtimes are required.
 
 The Compare panel supports source/target variants and a target lesson. It compares saved files, with an explicit refresh after selection changes. Renames appear as removal/addition. File editing still excludes hidden/generated content and binary/large files.
+
+## Actions, indicators and sidecars
+
+`course.json` can also declare learner-runnable **actions** (course `package.json` scripts with optional typed confirmation), **indicators** (a persistent banner, such as a running-cost warning, while a file exists) and **sidecars** (long-lived scripts started with the workshop). Only scripts already present in the course root `package.json` can run; learners never enter commands.
+
+```json
+{
+  "schemaVersion": 1,
+  "title": "Senior AI Engineering",
+  "modules": [{ "id": "labs", "title": "Labs", "steps": ["01"] }],
+  "actions": [
+    { "id": "deploy", "label": "Deploy to Azure", "script": "azure:deploy", "group": "Cloud", "destructive": true },
+    { "id": "teardown", "label": "Tear down", "script": "azure:teardown", "group": "Cloud" }
+  ],
+  "indicators": [
+    { "path": ".workshop/azure-deployed.json", "message": "Azure resources are running and cost money.", "level": "danger" }
+  ],
+  "sidecars": { "mock-api": { "script": "mock-api" } }
+}
+```
+
+A script asks for confirmation by printing `::icode-confirm:<ICODE_CONFIRM_TOKEN>::{"expected":"deploy-prod","message":"…"}`, using the per-run token from its environment; the UI requires the learner to type `expected` and sends it to the script's stdin (Cancel sends an empty line), and the script re-checks it. Runs are detached from the browser: reloading or closing the tab never cancels them, the UI re-attaches, and only an explicit Cancel stops a run (SIGINT first, SIGKILL after `cancelGraceSeconds`, default 30). See [running and operating a course](course-operations.md) for the full protocol, validation rules, the Processes view, port freeing, live reload, editor launch and the install check.
 
 ## Embedded services
 

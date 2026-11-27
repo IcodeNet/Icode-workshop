@@ -13,18 +13,28 @@ export async function courseConfig(root) {
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
+  // A manifest may declare only operations (actions, indicators, sidecars)
+  // and an optional title; module order then falls back to discovery.
+  const title =
+    course && course.modules === undefined && typeof course.title === "string" && course.title.trim()
+      ? course.title
+      : undefined;
+  if (course && course.modules === undefined) {
+    if (course.schemaVersion !== 1) throw new Error("Invalid course manifest");
+    course = undefined;
+  }
   if (!course && hostConfig(root).format === "epic") {
     const steps = discoverSteps(root), groups = new Map();
     for (const step of steps) {
       if (!groups.has(step.module)) groups.set(step.module, { id: step.module, title: step.module.replace(/^\d+\./, "").replaceAll("-", " "), steps: [] });
       groups.get(step.module).steps.push(step.id);
     }
-    return {schemaVersion:1, title:hostConfig(root).title || "Workshop", modules:[...groups.values()], ids};
+    return {schemaVersion:1, title:title || hostConfig(root).title || "Workshop", modules:[...groups.values()], ids};
   }
   if (!course)
     return {
       schemaVersion: 1,
-      title: "AI Engineering Labs",
+      title: title || "AI Engineering Labs",
       modules: [{ id: "labs", title: "Labs", steps: ids }],
       ids,
     };
@@ -75,7 +85,8 @@ export async function courseConfig(root) {
   }
   if (seen.size !== ids.length)
     throw new Error("Every exercise must belong to a course module");
-  return { ...course, ids: [...seen] };
+  const { actions, indicators, sidecars, ...rest } = course;
+  return { ...rest, ids: [...seen] };
 }
 export function validateMedia(media) {
   if (media === undefined) return undefined;

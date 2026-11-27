@@ -96,7 +96,7 @@ export async function labConfig(root, id) {
 async function runLab(
   root,
   id,
-  { timeoutMs, workspaceRoot, emit, signal } = {},
+  { timeoutMs, workspaceRoot, emit, signal, onSpawn } = {},
 ) {
   const config = await labConfig(root, id);
   const adapter = registry.require(config.runtime);
@@ -115,6 +115,7 @@ async function runLab(
         workspaceRoot || join(root, ".workshop", "playgrounds", id),
       signal: controller.signal,
       env: courseEnvironment(root),
+      onSpawn,
       emit: (event) => {
         if (events.join("").length < 50000) {
           events.push(event.text);

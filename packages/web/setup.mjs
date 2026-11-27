@@ -65,6 +65,116 @@ export async function prepareWorkspace(root, workspaceRoot) {
   if (result.exitCode !== 0 || result.aborted)
     throw new Error("Workspace seed failed: " + output.slice(-2000));
 }
+async function readJsonFile(path) {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch (e) {
+    if (e.code === "ENOENT" || e.code === "ENOTDIR") return undefined;
+    throw new Error("Could not parse " + path + ": " + e.message);
+  }
+}
+const quote = (path) => '"' + path.replaceAll('"', '\\"') + '"';
+const summarise = (names) =>
+  names.slice(0, 8).join(", ") + (names.length > 8 ? ` and ${names.length - 8} more` : "");
+/**
+ * Check that the course root dependencies are installed and match
+ * package-lock.json. Never runs npm; reads package.json files only.
+ */
+export async function installCheck(root) {
+  root = resolve(root);
+  const name = "Course dependencies";
+  const manifest = await readJsonFile(join(root, "package.json"));
+  if (!manifest)
+    return { name, ok: true, status: "no-package", message: "No package.json at the course root." };
+  const declared = {
+    ...manifest.optionalDependencies,
+    ...manifest.devDependencies,
+    ...manifest.dependencies,
+  };
+  if (!Object.keys(declared).length)
+    return { name, ok: true, status: "no-dependencies", message: "No dependencies declared." };
+  const lock = await readJsonFile(join(root, "package-lock.json"));
+  const installCommand = `cd ${quote(root)} && npm ${lock ? "ci" : "install"}`;
+  const installed = async (path) =>
+    (await readJsonFile(join(root, path, "package.json")))?.version;
+  if (!lock || !lock.packages) {
+    const missing = [];
+    for (const dependency of Object.keys(declared))
+      if (!(await installed(join("node_modules", dependency)))) missing.push(dependency);
+    return missing.length
+      ? {
+          name,
+          ok: false,
+          status: "missing",
+          missing,
+          message: (lock ? "package-lock.json is too old to verify (lockfileVersion 1). " : "No package-lock.json. ") + "Missing: " + summarise(missing),
+          fix: installCommand,
+        }
+      : {
+          name,
+          ok: true,
+          status: lock ? "installed" : "unlocked",
+          message: lock ? "Installed (lockfile too old to verify versions)." : "Installed, but there is no package-lock.json to verify versions against.",
+        };
+  }
+  const locked = lock.packages[""] || {};
+  const lockedDeclared = {
+    ...locked.optionalDependencies,
+    ...locked.devDependencies,
+    ...locked.dependencies,
+  };
+  const stale = Object.keys(declared).filter((d) => lockedDeclared[d] !== declared[d]);
+  if (stale.length)
+    return {
+      name,
+      ok: false,
+      status: "lock-outdated",
+      message: "package-lock.json does not match package.json for: " + summarise(stale),
+      fix: `cd ${quote(root)} && npm install`,
+    };
+  const missing = [],
+    mismatched = [];
+  const entries = Object.entries(lock.packages).filter(
+    ([path, info]) => path.startsWith("node_modules/") &&
+      // Lockfile keys are confined to the course root.
+      !path.split("/").some((part) => part === ".." || part === "." || !part) &&
+      !path.includes("\\") &&
+      !info.link &&
+      !info.extraneous,
+  );
+  for (let i = 0; i < entries.length; i += 64)
+    await Promise.all(
+      entries.slice(i, i + 64).map(async ([path, info]) => {
+        const version = await installed(path);
+        const label = path.replace(/^(.*\/)?node_modules\//, "");
+        if (version === undefined) {
+          if (!info.optional && !info.devOptional) missing.push(label);
+        } else if (info.version && version !== info.version)
+          mismatched.push(label + " (" + version + " ≠ " + info.version + ")");
+      }),
+    );
+  if (missing.length || mismatched.length)
+    return {
+      name,
+      ok: false,
+      status: missing.length ? "missing" : "mismatch",
+      missing,
+      mismatched,
+      message: [
+        missing.length && "Missing: " + summarise(missing),
+        mismatched.length && "Different from package-lock.json: " + summarise(mismatched),
+      ]
+        .filter(Boolean)
+        .join(". "),
+      fix: installCommand,
+    };
+  return {
+    name,
+    ok: true,
+    status: "installed",
+    message: `${entries.length} packages match package-lock.json.`,
+  };
+}
 export async function doctor(root) {
   const config = hostConfig(root),
     steps = discoverSteps(root),
@@ -116,6 +226,7 @@ export async function doctor(root) {
         });
       }
     }
+  checks.push(await installCheck(root));
   return { ok: checks.every((c) => c.ok), steps: steps.length, checks };
 }
 export async function setupCourse(root, { emit } = {}) {

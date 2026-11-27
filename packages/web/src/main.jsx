@@ -2,13 +2,26 @@ import Markdown from "react-markdown";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import {
+  AnsiOutput,
+  ActionsPanel,
+  ConfirmDialog,
+  FreePort,
+  IndicatorBanner,
+  ProcessesPanel,
+  SetupBanner,
+  tail,
+  useActions,
+  useIndicators,
+} from "./operations.jsx";
 const api = async (path, options) => {
   const response = await fetch("/api" + path, {
     ...options,
     headers: { "content-type": "application/json", ...options?.headers },
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "Request failed");
+  if (!response.ok)
+    throw Object.assign(new Error(data.error ?? "Request failed"), { data });
   return data;
 };
 
@@ -120,13 +133,33 @@ function App() {
   const [testSummary, setTestSummary] = useState(null);
   const [panel, setPanel] = useState("console");
   const [busy, setBusy] = useState(false);
+  const [portConflict, setPortConflict] = useState(null);
+  const [editors, setEditors] = useState([]);
+  const [editorId, setEditorId] = useState("");
+  const [diskChange, setDiskChange] = useState(null);
+  const [reloadPreview, setReloadPreview] = useState(true);
+  const [previewKey, setPreviewKey] = useState(0);
+  const [indicators, refreshIndicators] = useIndicators();
+  const actions = useActions({
+    onFinished: refreshIndicators,
+    onChange: refreshIndicators,
+  });
   const variant = ["problem", "solution"].includes(tab) ? tab : "playground";
+  // Latest values for long-lived event handlers (live reload).
+  const latest = useRef({});
+  latest.current = { file, draft, dirty, preview, previewVariant, reloadPreview, busy };
   useEffect(() => {
     api("/integrations")
       .then((data) => setIntegrations(data.integrations))
       .catch(() => {});
     api("/tutor")
       .then((data) => setTutorEnabled(data.enabled))
+      .catch(() => {});
+    api("/editors")
+      .then((data) => {
+        setEditors(data.editors);
+        setEditorId(data.editors.find((e) => e.available)?.id || "");
+      })
       .catch(() => {});
     api("/progress")
       .then((data) => setCompleted(data.completed))
@@ -149,6 +182,43 @@ function App() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  useEffect(() => {
+    if (!selected || typeof EventSource === "undefined") return;
+    const source = new EventSource("/api/events?id=" + encodeURIComponent(selected));
+    let refreshTimer;
+    source.addEventListener("change", async (message) => {
+      const { name } = JSON.parse(message.data);
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        api("/files?id=" + encodeURIComponent(selected))
+          .then((data) => setFiles(data.files))
+          .catch(() => {});
+      }, 200);
+      const now = latest.current;
+      if (now.preview && now.previewVariant === "playground" && now.reloadPreview)
+        setPreviewKey((key) => key + 1);
+      if (!name || name !== now.file) return;
+      let code;
+      try {
+        code = (
+          await api("/file?id=" + encodeURIComponent(selected) + "&name=" + encodeURIComponent(name))
+        ).code;
+      } catch {
+        return; // deleted or unreadable; the file list refresh shows it
+      }
+      const current = latest.current;
+      if (current.file !== name || code === current.draft) return;
+      if (!current.dirty && !current.busy) {
+        setDraft(code);
+        setDiskChange(null);
+        setActivity("Reloaded " + name + " from disk");
+      } else setDiskChange({ name, code });
+    });
+    return () => {
+      clearTimeout(refreshTimer);
+      source.close();
+    };
+  }, [selected]);
   async function openFile(name, id = selected) {
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setBusy(true);
@@ -163,6 +233,7 @@ function App() {
       setFile(name);
       setDraft(data.code);
       setDirty(false);
+      setDiskChange(null);
     } finally {
       setBusy(false);
     }
@@ -366,6 +437,23 @@ function App() {
       setBusy(false);
     }
   }
+  async function launchInEditor() {
+    setBusy(true);
+    setActivity("Launching editor");
+    try {
+      const name = ["problem", "solution"].includes(tab) ? referenceFile : file;
+      const data = await api("/editor/launch", {
+        method: "POST",
+        body: JSON.stringify({ id: selected, variant, name, line: 1, column: 1, editor: editorId || undefined }),
+      });
+      setResult("Opened " + name + " in " + data.label + ".");
+    } catch (e) {
+      setResult(e.message + "\nUse “Open in VS Code” as a fallback.");
+      setPanel("console");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function replaceFrom(sourceId, sourceVariant, backup) {
     if (
       !window.confirm(
@@ -490,10 +578,14 @@ function App() {
       });
       setPreviewVariant(variant);
       setPreview(data.running ? data.url : null);
+      setPortConflict(null);
       setPanel("preview");
     } catch (e) {
       setResult(e.message);
-      setPanel("console");
+      if (e.data?.code === "PORT_OCCUPIED") {
+        setPortConflict(e.data.port);
+        setPanel("preview");
+      } else setPanel("console");
     } finally {
       setBusy(false);
     }
@@ -524,6 +616,8 @@ function App() {
           body: JSON.stringify({ id: selected }),
         });
       setPreview(null);
+      setPortConflict(null);
+      setDiskChange(null);
       setToolId(item.tools?.[0]?.id || "");
       setCompareTarget(id);
       setCompareFrom("playground");
@@ -555,6 +649,7 @@ function App() {
         body: JSON.stringify({ id: selected, name: file, code: draft }),
       });
       setDirty(false);
+      setDiskChange(null);
       setResult("Saved to the exercise-specific local playground file.");
     } catch (e) {
       setResult(e.message);
@@ -655,7 +750,7 @@ function App() {
                 event.output,
             );
           } else if (event.text)
-            setResult((previous) => (previous + event.text).slice(-50000));
+            setResult((previous) => tail(previous + event.text));
         }
       }
       if (!finished)
@@ -720,6 +815,16 @@ function App() {
           Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests
         </span>
       </div>
+      {actions.confirm && (
+        <ConfirmDialog
+          title={"Confirm: " + (actions.run?.label || "course action")}
+          message={actions.confirm.message}
+          expected={actions.confirm.expected}
+          confirmLabel="Continue"
+          onConfirm={(typed) => actions.answer(typed)}
+          onCancel={() => actions.answer("")}
+        />
+      )}
       <div className="shell">
         <aside className="sidebar">
           <div className="eyebrow">COURSE</div>
@@ -781,6 +886,8 @@ function App() {
           </div>
         </aside>
         <main className="content">
+          <IndicatorBanner indicators={indicators} />
+          <SetupBanner />
           {exercise ? (
             <>
               <div className="heading">
@@ -997,6 +1104,33 @@ function App() {
                       </div>
                     )}
                     <div className="file-tools">
+                      {editors.some((e) => e.available) && (
+                        <>
+                          <label>
+                            Editor{" "}
+                            <select
+                              aria-label="Editor"
+                              value={editorId}
+                              disabled={busy}
+                              onChange={(e) => setEditorId(e.target.value)}
+                            >
+                              {editors
+                                .filter((e) => e.available)
+                                .map((e) => (
+                                  <option key={e.id} value={e.id}>
+                                    {e.label}
+                                  </option>
+                                ))}
+                            </select>
+                          </label>
+                          <button
+                            disabled={busy || !(file || referenceFile)}
+                            onClick={launchInEditor}
+                          >
+                            Open in editor
+                          </button>
+                        </>
+                      )}
                       <button
                         disabled={busy || !(file || referenceFile)}
                         onClick={openEditor}
@@ -1046,6 +1180,23 @@ function App() {
                             : "Read-only reference"}
                       </span>
                     </div>
+                    {tab === "playground" && diskChange?.name === file && (
+                      <div className="disk-change" role="alert">
+                        {file} changed on disk while you have unsaved edits.{" "}
+                        <button
+                          onClick={() => {
+                            setDraft(diskChange.code);
+                            setDirty(false);
+                            setDiskChange(null);
+                          }}
+                        >
+                          Load disk version
+                        </button>{" "}
+                        <button onClick={() => setDiskChange(null)}>
+                          Keep my edits
+                        </button>
+                      </div>
+                    )}
                     {tab === "playground" ? (
                       <textarea
                         disabled={busy || !file}
@@ -1175,7 +1326,7 @@ function App() {
                       role="tablist"
                       aria-label="Output panels"
                     >
-                      {["preview", "tools", "console", "tests", "tutor"].map(
+                      {["preview", "tools", "console", "tests", "actions", "processes", "tutor"].map(
                         (item) => (
                           <button
                             key={item}
@@ -1186,12 +1337,18 @@ function App() {
                           >
                             {item === "tests"
                               ? "Test results"
-                              : item[0].toUpperCase() + item.slice(1)}
+                              : item === "actions" && actions.running
+                                ? "Actions ●"
+                                : item[0].toUpperCase() + item.slice(1)}
                           </button>
                         ),
                       )}
                     </div>
-                    {panel === "tutor" ? (
+                    {panel === "actions" ? (
+                      <ActionsPanel state={actions} />
+                    ) : panel === "processes" ? (
+                      <ProcessesPanel />
+                    ) : panel === "tutor" ? (
                       <div className="tutor-panel">
                         {!tutorEnabled ? (
                           <p>
@@ -1259,6 +1416,23 @@ function App() {
                         <p>
                           Preview target: {preview ? previewVariant : variant}
                         </p>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={reloadPreview}
+                            onChange={(e) => setReloadPreview(e.target.checked)}
+                          />{" "}
+                          Reload preview when playground files change
+                        </label>
+                        {portConflict && !preview && (
+                          <FreePort
+                            port={portConflict}
+                            onFreed={(message) => {
+                              setPortConflict(null);
+                              setResult(message);
+                            }}
+                          />
+                        )}
                         {preview && (
                           <>
                             <a
@@ -1270,6 +1444,7 @@ function App() {
                               Open preview externally
                             </a>
                             <iframe
+                              key={previewKey}
                               title="Live preview"
                               src={preview}
                               sandbox="allow-scripts allow-forms allow-same-origin"
@@ -1373,11 +1548,15 @@ function App() {
                             ))}
                           </div>
                         )}
-                        <pre className="notice" role="status">
-                          {panel === "preview"
-                            ? "Preview is available for labs that provide a browser application. This lab uses the console and test runner."
-                            : result || "Run tests to view output here."}
-                        </pre>
+                        <AnsiOutput
+                          className="notice"
+                          role="status"
+                          text={
+                            panel === "preview"
+                              ? "Preview is available for labs that provide a browser application. This lab uses the console and test runner."
+                              : result || "Run tests to view output here."
+                          }
+                        />
                       </>
                     )}
                   </section>

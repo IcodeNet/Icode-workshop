@@ -5,12 +5,46 @@ import { askTutor, tutorConfig } from "./tutor.mjs";
 import { courseConfig, readProgress, updateProgress } from "./course.mjs";
 import { executionWorkspace } from "./variants.mjs";
 import { startPreview, stopPreview, stopAllPreviews } from "./previews.mjs";
+import {
+  courseOperations,
+  indicatorStatus,
+  startAction,
+  actionRun,
+  lastActionRunId,
+  subscribeAction,
+  sendActionInput,
+  cancelAction,
+  currentAction,
+  stopActionsForShutdown,
+} from "./operations.mjs";
+import {
+  registerProcess,
+  listProcesses,
+  stopProcess,
+  portHolder,
+  killAllNow,
+} from "./processes.mjs";
+import {
+  startSidecars,
+  listSidecars,
+  sidecarLogs,
+  restartSidecar,
+  stopSidecar,
+  stopAllSidecars,
+  killAllSidecarsNow,
+} from "./sidecars.mjs";
+import { watchPlayground, closeAllWatchers } from "./watch.mjs";
+import { detectEditors, publicEditors, launchEditor } from "./editors.mjs";
+import { doctor } from "./setup.mjs";
+import { lstat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import {
   listFiles,
   variantRoot,
+  validateFile,
+  assertSafePath,
   readProjectFile,
   writeProjectFile,
   deleteProjectFile,
@@ -72,11 +106,73 @@ async function load(id) {
   };
 }
 let mutationActive = false;
+// Registry ids of the processes started by the request holding the gate (a
+// test run), so that exactly those can be stopped while it runs.
+const gateProcessIds = new Set();
+// Course-level operations that must not overlap a running action (it is
+// detached from any request and may run for a long time). Learner work in
+// playgrounds (lessons, files, tests, previews) stays available meanwhile.
+const ACTION_EXCLUSIVE = new Set([
+  "/api/actions/run",
+  "/api/sidecars/restart",
+  "/api/sidecars/stop",
+  "/api/ports/free",
+  "/api/processes/stop",
+]);
+/**
+ * Mutation gate. Exempt: answering/cancelling the running action and stopping
+ * the specific process that holds the gate (the action or the running test).
+ * Course-level operations wait for a running action; everything else is
+ * serialised by the request gate.
+ */
+async function gateDecision(req, pathname) {
+  if (["GET", "HEAD"].includes(req.method)) return "none";
+  const action = currentAction();
+  if (action && ["/api/actions/input", "/api/actions/cancel"].includes(pathname))
+    return "exempt";
+  if (pathname === "/api/processes/stop") {
+    const { id } = await readBody(req);
+    if ((action && id === action.processId) || gateProcessIds.has(id))
+      return "exempt";
+  }
+  if (action && ACTION_EXCLUSIVE.has(pathname))
+    return "A course action is running. Wait for it to finish or cancel it first.";
+  if (mutationActive)
+    return "Another workshop operation is still running. Please retry when it finishes.";
+  return "gated";
+}
+let lastPortScan = 0;
+let eventStreams = 0;
+const MAX_EVENT_STREAMS = 16;
+async function previewPorts() {
+  const { ids } = await courseConfig(root);
+  const ports = new Set();
+  for (const id of ids) {
+    const port = (await labConfig(root, id)).preview?.port;
+    if (port) ports.add(port);
+  }
+  return [...ports];
+}
+function ndjson(res) {
+  res.writeHead(200, {
+    "content-type": "application/x-ndjson",
+    "cache-control": "no-store",
+  });
+  return (event) => {
+    if (!res.destroyed) res.write(JSON.stringify(event) + "\n");
+  };
+}
 const server = createServer(async (req, res) => {
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(req.headers.host))
     return json(res, 403, { error: "Host denied" });
   if (req.headers.origin && req.headers.origin !== allowedOrigin)
     return json(res, 403, { error: "Origin denied" });
+  // Browsers omit Origin on simple cross-site GETs (<img>, <script>), but send
+  // Fetch Metadata. Only same-origin pages (the UI via its proxy) and direct
+  // navigation/tools may call the API.
+  const site = req.headers["sec-fetch-site"];
+  if (site && !["same-origin", "none"].includes(site))
+    return json(res, 403, { error: "Cross-site request denied" });
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "access-control-allow-origin": allowedOrigin,
@@ -88,12 +184,9 @@ const server = createServer(async (req, res) => {
   let ownsMutation = false;
   try {
     const url = new URL(req.url, "http://localhost");
-    if (!["GET", "HEAD"].includes(req.method)) {
-      if (mutationActive)
-        return json(res, 409, {
-          error:
-            "Another workshop operation is still running. Please retry when it finishes.",
-        });
+    const gate = await gateDecision(req, url.pathname);
+    if (gate !== "none" && gate !== "exempt") {
+      if (gate !== "gated") return json(res, 409, { error: gate });
       mutationActive = true;
       ownsMutation = true;
     }
@@ -111,6 +204,175 @@ const server = createServer(async (req, res) => {
           : await stopPreview(id),
       );
     }
+    if (url.pathname === "/api/operations" && req.method === "GET") {
+      const { actions, sidecars } = await courseOperations(root);
+      return json(res, 200, {
+        actions,
+        sidecars: sidecars.map((sidecar) => ({
+          ...sidecar,
+          ...listSidecars().find((item) => item.name === sidecar.name),
+        })),
+        running: currentAction(),
+        lastRunId: lastActionRunId(),
+      });
+    }
+    if (url.pathname === "/api/actions/run" && req.method === "POST") {
+      // Starts the action detached from this request: closing or reloading the
+      // tab never cancels it. Follow it with /api/actions/stream.
+      const { id } = await readBody(req);
+      if (typeof id !== "string") throw new Error("Unknown course action");
+      return json(res, 200, await startAction(root, id));
+    }
+    if (url.pathname === "/api/actions/run" && req.method === "GET") {
+      const run = actionRun(url.searchParams.get("runId") || undefined);
+      return run ? json(res, 200, run) : json(res, 404, { error: "No action run" });
+    }
+    if (url.pathname === "/api/actions/stream" && req.method === "GET") {
+      const runId = url.searchParams.get("runId") || currentAction()?.runId;
+      if (!runId) return json(res, 404, { error: "No action run" });
+      let events = [];
+      let deliver = (event) => events.push(event);
+      const { snapshot, unsubscribe } = subscribeAction(runId, (event) =>
+        deliver(event),
+      );
+      const send = ndjson(res);
+      send({ type: "snapshot", ...snapshot });
+      for (const event of events) send(event);
+      const finished = ["passed", "failed", "cancelled", "error"].includes(
+        snapshot.status,
+      );
+      if (finished || events.some((e) => e.type === "result")) {
+        unsubscribe();
+        return res.end();
+      }
+      deliver = (event) => {
+        send(event);
+        if (event.type === "result") {
+          unsubscribe();
+          res.end();
+        }
+      };
+      res.on("close", unsubscribe);
+      return;
+    }
+    if (url.pathname === "/api/actions/input" && req.method === "POST") {
+      const { runId, text } = await readBody(req);
+      return json(res, 200, sendActionInput(runId, text));
+    }
+    if (url.pathname === "/api/actions/cancel" && req.method === "POST") {
+      const { runId } = await readBody(req);
+      const running = currentAction();
+      if (!running || running.runId !== runId)
+        throw new Error("No matching action is running");
+      // Graceful: SIGINT, then SIGKILL after the action's grace period.
+      cancelAction(runId).catch(() => {});
+      return json(res, 200, { cancelling: true });
+    }
+    if (url.pathname === "/api/indicators" && req.method === "GET")
+      return json(res, 200, await indicatorStatus(root));
+    if (url.pathname === "/api/processes" && req.method === "GET")
+      return json(res, 200, {
+        processes: listProcesses(),
+        previewPorts: await previewPorts(),
+      });
+    if (url.pathname === "/api/processes/stop" && req.method === "POST") {
+      const { id } = await readBody(req);
+      if (typeof id !== "string") throw new Error("Unknown or finished process");
+      return json(res, 200, await stopProcess(id));
+    }
+    if (url.pathname === "/api/ports/holder" && req.method === "GET") {
+      const requested = Number(url.searchParams.get("port"));
+      const ports = await previewPorts();
+      if (!ports.includes(requested))
+        throw new Error("Only configured preview ports can be freed");
+      if (Date.now() - lastPortScan < 500)
+        return json(res, 429, { error: "Port lookups are rate limited; retry shortly" });
+      lastPortScan = Date.now();
+      return json(res, 200, await portHolder(requested, ports));
+    }
+    if (url.pathname === "/api/ports/free" && req.method === "POST") {
+      const { port, pid, confirm, confirmName } = await readBody(req);
+      if (confirm !== true || !Number.isInteger(pid))
+        throw new Error("Freeing a port requires explicit confirmation");
+      return json(
+        res,
+        200,
+        await portHolder(Number(port), await previewPorts(), {
+          confirmPid: pid,
+          confirmName,
+        }),
+      );
+    }
+    if (url.pathname === "/api/sidecars" && req.method === "GET")
+      return json(res, 200, { sidecars: listSidecars() });
+    if (url.pathname === "/api/sidecars/logs" && req.method === "GET")
+      return json(res, 200, sidecarLogs(url.searchParams.get("name")));
+    if (
+      ["/api/sidecars/restart", "/api/sidecars/stop"].includes(url.pathname) &&
+      req.method === "POST"
+    ) {
+      const { name } = await readBody(req);
+      if (typeof name !== "string") throw new Error("Unknown sidecar");
+      return json(
+        res,
+        200,
+        url.pathname.endsWith("restart")
+          ? await restartSidecar(root, name)
+          : await stopSidecar(name),
+      );
+    }
+    if (url.pathname === "/api/events" && req.method === "GET") {
+      const id = url.searchParams.get("id");
+      validateId(id);
+      if (eventStreams >= MAX_EVENT_STREAMS)
+        return json(res, 429, { error: "Too many live-reload connections" });
+      // Read-only: the playground must already exist (POST /api/select creates
+      // it under the mutation gate); this endpoint never copies or seeds.
+      try {
+        if (!(await lstat(workspacePath(root, id))).isDirectory())
+          throw new Error();
+      } catch {
+        return json(res, 404, { error: "Playground not created" });
+      }
+      eventStreams++;
+      res.on("close", () => eventStreams--);
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-store",
+        connection: "keep-alive",
+        "access-control-allow-origin": allowedOrigin,
+      });
+      res.write("retry: 2000\n\n");
+      const unsubscribe = await watchPlayground(root, id, (event) => {
+        if (!res.destroyed)
+          res.write("event: change\ndata: " + JSON.stringify(event) + "\n\n");
+      });
+      res.write("event: ready\ndata: " + JSON.stringify({ id }) + "\n\n");
+      const heartbeat = setInterval(() => {
+        if (!res.destroyed) res.write(": keep-alive\n\n");
+      }, 15000);
+      res.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      });
+      return;
+    }
+    if (url.pathname === "/api/editors" && req.method === "GET")
+      return json(res, 200, { editors: publicEditors(detectEditors()) });
+    if (url.pathname === "/api/editor/launch" && req.method === "POST") {
+      const { id, name, variant = "playground", line, column, editor } =
+        await readBody(req);
+      validateFile(name);
+      const path = await assertSafePath(
+        resolve(variantRoot(root, id, variant), name),
+      );
+      if (!(await lstat(path)).isFile()) throw new Error("Not a file");
+      if (editor !== undefined && typeof editor !== "string")
+        throw new Error("Unknown editor");
+      return json(res, 200, await launchEditor(path, { line, column, editor }));
+    }
+    if (url.pathname === "/api/doctor" && req.method === "GET")
+      return json(res, 200, await doctor(root));
     if (url.pathname === "/api/integrations" && req.method === "GET")
       return json(res, 200, { integrations: integrationStatus() });
     if (url.pathname === "/api/integrations/read" && req.method === "POST")
@@ -311,6 +573,16 @@ const server = createServer(async (req, res) => {
             workspaceRoot: workspace.path,
             signal: controller.signal,
             emit: send,
+            onSpawn: (session) =>
+              gateProcessIds.add(
+                registerProcess({
+                  kind: "test",
+                  label: "Tests " + id + " (" + variant + ")",
+                  command: ["test", id, variant],
+                  session,
+                  stop: () => controller.abort(),
+                }).id,
+              ),
           });
           await workspace.cleanup();
           send({ type: "result", ...result });
@@ -340,20 +612,50 @@ const server = createServer(async (req, res) => {
             output: error.message,
           }) + "\n",
         );
-    } else json(res, 400, { error: error.message });
+    } else
+      json(res, 400, {
+        error: error.message,
+        ...(error.code === "PORT_OCCUPIED" ? { code: error.code, port: error.port } : {}),
+      });
   } finally {
-    if (ownsMutation) mutationActive = false;
+    if (ownsMutation) {
+      mutationActive = false;
+      gateProcessIds.clear();
+    }
   }
 });
-server.listen(port, host, () =>
+server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
-  ),
-);
+  );
+  if (process.env.ICODE_SIDECARS !== "0")
+    startSidecars(root).catch((error) =>
+      console.error("Sidecars not started: " + error.message),
+    );
+});
 
-for (const signal of ["SIGTERM", "SIGINT"])
+let shuttingDown = false;
+// Every exit path stops every owned process: signals (including a closed
+// terminal) stop them gracefully; the exit handler force-kills whatever is left
+// (also after an uncaught exception).
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP", ...(process.platform === "win32" ? ["SIGBREAK"] : [])])
   process.on(signal, async () => {
-    await stopAllPreviews();
+    if (shuttingDown) return;
+    shuttingDown = true;
+    closeAllWatchers();
+    const timeout = new Promise((resolve) => setTimeout(resolve, 1500).unref());
+    await Promise.race([
+      Promise.allSettled([
+        stopAllPreviews(),
+        stopAllSidecars(),
+        stopActionsForShutdown(),
+      ]),
+      timeout,
+    ]);
     server.close();
     process.exit(0);
   });
+process.on("exit", () => {
+  killAllSidecarsNow();
+  killAllNow();
+});

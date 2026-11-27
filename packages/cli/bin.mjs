@@ -8,6 +8,7 @@ import { courseConfig, readProgress } from "../web/course.mjs";
 import { selectWorkspace, replaceWorkspace } from "../web/workspaces.mjs";
 import { testLab, labConfig } from "../web/runtime.mjs";
 import { listFiles, readProjectFile } from "../web/files.mjs";
+import { courseOperations } from "../web/operations.mjs";
 const args = process.argv.slice(2),
   command = args[0],
   contentFlag = args.indexOf("--content");
@@ -43,8 +44,19 @@ async function main() {
           await readProjectFile(content, step, name, variant);
       }
     }
+    const operations = await courseOperations(content);
     return console.log(
-      "Valid course: " + course.title + " (" + course.ids.length + " steps)",
+      "Valid course: " +
+        course.title +
+        " (" +
+        course.ids.length +
+        " steps, " +
+        operations.actions.length +
+        " actions, " +
+        operations.indicators.length +
+        " indicators, " +
+        operations.sidecars.length +
+        " sidecars)",
     );
   }
   if (command === "diff") {

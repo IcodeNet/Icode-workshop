@@ -892,3 +892,88 @@ textarea {
 .execution-summary p {
   margin: 4px 0;
 }
+/* Run and operate: ANSI output, banners, actions, processes, dialogs. */
+.ansi-bold { font-weight: 700; }
+.ansi-dim { opacity: 0.7; }
+.ansi-italic { font-style: italic; }
+.ansi-underline { text-decoration: underline; }
+.ansi-fg-black { color: #6b7280; }
+.ansi-fg-red { color: #f87171; }
+.ansi-fg-green { color: #4ade80; }
+.ansi-fg-yellow { color: #facc15; }
+.ansi-fg-blue { color: #60a5fa; }
+.ansi-fg-magenta { color: #e879f9; }
+.ansi-fg-cyan { color: #22d3ee; }
+.ansi-fg-white { color: #e5e7eb; }
+.ansi-fg-bright-black { color: #9ca3af; }
+.ansi-fg-bright-red { color: #fca5a5; }
+.ansi-fg-bright-green { color: #86efac; }
+.ansi-fg-bright-yellow { color: #fde047; }
+.ansi-fg-bright-blue { color: #93c5fd; }
+.ansi-fg-bright-magenta { color: #f0abfc; }
+.ansi-fg-bright-cyan { color: #67e8f9; }
+.ansi-fg-bright-white { color: #fff; }
+.ansi-bg-black { background: #111827; }
+.ansi-bg-red { background: #7f1d1d; }
+.ansi-bg-green { background: #14532d; }
+.ansi-bg-yellow { background: #713f12; }
+.ansi-bg-blue { background: #1e3a8a; }
+.ansi-bg-magenta { background: #701a75; }
+.ansi-bg-cyan { background: #164e63; }
+.ansi-bg-white { background: #d1d5db; color: #111827; }
+.ansi-bg-bright-black { background: #374151; }
+.ansi-bg-bright-red { background: #b91c1c; }
+.ansi-bg-bright-green { background: #15803d; }
+.ansi-bg-bright-yellow { background: #a16207; }
+.ansi-bg-bright-blue { background: #1d4ed8; }
+.ansi-bg-bright-magenta { background: #a21caf; }
+.ansi-bg-bright-cyan { background: #0e7490; }
+.ansi-bg-bright-white { background: #f9fafb; color: #111827; }
+.indicator-banners { margin-bottom: 16px; display: grid; gap: 8px; }
+.indicator {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--wall);
+}
+.indicator.warning { border-color: #ca8a04; background: rgba(202, 138, 4, 0.15); }
+.indicator.danger { border-color: var(--red); background: rgba(227, 18, 11, 0.15); }
+.indicator code, .dialog code, .processes-panel code { word-break: break-all; }
+.indicator button { margin-left: 8px; }
+.action-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+.action-row button { margin-bottom: 0; }
+.tools-panel button.danger, .dialog button.danger { border-color: var(--red); }
+.badge { font-size: 11px; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--line); }
+.badge.danger { border-color: var(--red); color: var(--red); }
+.execution-summary button { margin-left: 12px; }
+.processes-panel table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+.processes-panel th, .processes-panel td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.processes-panel td button { margin-bottom: 0; padding: 4px 8px; }
+.port-conflict { border: 1px solid #ca8a04; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.disk-change { padding: 8px 12px; border: 1px solid #ca8a04; background: rgba(202, 138, 4, 0.15); font-size: 13px; }
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.dialog h2 { margin-top: 0; font-size: 18px; }
+.dialog label { display: grid; gap: 6px; margin: 12px 0; }
+.dialog input { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog-actions button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--wall); color: var(--ink); }
+.dialog-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.holder { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; }
+.holder dd { margin: 0; }
