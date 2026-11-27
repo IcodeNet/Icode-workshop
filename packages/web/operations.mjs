@@ -215,6 +215,11 @@ export function startScript(
 }
 
 const MAX_PROTOCOL_LINE = 64 * 1024;
+// eslint-disable-next-line no-control-regex
+const LEADING_SGR = /^(?:\x1b\[[0-9;]*m)+/;
+// An escape sequence still arriving (ESC, ESC[, ESC[3…).
+// eslint-disable-next-line no-control-regex
+const PARTIAL_SGR = /^\x1b(?:\[[0-9;]*)?$/;
 /**
  * Split raw process output into lines so protocol lines are never shown.
  * Runs on the full stream, before any output cap. Partial lines are emitted at
@@ -228,7 +233,8 @@ export function protocolFilter(token, onText, onConfirm) {
   const midLine = { stdout: false, stderr: false };
   const prefix = CONFIRM_TAG + ":" + token + "::";
   const handleLine = (type, line, newline) => {
-    const trimmed = line.replace(/\r$/, "");
+    // Colour/reset codes that tools print before a line do not hide a prompt.
+    const trimmed = line.replace(/\r$/, "").replace(LEADING_SGR, "");
     const continuation = midLine[type];
     midLine[type] = false;
     if (!continuation && trimmed.startsWith(CONFIRM_TAG)) {
@@ -268,10 +274,13 @@ export function protocolFilter(token, onText, onConfirm) {
         handleLine(type, buffer.slice(0, index), "\n");
         buffer = buffer.slice(index + 1);
       }
+      const bare = buffer.replace(LEADING_SGR, "");
       const couldBeProtocol =
         !midLine[type] &&
         buffer.length <= MAX_PROTOCOL_LINE &&
-        (CONFIRM_TAG.startsWith(buffer) || buffer.startsWith(CONFIRM_TAG));
+        (PARTIAL_SGR.test(bare) ||
+          CONFIRM_TAG.startsWith(bare) ||
+          bare.startsWith(CONFIRM_TAG));
       if (buffer && !couldBeProtocol) {
         onText(type, buffer);
         buffer = "";
@@ -498,7 +507,8 @@ export function sendActionInput(runId, input) {
   return { sent: true };
 }
 /**
- * Explicit cancel: SIGINT to the process group (graceful Ctrl+C on Windows),
+ * Explicit cancel: SIGINT to the process group (on Windows only a close
+ * request that console scripts usually ignore — effectively a delayed force-stop),
  * then SIGKILL after the action's cancelGraceSeconds. Resolves when stopped.
  */
 export async function cancelAction(runId, { graceMs } = {}) {

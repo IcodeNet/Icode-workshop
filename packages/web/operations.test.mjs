@@ -240,7 +240,7 @@ test(
     try {
       let size = 0;
       let confirmed = false;
-      const result = await runAction(root, "noisy", {
+      const running = runAction(root, "noisy", {
         emit: (event) => {
           if (event.text) size += event.text.length;
           if (event.type === "confirm") {
@@ -249,6 +249,27 @@ test(
           }
         },
       });
+      // Fail fast (instead of hanging on stdin) if the prompt is ever lost.
+      let watchdog;
+      const result = await Promise.race([
+        running,
+        new Promise((_, reject) => {
+          watchdog = setTimeout(async () => {
+            const active = currentAction();
+            if (active)
+              await cancelAction(active.runId, { graceMs: 100 }).catch(
+                () => {},
+              );
+            reject(
+              new Error(
+                "No confirmation prompt after " +
+                  size +
+                  " characters of output",
+              ),
+            );
+          }, 20000);
+        }),
+      ]).finally(() => clearTimeout(watchdog));
       assert.ok(size > 2_100_000, String(size));
       assert.equal(confirmed, true);
       assert.equal(result.status, "passed");
@@ -384,4 +405,55 @@ test("indicators fail closed when the manifest or an indicator cannot be checked
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test(
+  "two concurrent starts cannot both run (guard after the manifest read)",
+  { timeout: 30000 },
+  async () => {
+    const root = await operationsCourse();
+    try {
+      const results = await Promise.allSettled([
+        startAction(root, "sleep"),
+        startAction(root, "sleep"),
+      ]);
+      assert.deepEqual(results.map((r) => r.status).sort(), [
+        "fulfilled",
+        "rejected",
+      ]);
+      assert.match(
+        results.find((r) => r.status === "rejected").reason.message,
+        /already running/,
+      );
+      assert.equal(
+        listProcesses().filter((p) => p.kind === "action").length,
+        1,
+      );
+      await cancelAction(currentAction().runId, { graceMs: 200 });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test("prompts preceded by ANSI colour codes are still detected, also when split", () => {
+  const shown = [],
+    prompts = [];
+  const filter = protocolFilter(
+    "tok",
+    (type, text) => shown.push(text),
+    (c) => prompts.push(c.expected),
+  );
+  filter.push("stdout", '\x1b[0m::icode-confirm:tok::{"expected":"a"}\n');
+  filter.push("stdout", "\x1b");
+  filter.push("stdout", "[1;32m\x1b[0m::icode-conf");
+  filter.push("stdout", 'irm:tok::{"expected":"b"}\n');
+  filter.push("stdout", '\x1b[31m::icode-confirm:wrong::{"expected":"c"}\n');
+  filter.push("stdout", "\x1b[32mcoloured text\n");
+  filter.flush();
+  assert.deepEqual(prompts, ["a", "b"]);
+  const text = shown.join("");
+  assert.doesNotMatch(text, /tok::/);
+  assert.match(text, /without this run's token/);
+  assert.match(text, /\x1b\[32mcoloured text\n/);
 });

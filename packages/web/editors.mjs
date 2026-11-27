@@ -122,16 +122,36 @@ export function findExecutable(
  * executable instead (for example …\bin\code.cmd → …\Code.exe), otherwise
  * report the editor as unavailable.
  */
-function windowsCommand(path, kind) {
-  if (!/\.(cmd|bat)$/i.test(path)) return { command: path };
-  const exe = KNOWN_EDITORS[kind]?.windowsExe;
-  if (exe) {
-    const candidate = join(dirname(path), "..", exe);
-    if (existsSync(candidate)) return { command: candidate };
+// Batch launchers → the executable they start, by launcher name. VS Code puts
+// bin\code.cmd one level below Code.exe; Cursor puts its launcher in
+// resources\app\bin\cursor.cmd, three levels below Cursor.exe.
+const WINDOWS_LAUNCHERS = {
+  code: ["Code.exe"],
+  "code-insiders": ["Code - Insiders.exe"],
+  cursor: ["Cursor.exe"],
+};
+function windowsCommand(path) {
+  const lower = path.toLowerCase();
+  // Only real executables can be spawned without a shell (.js/.vbs/.ps1
+  // PATHEXT hits cannot).
+  if (lower.endsWith(".exe") || lower.endsWith(".com"))
+    return { command: path };
+  if (lower.endsWith(".cmd") || lower.endsWith(".bat")) {
+    const launcher = path
+      .split(/[\\/]/)
+      .pop()
+      .replace(/\.(cmd|bat)$/i, "")
+      .toLowerCase();
+    for (const exe of WINDOWS_LAUNCHERS[launcher] || [])
+      for (const up of [[".."], ["..", "..", ".."]]) {
+        const candidate = join(dirname(path), ...up, exe);
+        if (existsSync(candidate)) return { command: candidate };
+      }
+    return {
+      reason: "launcher is a batch file and cannot be run without a shell",
+    };
   }
-  return {
-    reason: "launcher is a batch file and cannot be run without a shell",
-  };
+  return { reason: "launcher is a script and cannot be run without a shell" };
 }
 /** Parse ICODE_EDITOR: a JSON array of strings or a single executable. */
 export function parseEditorSetting(value) {
@@ -167,7 +187,7 @@ export function detectEditors({
     let path = findExecutable(bin, { env, platform });
     let reason = path ? "" : "not found on PATH";
     if (path && platform === "win32") {
-      const resolved = windowsCommand(path, kind);
+      const resolved = windowsCommand(path);
       path = resolved.command || null;
       reason = resolved.reason || "";
     }

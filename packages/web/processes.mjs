@@ -234,10 +234,29 @@ function linuxProcTable() {
   }
   return table;
 }
-/** Snapshot of processes: pid → { ppid, pgid, uid, started }. Never uses a shell. */
-export function processTable() {
-  if (process.platform === "win32") {
-    const result = spawnSync(
+/**
+ * Snapshot of processes: pid → { ppid, pgid, uid, started }. Never uses a
+ * shell. Throws when the list cannot be read or parsed (command missing,
+ * failing, timing out or printing nothing usable): callers that destroy
+ * processes must fail closed. `run` and `readProc` are injectable for tests.
+ */
+export function processTable({
+  platform = process.platform,
+  run = spawnSync,
+  readProc = linuxProcTable,
+} = {}) {
+  const fail = (why) => {
+    throw new Error("Could not read the process list (" + why + ")");
+  };
+  const check = (result, what) => {
+    if (result?.error) fail(what + ": " + result.error.message);
+    if (result?.status !== 0)
+      fail(what + " exited with status " + result?.status);
+    if (!result.stdout || !String(result.stdout).trim())
+      fail(what + " printed nothing");
+  };
+  if (platform === "win32") {
+    const result = run(
       "powershell.exe",
       [
         "-NoProfile",
@@ -247,28 +266,71 @@ export function processTable() {
       ],
       { encoding: "utf8", windowsHide: true, timeout: 15000 },
     );
+    check(result, "PowerShell");
     const table = new Map();
-    for (const line of (result.stdout || "").split(/\r?\n/)) {
-      const [pid, ppid, started] = line.trim().split(/\s+/);
-      if (/^\d+$/.test(pid ?? ""))
-        table.set(Number(pid), {
-          pid: Number(pid),
-          ppid: Number(ppid),
+    for (const line of String(result.stdout).split(/\r?\n/)) {
+      const match = line.trim().match(/^(\d+) (\d+) (\d+)$/);
+      if (match)
+        table.set(Number(match[1]), {
+          pid: Number(match[1]),
+          ppid: Number(match[2]),
           pgid: null,
           uid: null,
-          started,
+          started: match[3],
         });
     }
+    if (!table.size) fail("PowerShell output could not be parsed");
     return table;
   }
-  const ps = spawnSync("ps", ["-A", "-o", "pid=,ppid=,pgid=,uid=,lstart="], {
+  const ps = run("ps", ["-A", "-o", "pid=,ppid=,pgid=,uid=,lstart="], {
     encoding: "utf8",
     timeout: 5000,
     env: { ...process.env, LC_ALL: "C" },
   });
-  if (!ps.error && ps.status === 0 && ps.stdout) return parsePs(ps.stdout);
-  if (process.platform === "linux") return linuxProcTable();
-  return new Map();
+  try {
+    check(ps, "ps");
+    const table = parsePs(String(ps.stdout));
+    if (!table.size) fail("ps output could not be parsed");
+    return table;
+  } catch (error) {
+    if (platform !== "linux") throw error;
+    let table;
+    try {
+      table = readProc();
+    } catch {}
+    if (!table?.size) throw error;
+    return table;
+  }
+}
+/** Parse `tasklist /V /FO CSV /NH` output: the "User Name" column. */
+export function parseTasklistUser(text) {
+  const line = String(text || "")
+    .split(/\r?\n/)
+    .find((l) => l.trim().startsWith('"'));
+  if (!line) return null;
+  const fields = [...line.matchAll(/"((?:[^"]|"")*)"/g)].map((m) => m[1]);
+  const user = fields[6];
+  return user && user !== "N/A" ? user : null;
+}
+/** Windows owner of a process ("DOMAIN\\user"); throws when unknown. */
+export function windowsOwner(pid, { run = spawnSync } = {}) {
+  const result = run(
+    "tasklist",
+    ["/V", "/FO", "CSV", "/NH", "/FI", "PID eq " + pid],
+    {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 10000,
+    },
+  );
+  if (result?.error || result?.status !== 0)
+    throw new Error("could not query the process owner");
+  const user = parseTasklistUser(result.stdout);
+  if (!user) throw new Error("the process owner is not visible");
+  return user;
+}
+export function currentWindowsUser(env = process.env) {
+  return (env.USERDOMAIN ? env.USERDOMAIN + "\\" : "") + (env.USERNAME || "");
 }
 /** Ancestors of pid (nearest first), from a process table. */
 export function ancestors(table, pid) {
@@ -304,7 +366,7 @@ export function classifyHolder(table, pid, owned, enginePid = process.pid) {
 
 // Shared daemons that multiplex many ports; stopping them breaks far more than one app.
 const MULTIPLEXERS =
-  /(^|[\\/\s])(com\.docker[\w.-]*|docker-proxy|dockerd|containerd[\w-]*|vpnkit[\w-]*|wslrelay|wslhost|svchost|system|launchd|systemd[\w-]*|sshd?|kubectl|code helper|code|cursor)(\.exe)?($|\s)/i;
+  /(^|[\\/\s])(com\.docker[\w.-]*|docker-proxy|dockerd|containerd[\w-]*|vpnkit[\w-]*|wslrelay|wslhost|svchost|system|launchd|systemd[\w-]*|sshd?|kubectl|code helper|code|cursor)(\.exe)?($|[\s:])/i;
 export function isMultiplexer(command, pid) {
   return (
     (process.platform === "win32" && pid <= 4) ||
@@ -320,9 +382,15 @@ export const processName = (command) =>
  * never killed.
  */
 export function terminatePid(pid, { started, graceMs = 1500 } = {}) {
+  // Escalate only when the same process provably still exists; if the
+  // process list cannot be read, do nothing more.
   const sameProcess = () => {
-    const info = processTable().get(pid);
-    return Boolean(info) && (started === undefined || info.started === started);
+    try {
+      const info = processTable().get(pid);
+      return Boolean(info) && started !== undefined && info.started === started;
+    } catch {
+      return false;
+    }
   };
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/PID", String(pid)], {
@@ -358,14 +426,34 @@ export function terminatePid(pid, { started, graceMs = 1500 } = {}) {
 export async function portHolder(
   port,
   allowedPorts,
-  { confirmPid, confirmName, table: givenTable, enginePid = process.pid } = {},
+  {
+    confirmPid,
+    confirmName,
+    table: givenTable,
+    enginePid = process.pid,
+    platform = process.platform,
+    findOwners = findPortOwners,
+    loadTable = () => processTable(),
+    ownerOf = (pid) => windowsOwner(pid),
+    currentUser = currentWindowsUser(),
+    uid = process.getuid?.(),
+  } = {},
 ) {
   if (!allowedPorts.includes(port))
     throw new Error("Only configured preview ports can be freed");
-  const owners = findPortOwners(port);
+  const owners = findOwners(port);
   const owned = ownedPids();
-  const table = givenTable ?? (owners.length ? processTable() : new Map());
-  const uid = process.getuid?.();
+  // Fail closed: without a readable process list nobody can be verified.
+  let table = givenTable,
+    tableError = null;
+  if (!table && owners.length) {
+    try {
+      table = loadTable();
+    } catch (error) {
+      tableError = error.message;
+    }
+  }
+  table ??= new Map();
   const holders = owners.map((owner) => {
     const { self, engineOwned, info } = classifyHolder(
       table,
@@ -375,17 +463,41 @@ export async function portHolder(
     );
     const wildcard = owner.addresses.some((a) => WILDCARD.test(a));
     const name = processName(owner.command);
-    const refusal = self
-      ? "This is the workshop itself (or the program that started it)."
-      : engineOwned
-        ? "This is a workshop process; stop it from the Processes tab."
-        : !owner.addresses.every(isLoopbackListener)
-          ? "It listens on a non-loopback address and will not be stopped from here."
-          : isMultiplexer(owner.command, owner.pid)
-            ? "It is a shared system or container service that serves many ports; stop it with its own tools."
-            : uid !== undefined && info?.uid != null && info.uid !== uid
-              ? "It belongs to another user."
-              : null;
+    let userRefusal = null;
+    if (!tableError && info) {
+      if (platform === "win32") {
+        try {
+          const user = ownerOf(owner.pid);
+          if (user.toLowerCase() !== currentUser.toLowerCase())
+            userRefusal = "It belongs to another user.";
+        } catch (error) {
+          userRefusal =
+            "Could not verify who owns this process (" +
+            error.message +
+            "); nothing was stopped.";
+        }
+      } else if (!Number.isInteger(info.uid) || info.uid < 0)
+        userRefusal =
+          "Could not verify who owns this process; nothing was stopped.";
+      else if (uid !== undefined && info.uid !== uid)
+        userRefusal = "It belongs to another user.";
+    }
+    const refusal =
+      owner.pid === enginePid || self
+        ? "This is the workshop itself (or the program that started it)."
+        : tableError
+          ? "Could not verify who owns this process: " +
+            tableError +
+            ". Nothing was stopped."
+          : !info
+            ? "Could not verify who owns this process: it is not in the process list. Nothing was stopped."
+            : engineOwned
+              ? "This is a workshop process; stop it from the Processes tab."
+              : !owner.addresses.every(isLoopbackListener)
+                ? "It listens on a non-loopback address and will not be stopped from here."
+                : isMultiplexer(owner.command, owner.pid)
+                  ? "It is a shared system or container service that serves many ports; stop it with its own tools."
+                  : userRefusal;
     return {
       pid: owner.pid,
       command: owner.command,

@@ -190,3 +190,42 @@ test("line and column are clamped", () => {
     "/x:10000000:10000000",
   ]);
 });
+
+test("Windows: Cursor and Insiders launchers map to their executables; script shims are unavailable", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "icode-win-editors2-"));
+  try {
+    // Cursor: <root>\resources\app\bin\cursor.cmd → <root>\Cursor.exe
+    const cursorBin = join(dir, "Cursor", "resources", "app", "bin");
+    await mkdir(cursorBin, { recursive: true });
+    await writeFile(join(cursorBin, "cursor.cmd"), "@echo off\n");
+    await writeFile(join(dir, "Cursor", "Cursor.exe"), "MZ");
+    // VS Code Insiders: <root>\bin\code-insiders.cmd → <root>\Code - Insiders.exe
+    const insidersBin = join(dir, "Insiders", "bin");
+    await mkdir(insidersBin, { recursive: true });
+    await writeFile(join(insidersBin, "code-insiders.cmd"), "@echo off\n");
+    await writeFile(join(dir, "Insiders", "Code - Insiders.exe"), "MZ");
+    // Sublime via a .js shim found through PATHEXT.
+    const shims = join(dir, "shims");
+    await mkdir(shims);
+    await writeFile(join(shims, "subl.js"), "WScript.Echo(1)\n");
+    const env = {
+      PATH: [cursorBin, insidersBin, shims].join(";"),
+      PATHEXT: ".COM;.EXE;.BAT;.CMD;.JS",
+    };
+    const editors = detectEditors({ env, platform: "win32", tty: false });
+    const cursor = editors.find((e) => e.id === "cursor");
+    assert.equal(cursor.available, true);
+    assert.equal(
+      cursor.command,
+      join(cursorBin, "..", "..", "..", "Cursor.exe"),
+    );
+    const code = editors.find((e) => e.id === "code");
+    assert.equal(code.available, true);
+    assert.equal(code.command, join(insidersBin, "..", "Code - Insiders.exe"));
+    const subl = editors.find((e) => e.id === "subl");
+    assert.equal(subl.available, false);
+    assert.match(subl.reason, /script/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

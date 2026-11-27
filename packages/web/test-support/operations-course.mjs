@@ -15,6 +15,16 @@ export async function operationsCourse() {
     join(root, "exercises", "01", "solution", "index.mjs"),
     "export default 1\n",
   );
+  // A configured preview port, so port lookups are allowed for this course.
+  await writeFile(
+    join(root, "exercises", "01", "lab.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      runtime: "node",
+      entry: "index.mjs",
+      preview: { command: ["node", "index.mjs"], port: 4499 },
+    }),
+  );
   await writeFile(
     join(root, "package.json"),
     JSON.stringify({

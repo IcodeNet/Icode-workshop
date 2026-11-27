@@ -65,7 +65,7 @@ Only one action runs at a time. While it runs, other course-level operations (an
 
 ### Cancelling
 
-Only an explicit **Cancel action** (confirmed in a dialog) or **Stop** in the Processes tab stops a run. The engine sends SIGINT to the action's process group (a graceful Ctrl+C; `taskkill` without `/F` on Windows), waits `cancelGraceSeconds` (default 30) and only then force-kills it. **Cancelling a deployment part-way can leave cloud resources running and billing**; the UI says so. Write scripts that handle SIGINT by cleaning up or recording what exists, and **write the indicator marker before you start provisioning** (remove it after a successful tear-down) so the cost banner appears even if a run is interrupted. Stopping the workshop itself (Ctrl+C, closed terminal, crash) stops running actions quickly (SIGTERM, then SIGKILL).
+Only an explicit **Cancel action** (confirmed in a dialog) or **Stop** in the Processes tab stops a run. On Linux and macOS the engine sends SIGINT to the action's process group (a graceful Ctrl+C), waits `cancelGraceSeconds` (default 30) and only then force-kills it. **On Windows cancel is not graceful yet:** the engine asks the process tree to close (`taskkill` without `/F`), which console programs such as `node`, `az` or `terraform` normally ignore, so the script's interrupt handler does not run and the tree is force-killed after the grace period (known limitation; see "Follow-ups"). **Cancelling a deployment part-way can leave cloud resources running and billing**; the UI says so. Write scripts that handle SIGINT by cleaning up or recording what exists, and **write the indicator marker before you start provisioning** (remove it after a successful tear-down) so the cost banner appears even if a run is interrupted. Stopping the workshop itself (Ctrl+C, closed terminal, crash) stops running actions quickly (SIGTERM, then SIGKILL).
 
 ### Typed confirmation protocol
 
@@ -77,7 +77,7 @@ To ask the learner to confirm, print one line that carries the run's token from 
 
 The UI hides that line, opens a dialog that requires typing `expected` exactly (the button stays disabled until it matches), and writes the typed text plus a newline to the script's stdin. **Cancel** writes an empty line. The server accepts only the exact `expected` text or an empty line, and only while a confirmation is pending. The script must still re-check the input itself; it is authoritative.
 
-The token is random per run and only exists in the action's environment, so output the script merely relays (a CLI error message, a downloaded file, a dependency's install log) cannot forge or pre-answer a prompt: lines starting with `::icode-confirm` without the right token are shown as `[ignored confirmation request without this run's token]`. Child processes inherit the environment, so a helper the script runs can prompt too; do not pass the token to anything untrusted. `expected` is 1–200 characters and, like `message` (≤ 1000), may not contain control, formatting (for example bidirectional overrides) or line-separator characters. Protocol lines are detected on the complete output stream; no output limit can drop them.
+The token is random per run and only exists in the action's environment, so output the script merely relays (a CLI error message, a downloaded file, a dependency's install log) cannot forge or pre-answer a prompt: lines starting with `::icode-confirm` (after any leading ANSI colour codes, which are ignored) without the right token are shown as `[ignored confirmation request without this run's token]`. Child processes inherit the environment, so a helper the script runs can prompt too; do not pass the token to anything untrusted. `expected` is 1–200 characters and, like `message` (≤ 1000), may not contain control, formatting (for example bidirectional overrides) or line-separator characters. Protocol lines are detected on the complete output stream; no output limit can drop them.
 
 ```js
 // scripts/deploy.mjs
@@ -128,7 +128,7 @@ When a preview cannot start because its configured port is held by another proce
 - shared system and container services that multiplex many ports (Docker Desktop's `com.docker.*`, `docker-proxy`, `vpnkit`, `containerd`, `svchost`, `launchd`, `systemd`, `ssh`, VS Code/Cursor port forwarding, PID ≤ 4 on Windows);
 - processes owned by another user.
 
-A listener on a wildcard address (`0.0.0.0`, `::`) holds the loopback port too, but because it is reachable from the network the learner must also type the process name. Only that process is stopped, never its children (no `taskkill /T` for foreign processes): SIGTERM (or `taskkill` without `/F`), then — after 1.5 s and only if the same process, identified by PID **and start time**, still exists — SIGKILL (`taskkill /F`). A reused PID is never killed.
+A listener on a wildcard address (`0.0.0.0`, `::`) holds the loopback port too, but because it is reachable from the network the learner must also type the process name. Only that process is stopped, never its children (no `taskkill /T` for foreign processes): SIGTERM (or `taskkill` without `/F`), then — after 1.5 s and only if the same process, identified by PID **and start time**, still exists — SIGKILL (`taskkill /F`). A reused PID is never killed. Free port fails closed: if the process list cannot be read (`ps` or PowerShell missing, failing, timing out or printing something unparseable), if the holder is not in it, or if its owner cannot be determined (POSIX uid; on Windows the `tasklist /V` user), nothing is stopped and the dialog says why.
 
 ## Live reload
 
@@ -145,7 +145,7 @@ While a lesson is open, the UI subscribes to `/api/events?id=<step>` (server-sen
 | Sublime Text | `subl` | `file:line:column` |
 | vim / nvim / nano / emacs | `$VISUAL`, `$EDITOR` | `+…` cursor argument; only when the engine runs in a terminal |
 
-Order of preference: `ICODE_EDITOR` (an executable, or a JSON array such as `["/opt/editor/bin/ed","--reuse-window"]`), `$VISUAL`, `$EDITOR`, then the GUI editors on `PATH`. On Windows only `PATHEXT` files are considered (the extensionless `bin\code` next to `code.cmd` is a Git Bash script), and batch-file launchers (`code.cmd`, `cursor.cmd`) are mapped to the editor executable (`Code.exe`, `Cursor.exe`); other batch launchers are reported as unavailable. Line and column are clamped to 1…10,000,000. Only one terminal editor can be open at a time, since it shares the workshop's terminal. **Open in VS Code** (`vscode://` link) remains as a fallback.
+Order of preference: `ICODE_EDITOR` (an executable, or a JSON array such as `["/opt/editor/bin/ed","--reuse-window"]`), `$VISUAL`, `$EDITOR`, then the GUI editors on `PATH`. On Windows only `PATHEXT` files are considered (the extensionless `bin\code` next to `code.cmd` is a Git Bash script), only `.exe`/`.com` files are spawned directly, and batch-file launchers are mapped to the editor executable: `bin\code.cmd` → `Code.exe`, `bin\code-insiders.cmd` → `Code - Insiders.exe`, Cursor's `resources\app\bin\cursor.cmd` → `Cursor.exe`. Other batch launchers and script shims (`.js`, `.vbs`, …) are reported as unavailable. Line and column are clamped to 1…10,000,000. Only one terminal editor can be open at a time, since it shares the workshop's terminal. **Open in VS Code** (`vscode://` link) remains as a fallback.
 
 ## Install check
 
@@ -154,3 +154,9 @@ Order of preference: `ICODE_EDITOR` (an executable, or a JSON array such as `["/
 ## API
 
 All endpoints keep the loopback Host/Origin checks and also refuse requests whose `Sec-Fetch-Site` is not `same-origin` or `none`, so another website cannot trigger even side-effecting GETs (for example through `<img src>`). `GET /api/operations`, `POST /api/actions/run` (starts a detached run; returns its snapshot), `GET /api/actions/run?runId=` (snapshot of the running or last run), `GET /api/actions/stream?runId=` (NDJSON: `snapshot`, `stdout`/`stderr`, `confirm`, `answered`, `status`, `result`; disconnecting never cancels), `POST /api/actions/input`, `POST /api/actions/cancel`, `GET /api/indicators`, `GET /api/processes`, `POST /api/processes/stop`, `GET /api/ports/holder?port=`, `POST /api/ports/free` (`{port, pid, confirm: true, confirmName?}`), `GET /api/sidecars`, `GET /api/sidecars/logs?name=`, `POST /api/sidecars/restart|stop`, `GET /api/events?id=` (SSE), `GET /api/editors`, `POST /api/editor/launch`, `GET /api/doctor`.
+
+## Follow-ups
+
+- Graceful cancel on Windows (deliver a real console interrupt or a cancel message the script can handle).
+- `POST /api/ports/free` re-scans without the 500 ms lookup limit (it is gated and same-origin only); `/api/actions/stream` followers are not capped like `/api/events`; the UI re-attaches to an action on page load, not when the stream drops while the tab stays open.
+- An action script that reads `.workshop/playgrounds` may observe a learner's concurrent save or reset (playground work is not blocked during actions).

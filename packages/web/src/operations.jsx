@@ -303,7 +303,7 @@ export function ActionsPanel({ state }) {
         <ConfirmDialog
           title={"Cancel “" + (state.run?.label || "action") + "”?"}
           message={
-            "Cancelling interrupts the script (Ctrl+C), then force-stops it after " +
+            "Cancelling interrupts the script (Ctrl+C; on Windows the script is usually force-stopped instead), then force-stops it after " +
             (state.run?.cancelGraceSeconds ?? 30) +
             " seconds. Cancelling a deployment part-way can leave cloud resources running and billing; check your cloud account or run the course's tear-down action afterwards."
           }

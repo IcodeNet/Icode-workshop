@@ -7,6 +7,7 @@ import { readFile, rm, writeFile, mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 import { fileURLToPath } from "node:url";
 import { operationsCourse } from "./test-support/operations-course.mjs";
 
@@ -74,12 +75,12 @@ async function readEvents(response, onEvent) {
   }
 }
 
-async function startServer(root, extraEnv = {}) {
+async function startServer(root, extraEnv = {}, nodeArgs = []) {
   const port = await freePort();
   const base = `http://127.0.0.1:${port}/api`;
   const server = spawn(
     process.execPath,
-    [fileURLToPath(new URL("./server.mjs", import.meta.url))],
+    [...nodeArgs, fileURLToPath(new URL("./server.mjs", import.meta.url))],
     {
       env: {
         ...process.env,
@@ -519,6 +520,94 @@ test(
       ).processes.find((p) => p.kind === "action").pid;
       server.kill("SIGHUP");
       await closed;
+      await until(() => !alive(sidecarPid) && !alive(actionPid), 5000);
+    } finally {
+      if (server.exitCode === null && server.signalCode === null)
+        server.kill("SIGKILL");
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "API: live-reload streams are capped and port lookups are rate limited",
+  { timeout: 60000 },
+  async () => {
+    const root = await operationsCourse();
+    const { base, server, closed, post } = await startServer(root, {
+      ICODE_SIDECARS: "0",
+    });
+    const controllers = [];
+    try {
+      assert.equal((await post("/select", { id: "01" })).status, 200);
+      const open = async () => {
+        const controller = new AbortController();
+        const response = await fetch(base + "/events?id=01", {
+          signal: controller.signal,
+        });
+        controllers.push(controller);
+        return response.status;
+      };
+      const statuses = [];
+      for (let i = 0; i < 17; i++) statuses.push(await open());
+      assert.deepEqual(statuses, [...Array(16).fill(200), 429]);
+      controllers.shift().abort();
+      await until(async () => (await open()) === 200);
+
+      const lookups = [];
+      for (let i = 0; i < 4; i++)
+        lookups.push((await fetch(base + "/ports/holder?port=4499")).status);
+      assert.equal(lookups[0], 200);
+      assert.ok(
+        lookups.slice(1).every((s) => s === 429),
+        String(lookups),
+      );
+      await new Promise((r) => setTimeout(r, 600));
+      assert.equal((await fetch(base + "/ports/holder?port=4499")).status, 200);
+    } finally {
+      for (const controller of controllers) controller.abort();
+      server.kill("SIGTERM");
+      await closed;
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "a crashing engine still kills every owned process (exit handler)",
+  { skip: process.platform === "win32", timeout: 60000 },
+  async () => {
+    const root = await operationsCourse();
+    const flag = join(root, "crash.flag");
+    const preload = join(root, "crash-preload.mjs");
+    await writeFile(
+      preload,
+      `import { existsSync } from "node:fs";
+setInterval(() => { if (existsSync(${JSON.stringify(flag)})) throw new Error("simulated crash"); }, 50).unref();
+`,
+    );
+    const { base, server, closed, post } = await startServer(root, {}, [
+      "--import",
+      pathToFileURL(preload).href,
+    ]);
+    try {
+      const sidecarPid = Number(
+        await until(() =>
+          readFile(join(root, "db.pid"), "utf8").catch(() => ""),
+        ),
+      );
+      const run = await (await post("/actions/run", { id: "sleep" })).json();
+      await until(async () =>
+        (
+          await (await fetch(base + "/actions/run?runId=" + run.runId)).json()
+        ).output.includes("sleeping"),
+      );
+      const actionPid = (
+        await (await fetch(base + "/processes")).json()
+      ).processes.find((p) => p.kind === "action").pid;
+      await writeFile(flag, "1");
+      const [code] = await closed;
+      assert.notEqual(code, 0, "the engine crashed");
       await until(() => !alive(sidecarPid) && !alive(actionPid), 5000);
     } finally {
       if (server.exitCode === null && server.signalCode === null)

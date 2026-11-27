@@ -20,6 +20,8 @@ import {
   portHolder,
   processTable,
   terminatePid,
+  windowsOwner,
+  parseTasklistUser,
 } from "./processes.mjs";
 import { startProcess } from "../adapter-api/node.mjs";
 import { startScript } from "./operations.mjs";
@@ -410,3 +412,223 @@ test(
     }
   },
 );
+
+// ---- Fail-closed ownership (N1) and refusals inside portHolder (N6) ----
+const ok = (stdout) => ({ status: 0, stdout });
+const failures = {
+  missing: () => ({
+    error: Object.assign(new Error("spawn ps ENOENT"), { code: "ENOENT" }),
+  }),
+  failing: () => ({ status: 1, stdout: "" }),
+  timeout: () => ({
+    error: Object.assign(new Error("spawnSync ETIMEDOUT"), {
+      code: "ETIMEDOUT",
+    }),
+    status: null,
+  }),
+  empty: () => ok("   \n"),
+  garbage: () => ok("<html>not a process list</html>\nERROR: access denied\n"),
+};
+
+test("processTable throws (never returns an empty list) when the process list is unavailable", () => {
+  for (const [name, run] of Object.entries(failures)) {
+    for (const platform of ["darwin", "win32"])
+      assert.throws(
+        () => processTable({ platform, run }),
+        /Could not read the process list/,
+        platform + " " + name,
+      );
+    // Linux falls back to /proc, and still fails closed when that is unavailable too.
+    assert.throws(
+      () => processTable({ platform: "linux", run, readProc: () => new Map() }),
+      /Could not read the process list/,
+      "linux " + name,
+    );
+    assert.throws(
+      () =>
+        processTable({
+          platform: "linux",
+          run,
+          readProc: () => {
+            throw new Error("EACCES");
+          },
+        }),
+      /Could not read the process list/,
+    );
+  }
+  assert.equal(
+    processTable({
+      platform: "darwin",
+      run: () => ok(" 7 1 7 501 Mon Jan  1 00:00:00 2026\n"),
+    }).get(7).uid,
+    501,
+  );
+  assert.equal(
+    processTable({
+      platform: "win32",
+      run: () => ok("7 1 133000000000000000\r\n"),
+    }).get(7).ppid,
+    1,
+  );
+});
+
+const holderAt =
+  (pid, command = "node server.mjs", addresses = ["127.0.0.1"]) =>
+  () => [{ pid, command, addresses }];
+const row = (pid, extra = {}) => [
+  pid,
+  { pid, ppid: 1, pgid: pid, uid: 1000, started: "s" + pid, ...extra },
+];
+const base = { enginePid: 5, uid: 1000, platform: "linux" };
+const tableWith = (...rows) => new Map([row(1, { ppid: 0 }), row(5), ...rows]);
+
+test("portHolder refuses and kills nothing when ownership cannot be verified", async () => {
+  const killed = [];
+  const originalKill = process.kill;
+  process.kill = (pid, signal) => {
+    if (pid >= 900000) {
+      killed.push([pid, signal]);
+      return true;
+    }
+    return originalKill.call(process, pid, signal);
+  };
+  try {
+    const pid = 900001;
+    const cases = {
+      "process list unavailable (POSIX)": {
+        loadTable: () =>
+          processTable({ platform: "darwin", run: failures.timeout }),
+      },
+      "process list unavailable (win32)": {
+        platform: "win32",
+        loadTable: () =>
+          processTable({ platform: "win32", run: failures.garbage }),
+      },
+      "holder missing from the list": { table: tableWith() },
+      "unknown uid (POSIX)": { table: tableWith(row(pid, { uid: null })) },
+      "negative uid from /proc fallback": {
+        table: tableWith(row(pid, { uid: -1 })),
+      },
+      "owner query fails (win32)": {
+        platform: "win32",
+        table: tableWith(row(pid, { uid: null, pgid: null })),
+        ownerOf: () => {
+          throw new Error("could not query the process owner");
+        },
+      },
+      "owner not visible (win32, tasklist N/A)": {
+        platform: "win32",
+        table: tableWith(row(pid, { uid: null, pgid: null })),
+        ownerOf: (p) =>
+          windowsOwner(p, {
+            run: () =>
+              ok(
+                '"node.exe","900001","Services","0","20,000 K","Unknown","N/A","0:00:01","N/A"\r\n',
+              ),
+          }),
+      },
+    };
+    for (const [name, options] of Object.entries(cases)) {
+      const opts = { ...base, findOwners: holderAt(pid), ...options };
+      const { holders } = await portHolder(4403, [4403], opts);
+      assert.match(
+        holders[0].refusal,
+        /Could not verify who owns this process/,
+        name,
+      );
+      await assert.rejects(
+        portHolder(4403, [4403], { ...opts, confirmPid: pid }),
+        /Refused: Could not verify/,
+        name,
+      );
+    }
+    assert.deepEqual(killed, [], "nothing was signalled");
+  } finally {
+    process.kill = originalKill;
+  }
+});
+
+test("portHolder refuses shared services and other users' processes", async () => {
+  const pid = 900002;
+  const refusalOf = async (options) =>
+    (
+      await portHolder(4403, [4403], {
+        ...base,
+        findOwners: holderAt(pid),
+        ...options,
+      })
+    ).holders[0].refusal;
+  assert.match(
+    await refusalOf({
+      table: tableWith(row(pid)),
+      findOwners: holderAt(
+        pid,
+        "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+      ),
+    }),
+    /shared system or container service/,
+  );
+  assert.match(
+    await refusalOf({
+      table: tableWith(row(pid)),
+      findOwners: holderAt(pid, "sshd: me@pts/0"),
+    }),
+    /shared/,
+  );
+  assert.match(
+    await refusalOf({ table: tableWith(row(pid, { uid: 0 })) }),
+    /another user/,
+  );
+  assert.match(
+    await refusalOf({
+      platform: "win32",
+      table: tableWith(row(pid, { uid: null, pgid: null })),
+      ownerOf: () => "OTHERPC\\someone",
+      currentUser: "MYPC\\me",
+    }),
+    /another user/,
+  );
+  // Same user, same check passes on both platforms.
+  assert.equal(await refusalOf({ table: tableWith(row(pid)) }), null);
+  assert.equal(
+    await refusalOf({
+      platform: "win32",
+      table: tableWith(row(pid, { uid: null, pgid: null })),
+      ownerOf: () => "MYPC\\Me",
+      currentUser: "mypc\\me",
+    }),
+    null,
+  );
+  await assert.rejects(
+    portHolder(4403, [4403], {
+      ...base,
+      table: tableWith(row(pid, { uid: 0 })),
+      findOwners: holderAt(pid),
+      confirmPid: pid,
+    }),
+    /Refused: It belongs to another user/,
+  );
+});
+
+test("tasklist owner parsing", () => {
+  assert.equal(
+    parseTasklistUser(
+      '"node.exe","42","Console","1","30,000 K","Running","MYPC\\me","0:00:02","N/A"\r\n',
+    ),
+    "MYPC\\me",
+  );
+  assert.equal(
+    parseTasklistUser('"x","1","S","0","1 K","Unknown","N/A","0:00:00","N/A"'),
+    null,
+  );
+  assert.equal(
+    parseTasklistUser(
+      "INFO: No tasks are running which match the specified criteria.",
+    ),
+    null,
+  );
+  assert.throws(
+    () => windowsOwner(1, { run: () => ({ status: 1, stdout: "" }) }),
+    /could not query/,
+  );
+});
