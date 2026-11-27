@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
+import { writeFile, rm, readFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -10,15 +10,35 @@ import {
   courseOperations,
   indicatorStatus,
   runAction,
+  startAction,
+  subscribeAction,
+  actionRun,
   sendActionInput,
   cancelAction,
   currentAction,
+  ACTION_OUTPUT_TAIL,
 } from "./operations.mjs";
 import { listProcesses } from "./processes.mjs";
 import { operationsCourse } from "./test-support/operations-course.mjs";
 
+const until = async (check, ms = 15000) => {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const value = await check();
+    if (value) return value;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  throw new Error("Condition not met in time");
+};
+async function editManifest(root, edit) {
+  const path = join(root, "course.json");
+  const course = JSON.parse(await readFile(path, "utf8"));
+  edit(course);
+  await writeFile(path, JSON.stringify(course));
+}
+
 test("operations are validated against package scripts", () => {
-  const scripts = { deploy: "x", db: "y" };
+  const scripts = { deploy: "x", db: "y", "--workspaces": "z" };
   const valid = validateOperations(
     {
       actions: [{ id: "deploy", label: "Deploy", script: "deploy" }],
@@ -28,12 +48,14 @@ test("operations are validated against package scripts", () => {
     scripts,
   );
   assert.equal(valid.actions[0].destructive, false);
+  assert.equal(valid.actions[0].cancelGraceSeconds, 30);
   assert.equal(valid.indicators[0].level, "warning");
   assert.deepEqual(valid.sidecars, [{ name: "db", script: "db" }]);
   for (const course of [
     { actions: [{ id: "x", label: "X", script: "rm -rf /" }] },
     { actions: [{ id: "x", label: "X", script: "missing" }] },
     { actions: [{ id: "x", label: "X", script: "constructor" }] },
+    { actions: [{ id: "x", label: "X", script: "--workspaces" }] },
     { actions: [{ id: "../x", label: "X", script: "deploy" }] },
     {
       actions: [
@@ -44,6 +66,16 @@ test("operations are validated against package scripts", () => {
     { actions: [{ id: "x", label: "", script: "deploy" }] },
     {
       actions: [{ id: "x", label: "X", script: "deploy", destructive: "yes" }],
+    },
+    {
+      actions: [
+        { id: "x", label: "X", script: "deploy", cancelGraceSeconds: 0 },
+      ],
+    },
+    {
+      actions: [
+        { id: "x", label: "X", script: "deploy", cancelGraceSeconds: 1.5 },
+      ],
     },
     { actions: "deploy" },
     { indicators: [{ path: "a", message: "m", level: "loud" }] },
@@ -77,26 +109,53 @@ test("operations are validated against package scripts", () => {
   );
 });
 
-test("protocol lines are hidden, partial output is shown immediately", () => {
+test("protocol lines need the run token, are hidden, and partial output is shown at once", () => {
   const shown = [],
     prompts = [];
   const filter = protocolFilter(
+    "tok",
     (type, text) => shown.push(text),
     (confirm) => prompts.push(confirm),
   );
   filter.push("stdout", "Progress: ");
   assert.deepEqual(shown, ["Progress: "]);
   filter.push("stdout", "50%\n::icode-");
-  filter.push("stdout", 'confirm::{"expected":"yes","message":"Sure?"}\nafter');
-  filter.push("stdout", " ::icode-confirm::{}\n");
-  filter.push("stderr", "::icode-confirm::not json\n");
-  filter.flush();
-  assert.deepEqual(prompts, [{ expected: "yes", message: "Sure?" }]);
-  const output = shown.join("");
-  assert.equal(
-    output,
-    "Progress: 50%\nafter ::icode-confirm::{}\n[invalid confirmation request ignored]\n",
+  filter.push(
+    "stdout",
+    'confirm:tok::{"expected":"yes","message":"Sure?"}\nafter',
   );
+  filter.push("stdout", " ::icode-confirm:tok::{}\n");
+  filter.push("stderr", "::icode-confirm:tok::not json\n");
+  filter.push("stderr", '::icode-confirm::{"expected":"forged"}\n');
+  filter.push("stderr", '::icode-confirm:other::{"expected":"forged"}\n');
+  filter.push("stderr", '::icode-confirm:tok::{"expected":"a\u202eb"}\n');
+  filter.push(
+    "stderr",
+    '::icode-confirm:tok::{"expected":"ok","message":"x\u0007"}\n',
+  );
+  filter.push("stderr", '::icode-confirm:tok::{"expected":"err-stream"}\n');
+  filter.flush();
+  assert.deepEqual(prompts, [
+    { expected: "yes", message: "Sure?" },
+    { expected: "err-stream", message: "" },
+  ]);
+  assert.equal(
+    shown.join(""),
+    "Progress: 50%\nafter ::icode-confirm:tok::{}\n[invalid confirmation request ignored]\n" +
+      "[ignored confirmation request without this run's token]\n".repeat(2) +
+      "[invalid confirmation request ignored]\n".repeat(2),
+  );
+});
+
+test("an unterminated huge line starting like the protocol does not buffer forever", () => {
+  const shown = [];
+  const filter = protocolFilter(
+    "t",
+    (type, text) => shown.push(text),
+    () => {},
+  );
+  filter.push("stdout", "::icode-confirm" + "y".repeat(70 * 1024));
+  assert.equal(shown.join("").length, 15 + 70 * 1024);
 });
 
 test(
@@ -108,7 +167,7 @@ test(
       const ops = await courseOperations(root);
       assert.deepEqual(
         ops.actions.map((a) => a.id),
-        ["deploy", "teardown", "sleep"],
+        ["deploy", "teardown", "sleep", "noisy", "spoof", "graceful"],
       );
       assert.deepEqual((await indicatorStatus(root)).indicators, []);
       const events = [];
@@ -116,14 +175,21 @@ test(
         emit: (event) => {
           events.push(event);
           if (event.type === "confirm") {
-            assert.throws(
-              () => sendActionInput(currentAction().runId, "a\nb"),
-              /Invalid/,
-            );
+            const { runId } = currentAction();
             assert.equal(currentAction().awaitingConfirmation, true);
-            sendActionInput(currentAction().runId, event.expected);
+            // Only the exact text or an empty cancel is accepted.
             assert.throws(
-              () => sendActionInput(currentAction().runId, "again"),
+              () => sendActionInput(runId, "a\nb"),
+              /does not match/,
+            );
+            assert.throws(
+              () => sendActionInput(runId, "deploy-pro"),
+              /does not match/,
+            );
+            assert.equal(actionRun(runId).status, "running");
+            sendActionInput(runId, event.expected);
+            assert.throws(
+              () => sendActionInput(runId, event.expected),
               /not waiting/,
             );
           }
@@ -144,6 +210,7 @@ test(
       assert.equal(await readFile(join(root, ".deployed"), "utf8"), "yes");
       assert.equal((await indicatorStatus(root)).indicators[0].level, "danger");
       assert.equal(currentAction(), null);
+      assert.equal(actionRun(result.runId).status, "passed");
 
       // Cancel from the dialog sends an empty line; the script refuses.
       const cancelled = await runAction(root, "deploy", {
@@ -166,53 +233,154 @@ test(
 );
 
 test(
-  "only one action runs at a time and cancellation stops it",
-  { timeout: 30000 },
+  "confirmation still works after more than 2 MB of output; retained output is a marked tail",
+  { timeout: 60000 },
   async () => {
     const root = await operationsCourse();
     try {
-      let started;
-      const ready = new Promise((resolve) => (started = resolve));
-      const running = runAction(root, "sleep", {
+      let size = 0;
+      let confirmed = false;
+      const result = await runAction(root, "noisy", {
         emit: (event) => {
-          if (event.text?.includes("sleeping")) started();
+          if (event.text) size += event.text.length;
+          if (event.type === "confirm") {
+            confirmed = true;
+            sendActionInput(currentAction().runId, "go");
+          }
         },
       });
-      await ready;
-      assert.equal(
-        listProcesses().filter((p) => p.kind === "action").length,
-        1,
-      );
-      await assert.rejects(runAction(root, "teardown"), /already running/);
-      await cancelAction(currentAction().runId);
-      const result = await running;
-      assert.equal(result.status, "cancelled");
-      assert.equal(
-        listProcesses().filter((p) => p.kind === "action").length,
-        0,
-      );
+      assert.ok(size > 2_100_000, String(size));
+      assert.equal(confirmed, true);
+      assert.equal(result.status, "passed");
+      const run = actionRun(result.runId);
+      assert.equal(run.truncated, true);
+      assert.ok(run.output.startsWith("[earlier output truncated]\n"));
+      assert.ok(run.output.length <= ACTION_OUTPUT_TAIL + 100);
+      assert.match(run.output, /answer=go/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   },
 );
 
-test("indicator paths cannot escape through symlinks", async (t) => {
+test(
+  "forged prompts are ignored; a tokened prompt on stderr from a grandchild works",
+  { timeout: 30000 },
+  async () => {
+    const root = await operationsCourse();
+    try {
+      const prompts = [];
+      let text = "";
+      const result = await runAction(root, "spoof", {
+        emit: (event) => {
+          if (event.text) text += event.text;
+          if (event.type === "confirm") {
+            prompts.push(event.expected);
+            sendActionInput(currentAction().runId, event.expected);
+          }
+        },
+      });
+      assert.deepEqual(prompts, ["real"]);
+      assert.equal(result.status, "passed");
+      assert.match(text, /answer=real/);
+      assert.equal(
+        text.match(/ignored confirmation request without this run's token/g)
+          .length,
+        2,
+      );
+      assert.doesNotMatch(text, /forged/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "runs are detached from followers; only one runs; cancel is graceful (SIGINT first)",
+  { timeout: 60000 },
+  async () => {
+    const root = await operationsCourse();
+    try {
+      const started = await startAction(root, "graceful");
+      // A follower that goes away (closed tab) does not affect the run.
+      const follower = subscribeAction(started.runId, () => {});
+      await until(() => actionRun(started.runId).output.includes("working"));
+      follower.unsubscribe();
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(currentAction().status, "running");
+      const reattached = subscribeAction(started.runId, () => {});
+      assert.match(reattached.snapshot.output, /working/);
+      reattached.unsubscribe();
+      assert.equal(
+        listProcesses().filter((p) => p.kind === "action").length,
+        1,
+      );
+      await assert.rejects(startAction(root, "teardown"), /already running/);
+      // Indicators report the running action.
+      assert.match(
+        (await indicatorStatus(root)).indicators.at(-1).message,
+        /Graceful.*running/,
+      );
+      await cancelAction(started.runId);
+      assert.equal(actionRun(started.runId).status, "cancelled");
+      assert.equal(await readFile(join(root, ".cleaned"), "utf8"), "yes");
+      assert.equal(
+        listProcesses().filter((p) => p.kind === "action").length,
+        0,
+      );
+
+      // A script that ignores SIGINT is force-stopped after its grace period.
+      const sleeper = await startAction(root, "sleep");
+      await until(() => actionRun(sleeper.runId).output.includes("sleeping"));
+      const before = Date.now();
+      await cancelAction(sleeper.runId);
+      assert.equal(actionRun(sleeper.runId).status, "cancelled");
+      assert.ok(Date.now() - before < 10000);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test("indicators fail closed when the manifest or an indicator cannot be checked", async (t) => {
   const root = await operationsCourse();
   try {
-    const { symlink } = await import("node:fs/promises");
+    // A broken action does not hide indicators.
+    await editManifest(root, (c) => (c.actions[0].script = "renamed-away"));
+    await writeFile(join(root, ".deployed"), "yes");
+    const withBrokenAction = await indicatorStatus(root);
+    assert.equal(withBrokenAction.indicators.length, 1);
+    assert.equal(withBrokenAction.indicators[0].level, "danger");
+    assert.match(withBrokenAction.indicators[0].message, /cost money/);
+    // A broken indicator list yields an explicit unknown status.
+    await editManifest(
+      root,
+      (c) => (c.indicators = [{ path: "../x", message: "m" }]),
+    );
+    const broken = await indicatorStatus(root);
+    assert.match(broken.indicators[0].message, /Cost status unknown/);
+    assert.equal(broken.indicators[0].level, "danger");
+    await writeFile(join(root, "course.json"), "{ not json");
+    assert.match(
+      (await indicatorStatus(root)).indicators[0].message,
+      /Cost status unknown/,
+    );
+    // Symlinked indicator path: refused and reported, not silently hidden.
     try {
       await symlink(tmpdir(), join(root, "link"));
     } catch {
-      t.skip("symlinks unavailable");
+      t.diagnostic("symlinks unavailable");
       return;
     }
-    const course = JSON.parse(
-      await readFile(join(root, "course.json"), "utf8"),
+    await writeFile(
+      join(root, "course.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        indicators: [{ path: "link/anything", message: "m" }],
+      }),
     );
-    course.indicators = [{ path: "link/anything", message: "m" }];
-    await writeFile(join(root, "course.json"), JSON.stringify(course));
-    await assert.rejects(indicatorStatus(root), /Symlinks/);
+    const linked = await indicatorStatus(root);
+    assert.match(linked.indicators[0].message, /Cost status unknown.*Symlinks/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

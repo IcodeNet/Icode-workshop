@@ -135,7 +135,12 @@ export async function installCheck(root) {
   const missing = [],
     mismatched = [];
   const entries = Object.entries(lock.packages).filter(
-    ([path, info]) => path.startsWith("node_modules/") && !info.link && !info.extraneous,
+    ([path, info]) => path.startsWith("node_modules/") &&
+      // Lockfile keys are confined to the course root.
+      !path.split("/").some((part) => part === ".." || part === "." || !part) &&
+      !path.includes("\\") &&
+      !info.link &&
+      !info.extraneous,
   );
   for (let i = 0; i < entries.length; i += 64)
     await Promise.all(

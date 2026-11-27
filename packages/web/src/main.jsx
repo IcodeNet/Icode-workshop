@@ -10,6 +10,7 @@ import {
   IndicatorBanner,
   ProcessesPanel,
   SetupBanner,
+  tail,
   useActions,
   useIndicators,
 } from "./operations.jsx";
@@ -139,7 +140,10 @@ function App() {
   const [reloadPreview, setReloadPreview] = useState(true);
   const [previewKey, setPreviewKey] = useState(0);
   const [indicators, refreshIndicators] = useIndicators();
-  const actions = useActions({ onFinished: refreshIndicators });
+  const actions = useActions({
+    onFinished: refreshIndicators,
+    onChange: refreshIndicators,
+  });
   const variant = ["problem", "solution"].includes(tab) ? tab : "playground";
   // Latest values for long-lived event handlers (live reload).
   const latest = useRef({});
@@ -746,7 +750,7 @@ function App() {
                 event.output,
             );
           } else if (event.text)
-            setResult((previous) => (previous + event.text).slice(-50000));
+            setResult((previous) => tail(previous + event.text));
         }
       }
       if (!finished)
@@ -813,7 +817,7 @@ function App() {
       </div>
       {actions.confirm && (
         <ConfirmDialog
-          title={"Confirm: " + (actions.run?.action.label || "course action")}
+          title={"Confirm: " + (actions.run?.label || "course action")}
           message={actions.confirm.message}
           expected={actions.confirm.expected}
           confirmLabel="Continue"

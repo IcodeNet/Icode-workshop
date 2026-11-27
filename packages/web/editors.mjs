@@ -68,8 +68,10 @@ export function isTerminalKind(kind) {
 }
 /** Arguments that open `file` at line/column for an editor kind. */
 export function editorArgs(kind, file, line = 1, column = 1) {
-  line = Math.max(1, Math.floor(Number(line) || 1));
-  column = Math.max(1, Math.floor(Number(column) || 1));
+  const clamp = (value) =>
+    Math.min(10_000_000, Math.max(1, Math.floor(Number(value) || 1)));
+  line = clamp(line);
+  column = clamp(column);
   if (KNOWN_EDITORS[kind]) return KNOWN_EDITORS[kind].args(file, line, column);
   if (TERMINAL[kind]) return TERMINAL[kind](file, line, column);
   return [file];
@@ -87,15 +89,18 @@ export function findExecutable(
   name,
   { env = process.env, platform = process.platform } = {},
 ) {
+  // On Windows only PATHEXT candidates run: an extensionless file is a shell
+  // script for Git Bash/WSL (for example VS Code's bin\code beside bin\code.cmd).
+  const pathext = (env.PATHEXT || ".EXE;.CMD;.BAT")
+    .split(";")
+    .filter(Boolean)
+    .map((e) => e.toLowerCase());
   const extensions =
-    platform === "win32"
-      ? [
-          "",
-          ...(env.PATHEXT || ".EXE;.CMD;.BAT")
-            .split(";")
-            .map((e) => e.toLowerCase()),
-        ]
-      : [""];
+    platform !== "win32"
+      ? [""]
+      : pathext.some((ext) => name.toLowerCase().endsWith(ext))
+        ? [""]
+        : pathext;
   const candidates = (dir) => extensions.map((ext) => join(dir, name + ext));
   if (
     isAbsolute(name) ||
@@ -236,6 +241,7 @@ export function chooseEditor(editors, id) {
     throw new Error(pick.label + " is unavailable: " + pick.reason);
   return pick;
 }
+let terminalEditor = null;
 /** Launch an editor. Resolves once the process has spawned. */
 export async function launchEditor(
   file,
@@ -244,6 +250,11 @@ export async function launchEditor(
   if (!isAbsolute(file)) throw new Error("Editor file must be absolute");
   if (!existsSync(file)) throw new Error("File not found");
   const editor = chooseEditor(detectEditors({ env, platform, tty }), id);
+  // Terminal editors share the engine's terminal: one at a time.
+  if (editor.terminal && terminalEditor)
+    throw new Error(
+      "A terminal editor is already open in the workshop terminal",
+    );
   const args = [
     ...editor.extraArgs,
     ...editorArgs(editor.kind, file, line, column),
@@ -262,6 +273,10 @@ export async function launchEditor(
     );
     child.once("spawn", () => {
       if (!editor.terminal) child.unref();
+      else {
+        terminalEditor = child;
+        child.once("exit", () => (terminalEditor = null));
+      }
       resolve({ launched: true, editor: editor.id, label: editor.label });
     });
   });

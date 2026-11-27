@@ -151,3 +151,42 @@ test("launch spawns the editor with an argument array, never a shell", async () 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("Windows detection ignores extensionless shell scripts and maps code.cmd to Code.exe", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "icode-win-editors-"));
+  try {
+    // VS Code layout: <root>\bin\code (bash script), <root>\bin\code.cmd, <root>\Code.exe
+    await mkdir(join(dir, "bin"));
+    await writeFile(join(dir, "bin", "code"), "#!/usr/bin/env sh\n");
+    await writeFile(join(dir, "bin", "code.cmd"), "@echo off\n");
+    await writeFile(join(dir, "Code.exe"), "MZ");
+    // A JetBrains launcher available only as a batch file.
+    await writeFile(join(dir, "bin", "idea.cmd"), "@echo off\n");
+    const env = { PATH: join(dir, "bin"), PATHEXT: ".COM;.EXE;.BAT;.CMD" };
+    assert.equal(
+      findExecutable("code", { env, platform: "win32" }),
+      join(dir, "bin", "code.cmd"),
+    );
+    const editors = detectEditors({ env, platform: "win32", tty: false });
+    const code = editors.find((e) => e.id === "code");
+    assert.equal(code.available, true);
+    assert.equal(code.command, join(dir, "bin", "..", "Code.exe"));
+    const idea = editors.find((e) => e.id === "idea");
+    assert.equal(idea.available, false);
+    assert.match(idea.reason, /batch file/);
+    // An explicit .exe override is used as is.
+    assert.equal(
+      findExecutable(join(dir, "Code.exe"), { env, platform: "win32" }),
+      join(dir, "Code.exe"),
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("line and column are clamped", () => {
+  assert.deepEqual(editorArgs("code", "/x", Infinity, 1e308), [
+    "--goto",
+    "/x:10000000:10000000",
+  ]);
+});

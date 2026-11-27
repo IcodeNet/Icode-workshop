@@ -33,6 +33,7 @@ const course = JSON.parse(await readFile(join(root, "course.json"), "utf8"));
 course.actions = [
   { id: "deploy", label: "Deploy demo", script: "deploy", group: "Cloud", destructive: true, description: "Creates billable demo resources" },
   { id: "teardown", label: "Tear down demo", script: "teardown", group: "Cloud" },
+  { id: "long-job", label: "Long job", script: "long-job", group: "Cloud", cancelGraceSeconds: 5 },
 ];
 course.indicators = [{ path: ".icode-deployed", message: "Demo resources are running and incur cost.", level: "danger" }];
 course.sidecars = { "mock-api": { script: "mock-api" } };
@@ -42,7 +43,7 @@ await writeFile(
   JSON.stringify({
     name: "browser-course",
     private: true,
-    scripts: { deploy: "node ops/deploy.mjs", teardown: "node ops/teardown.mjs", "mock-api": "node ops/mock-api.mjs" },
+    scripts: { deploy: "node ops/deploy.mjs", teardown: "node ops/teardown.mjs", "mock-api": "node ops/mock-api.mjs", "long-job": "node ops/long-job.mjs" },
     dependencies: { "icode-fixture-dependency": "1.0.0" },
   }),
 );
@@ -68,7 +69,7 @@ await writeFile(
   `import { createInterface } from "node:readline";
 import { writeFileSync } from "node:fs";
 console.log("\\x1b[32mPlanning deployment\\x1b[0m (ICODE_ACTION=" + process.env.ICODE_ACTION + ")");
-console.log("::icode-confirm::" + JSON.stringify({ expected: "deploy-demo", message: "This creates billable resources." }));
+console.log("::icode-confirm:" + process.env.ICODE_CONFIRM_TOKEN + "::" + JSON.stringify({ expected: "deploy-demo", message: "This creates billable resources." }));
 const rl = createInterface({ input: process.stdin });
 rl.once("line", (line) => {
   rl.close();
@@ -77,6 +78,13 @@ rl.once("line", (line) => {
   writeFileSync(".icode-deployed", "1");
   console.log("\\x1b[1;32mdeployed\\x1b[0m");
 });
+`,
+);
+await writeFile(
+  join(root, "ops", "long-job.mjs"),
+  `let n = 0;
+process.on("SIGINT", () => { console.log("cleaning up after cancel"); process.exit(130); });
+setInterval(() => console.log("step " + n++), 200);
 `,
 );
 await writeFile(join(root, "ops", "teardown.mjs"), `import { rmSync } from "node:fs"; rmSync(".icode-deployed", { force: true }); console.log("torn down");\n`);

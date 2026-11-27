@@ -8,16 +8,21 @@ import { startPreview, stopPreview, stopAllPreviews } from "./previews.mjs";
 import {
   courseOperations,
   indicatorStatus,
-  runAction,
+  startAction,
+  actionRun,
+  lastActionRunId,
+  subscribeAction,
   sendActionInput,
   cancelAction,
   currentAction,
+  stopActionsForShutdown,
 } from "./operations.mjs";
 import {
   registerProcess,
   listProcesses,
   stopProcess,
   portHolder,
+  killAllNow,
 } from "./processes.mjs";
 import {
   startSidecars,
@@ -101,13 +106,44 @@ async function load(id) {
   };
 }
 let mutationActive = false;
-// Endpoints that must work while a long mutation (an action or a test run)
-// holds the gate: answering an action's confirmation, cancelling it, and
-// stopping engine-owned processes.
-const gateExempt = (pathname) =>
-  pathname === "/api/processes/stop" ||
-  (currentAction() !== null &&
-    ["/api/actions/input", "/api/actions/cancel"].includes(pathname));
+// Registry ids of the processes started by the request holding the gate (a
+// test run), so that exactly those can be stopped while it runs.
+const gateProcessIds = new Set();
+// Course-level operations that must not overlap a running action (it is
+// detached from any request and may run for a long time). Learner work in
+// playgrounds (lessons, files, tests, previews) stays available meanwhile.
+const ACTION_EXCLUSIVE = new Set([
+  "/api/actions/run",
+  "/api/sidecars/restart",
+  "/api/sidecars/stop",
+  "/api/ports/free",
+  "/api/processes/stop",
+]);
+/**
+ * Mutation gate. Exempt: answering/cancelling the running action and stopping
+ * the specific process that holds the gate (the action or the running test).
+ * Course-level operations wait for a running action; everything else is
+ * serialised by the request gate.
+ */
+async function gateDecision(req, pathname) {
+  if (["GET", "HEAD"].includes(req.method)) return "none";
+  const action = currentAction();
+  if (action && ["/api/actions/input", "/api/actions/cancel"].includes(pathname))
+    return "exempt";
+  if (pathname === "/api/processes/stop") {
+    const { id } = await readBody(req);
+    if ((action && id === action.processId) || gateProcessIds.has(id))
+      return "exempt";
+  }
+  if (action && ACTION_EXCLUSIVE.has(pathname))
+    return "A course action is running. Wait for it to finish or cancel it first.";
+  if (mutationActive)
+    return "Another workshop operation is still running. Please retry when it finishes.";
+  return "gated";
+}
+let lastPortScan = 0;
+let eventStreams = 0;
+const MAX_EVENT_STREAMS = 16;
 async function previewPorts() {
   const { ids } = await courseConfig(root);
   const ports = new Set();
@@ -131,6 +167,12 @@ const server = createServer(async (req, res) => {
     return json(res, 403, { error: "Host denied" });
   if (req.headers.origin && req.headers.origin !== allowedOrigin)
     return json(res, 403, { error: "Origin denied" });
+  // Browsers omit Origin on simple cross-site GETs (<img>, <script>), but send
+  // Fetch Metadata. Only same-origin pages (the UI via its proxy) and direct
+  // navigation/tools may call the API.
+  const site = req.headers["sec-fetch-site"];
+  if (site && !["same-origin", "none"].includes(site))
+    return json(res, 403, { error: "Cross-site request denied" });
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "access-control-allow-origin": allowedOrigin,
@@ -142,12 +184,9 @@ const server = createServer(async (req, res) => {
   let ownsMutation = false;
   try {
     const url = new URL(req.url, "http://localhost");
-    if (!["GET", "HEAD"].includes(req.method) && !gateExempt(url.pathname)) {
-      if (mutationActive)
-        return json(res, 409, {
-          error:
-            "Another workshop operation is still running. Please retry when it finishes.",
-        });
+    const gate = await gateDecision(req, url.pathname);
+    if (gate !== "none" && gate !== "exempt") {
+      if (gate !== "gated") return json(res, 409, { error: gate });
       mutationActive = true;
       ownsMutation = true;
     }
@@ -174,31 +213,47 @@ const server = createServer(async (req, res) => {
           ...listSidecars().find((item) => item.name === sidecar.name),
         })),
         running: currentAction(),
+        lastRunId: lastActionRunId(),
       });
     }
     if (url.pathname === "/api/actions/run" && req.method === "POST") {
+      // Starts the action detached from this request: closing or reloading the
+      // tab never cancels it. Follow it with /api/actions/stream.
       const { id } = await readBody(req);
       if (typeof id !== "string") throw new Error("Unknown course action");
-      const { actions } = await courseOperations(root);
-      if (!actions.some((action) => action.id === id))
-        throw new Error("Unknown course action");
-      if (currentAction()) throw new Error("Another course action is already running");
-      // Closing the stream (tab closed, navigation) cancels the action: nobody
-      // would be left to answer its confirmation prompts.
-      const controller = new AbortController();
-      const cancel = () => controller.abort();
-      res.on("close", cancel);
-      try {
-        const send = ndjson(res);
-        const result = await runAction(root, id, {
-          emit: send,
-          signal: controller.signal,
-        });
-        send({ type: "result", ...result });
+      return json(res, 200, await startAction(root, id));
+    }
+    if (url.pathname === "/api/actions/run" && req.method === "GET") {
+      const run = actionRun(url.searchParams.get("runId") || undefined);
+      return run ? json(res, 200, run) : json(res, 404, { error: "No action run" });
+    }
+    if (url.pathname === "/api/actions/stream" && req.method === "GET") {
+      const runId = url.searchParams.get("runId") || currentAction()?.runId;
+      if (!runId) return json(res, 404, { error: "No action run" });
+      let events = [];
+      let deliver = (event) => events.push(event);
+      const { snapshot, unsubscribe } = subscribeAction(runId, (event) =>
+        deliver(event),
+      );
+      const send = ndjson(res);
+      send({ type: "snapshot", ...snapshot });
+      for (const event of events) send(event);
+      const finished = ["passed", "failed", "cancelled", "error"].includes(
+        snapshot.status,
+      );
+      if (finished || events.some((e) => e.type === "result")) {
+        unsubscribe();
         return res.end();
-      } finally {
-        res.off("close", cancel);
       }
+      deliver = (event) => {
+        send(event);
+        if (event.type === "result") {
+          unsubscribe();
+          res.end();
+        }
+      };
+      res.on("close", unsubscribe);
+      return;
     }
     if (url.pathname === "/api/actions/input" && req.method === "POST") {
       const { runId, text } = await readBody(req);
@@ -206,7 +261,12 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/api/actions/cancel" && req.method === "POST") {
       const { runId } = await readBody(req);
-      return json(res, 200, await cancelAction(runId));
+      const running = currentAction();
+      if (!running || running.runId !== runId)
+        throw new Error("No matching action is running");
+      // Graceful: SIGINT, then SIGKILL after the action's grace period.
+      cancelAction(runId).catch(() => {});
+      return json(res, 200, { cancelling: true });
     }
     if (url.pathname === "/api/indicators" && req.method === "GET")
       return json(res, 200, await indicatorStatus(root));
@@ -220,20 +280,27 @@ const server = createServer(async (req, res) => {
       if (typeof id !== "string") throw new Error("Unknown or finished process");
       return json(res, 200, await stopProcess(id));
     }
-    if (url.pathname === "/api/ports/holder" && req.method === "GET")
-      return json(
-        res,
-        200,
-        await portHolder(Number(url.searchParams.get("port")), await previewPorts()),
-      );
+    if (url.pathname === "/api/ports/holder" && req.method === "GET") {
+      const requested = Number(url.searchParams.get("port"));
+      const ports = await previewPorts();
+      if (!ports.includes(requested))
+        throw new Error("Only configured preview ports can be freed");
+      if (Date.now() - lastPortScan < 500)
+        return json(res, 429, { error: "Port lookups are rate limited; retry shortly" });
+      lastPortScan = Date.now();
+      return json(res, 200, await portHolder(requested, ports));
+    }
     if (url.pathname === "/api/ports/free" && req.method === "POST") {
-      const { port, pid, confirm } = await readBody(req);
+      const { port, pid, confirm, confirmName } = await readBody(req);
       if (confirm !== true || !Number.isInteger(pid))
         throw new Error("Freeing a port requires explicit confirmation");
       return json(
         res,
         200,
-        await portHolder(Number(port), await previewPorts(), { confirmPid: pid }),
+        await portHolder(Number(port), await previewPorts(), {
+          confirmPid: pid,
+          confirmName,
+        }),
       );
     }
     if (url.pathname === "/api/sidecars" && req.method === "GET")
@@ -257,7 +324,18 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/events" && req.method === "GET") {
       const id = url.searchParams.get("id");
       validateId(id);
-      await selectWorkspace(root, id);
+      if (eventStreams >= MAX_EVENT_STREAMS)
+        return json(res, 429, { error: "Too many live-reload connections" });
+      // Read-only: the playground must already exist (POST /api/select creates
+      // it under the mutation gate); this endpoint never copies or seeds.
+      try {
+        if (!(await lstat(workspacePath(root, id))).isDirectory())
+          throw new Error();
+      } catch {
+        return json(res, 404, { error: "Playground not created" });
+      }
+      eventStreams++;
+      res.on("close", () => eventStreams--);
       res.writeHead(200, {
         "content-type": "text/event-stream",
         "cache-control": "no-store",
@@ -496,13 +574,15 @@ const server = createServer(async (req, res) => {
             signal: controller.signal,
             emit: send,
             onSpawn: (session) =>
-              registerProcess({
-                kind: "test",
-                label: "Tests " + id + " (" + variant + ")",
-                command: ["test", id, variant],
-                session,
-                stop: () => controller.abort(),
-              }),
+              gateProcessIds.add(
+                registerProcess({
+                  kind: "test",
+                  label: "Tests " + id + " (" + variant + ")",
+                  command: ["test", id, variant],
+                  session,
+                  stop: () => controller.abort(),
+                }).id,
+              ),
           });
           await workspace.cleanup();
           send({ type: "result", ...result });
@@ -538,7 +618,10 @@ const server = createServer(async (req, res) => {
         ...(error.code === "PORT_OCCUPIED" ? { code: error.code, port: error.port } : {}),
       });
   } finally {
-    if (ownsMutation) mutationActive = false;
+    if (ownsMutation) {
+      mutationActive = false;
+      gateProcessIds.clear();
+    }
   }
 });
 server.listen(port, host, () => {
@@ -552,18 +635,27 @@ server.listen(port, host, () => {
 });
 
 let shuttingDown = false;
-for (const signal of ["SIGTERM", "SIGINT"])
+// Every exit path stops every owned process: signals (including a closed
+// terminal) stop them gracefully; the exit handler force-kills whatever is left
+// (also after an uncaught exception).
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP", ...(process.platform === "win32" ? ["SIGBREAK"] : [])])
   process.on(signal, async () => {
     if (shuttingDown) return;
     shuttingDown = true;
     closeAllWatchers();
-    const running = currentAction();
-    await Promise.allSettled([
-      stopAllPreviews(),
-      stopAllSidecars(),
-      running ? cancelAction(running.runId) : undefined,
+    const timeout = new Promise((resolve) => setTimeout(resolve, 1500).unref());
+    await Promise.race([
+      Promise.allSettled([
+        stopAllPreviews(),
+        stopAllSidecars(),
+        stopActionsForShutdown(),
+      ]),
+      timeout,
     ]);
     server.close();
     process.exit(0);
   });
-process.on("exit", killAllSidecarsNow);
+process.on("exit", () => {
+  killAllSidecarsNow();
+  killAllNow();
+});

@@ -64,6 +64,59 @@ test("course action requires typed confirmation, renders ANSI and drives the cos
   expect(errors).toEqual([]);
 });
 
+test("a running action survives a page reload, re-attaches, and is only stopped by an explicit, warned cancel", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /01 Approved/ }).click();
+  await page.getByRole("tab", { name: "Actions", exact: true }).click();
+  await page.getByRole("button", { name: "Long job", exact: true }).click();
+  const output = page.getByRole("log", { name: "Action output" });
+  await expect(output).toContainText("step 2");
+  const banner = page.getByRole("region", { name: "Course status" });
+  await expect(banner).toContainText("Long job");
+  await page.reload();
+  await page.getByRole("button", { name: /01 Approved/ }).click();
+  await page.getByRole("tab", { name: "Actions ●", exact: true }).click();
+  // Re-attached: earlier output plus new output, still running.
+  await expect(output).toContainText("step 1");
+  await expect(output).toContainText("step 8");
+  await expect(page.getByLabel("Action run")).toContainText("running");
+  await expect(
+    page.getByText("keeps running if you reload or close this tab"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Cancel action", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("can leave cloud resources running");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByLabel("Action run")).toContainText("running");
+  await page
+    .getByRole("button", { name: "Cancel action", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Cancel action", exact: true })
+    .click();
+  await expect(page.getByLabel("Action run")).toContainText("cancelled", {
+    timeout: 15000,
+  });
+  await expect(output).toContainText("cleaning up after cancel");
+  await expect(banner).toHaveCount(0);
+});
+
+test("the cost banner fails closed when indicators cannot be checked", async ({
+  page,
+}) => {
+  await page.route("**/api/indicators", (route) =>
+    route.fulfill({ status: 500, json: { error: "manifest unreadable" } }),
+  );
+  await page.goto("/");
+  const banner = page.getByRole("region", { name: "Course status" });
+  await expect(banner).toContainText("Cost status unknown");
+  await expect(banner).toContainText("manifest unreadable");
+});
+
 test("action endpoints reject unknown actions and unsolicited input", async ({
   request,
 }) => {

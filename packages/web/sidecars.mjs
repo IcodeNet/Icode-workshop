@@ -4,11 +4,20 @@ import { courseOperations, startScript } from "./operations.mjs";
 import { registerProcess } from "./processes.mjs";
 
 export const SIDECAR_LOG_LINES = 500;
+export const SIDECAR_LINE_LIMIT = 10_000;
 const sidecars = new Map();
 
 function appendLog(state, type, text) {
   const pieces = (state.partial[type] + text).split("\n");
   state.partial[type] = pieces.pop();
+  // Output is never capped in total (the line ring bounds memory); a single
+  // very long line is cut so a missing newline cannot grow without bound.
+  if (state.partial[type].length > SIDECAR_LINE_LIMIT) {
+    pieces.push(
+      state.partial[type].slice(0, SIDECAR_LINE_LIMIT) + " …[line truncated]",
+    );
+    state.partial[type] = "";
+  }
   for (const line of pieces) state.logs.push(`[${state.name}] ${line}`);
   if (state.logs.length > SIDECAR_LOG_LINES)
     state.logs.splice(0, state.logs.length - SIDECAR_LOG_LINES);

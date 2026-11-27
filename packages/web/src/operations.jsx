@@ -97,43 +97,45 @@ export function ConfirmDialog({
 }
 
 /** Course action state lives in the App so a run survives panel switches. */
-export function useActions({ onFinished } = {}) {
+/** Keep the end of long output, cutting at a line start so escape sequences stay whole. */
+export function tail(text, limit = 50000) {
+  if (text.length <= limit) return text;
+  const cut = text.slice(-limit);
+  const newline = cut.indexOf("\n");
+  return (
+    "[earlier output truncated]\n" +
+    (newline >= 0 ? cut.slice(newline + 1) : cut)
+  );
+}
+
+/**
+ * Course action state lives in the App. Runs are detached on the server: the
+ * stream can drop (reload, closed tab) and the UI re-attaches; only an
+ * explicit Cancel stops a run.
+ */
+export function useActions({ onFinished, onChange } = {}) {
   const [actions, setActions] = useState([]);
   const [error, setError] = useState("");
-  const [run, setRun] = useState(null); // { runId, action, status, exitCode }
+  const [run, setRun] = useState(null); // snapshot fields + action
   const [output, setOutput] = useState("");
   const [confirm, setConfirm] = useState(null);
-  const controller = useRef(null);
-  const finished = useRef(onFinished);
-  finished.current = onFinished;
-  const reload = useCallback(() => {
-    request("/operations")
-      .then((data) => {
-        setActions(data.actions);
-        setError("");
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-  useEffect(reload, [reload]);
-  async function start(action) {
-    if (controller.current) return;
-    const abort = new AbortController();
-    controller.current = abort;
-    setOutput("");
-    setConfirm(null);
-    setRun({ action, status: "running" });
+  const [cancelPrompt, setCancelPrompt] = useState(false);
+  const attached = useRef(null);
+  const callbacks = useRef({});
+  callbacks.current = { onFinished, onChange };
+  const active = run && ["running", "cancelling"].includes(run.status);
+
+  const attach = useCallback(async (runId) => {
+    if (attached.current === runId) return;
+    attached.current = runId;
     try {
-      const response = await fetch("/api/actions/run", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: action.id }),
-        signal: abort.signal,
-      });
+      const response = await fetch(
+        "/api/actions/stream?runId=" + encodeURIComponent(runId),
+      );
       if (!response.ok) throw new Error((await response.json()).error);
       const reader = response.body.getReader(),
         decoder = new TextDecoder();
-      let pending = "",
-        result = null;
+      let pending = "";
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -143,35 +145,63 @@ export function useActions({ onFinished } = {}) {
         for (const line of lines) {
           if (!line) continue;
           const event = JSON.parse(line);
-          if (event.type === "started")
-            setRun((previous) => ({ ...previous, runId: event.runId }));
-          else if (event.type === "confirm") setConfirm(event);
-          else if (event.type === "result") result = event;
-          else if (event.text)
-            setOutput((previous) => (previous + event.text).slice(-50000));
+          if (event.type === "snapshot") {
+            setRun(event);
+            setOutput(tail(event.output || ""));
+            setConfirm(event.confirm || null);
+            callbacks.current.onChange?.();
+          } else if (event.type === "confirm") setConfirm(event);
+          else if (event.type === "answered") setConfirm(null);
+          else if (event.type === "status")
+            setRun(
+              (previous) => previous && { ...previous, status: event.status },
+            );
+          else if (event.type === "result") {
+            setConfirm(null);
+            setRun(
+              (previous) =>
+                previous && {
+                  ...previous,
+                  status: event.status,
+                  exitCode: event.exitCode,
+                },
+            );
+            callbacks.current.onFinished?.();
+          } else if (event.text)
+            setOutput((previous) => tail(previous + event.text));
         }
       }
-      if (!result) throw new Error("The action stream ended without a result.");
-      setRun((previous) => ({
-        ...previous,
-        status: result.status,
-        exitCode: result.exitCode,
-      }));
     } catch (e) {
-      setRun((previous) => ({
-        ...previous,
-        status: e.name === "AbortError" ? "cancelled" : "error",
-      }));
-      setOutput(
-        (previous) =>
-          previous +
-          "\n" +
-          (e.name === "AbortError" ? "Action cancelled." : e.message),
-      );
+      setOutput((previous) => previous + "\n" + e.message);
     } finally {
-      controller.current = null;
-      setConfirm(null);
-      finished.current?.();
+      if (attached.current === runId) attached.current = null;
+    }
+  }, []);
+
+  const reload = useCallback(() => {
+    request("/operations")
+      .then((data) => {
+        setActions(data.actions);
+        setError("");
+        const runId = data.running?.runId || data.lastRunId;
+        if (runId) attach(runId);
+      })
+      .catch((e) => setError(e.message));
+  }, [attach]);
+  useEffect(reload, [reload]);
+
+  async function start(action) {
+    if (active) return;
+    setOutput("");
+    setConfirm(null);
+    try {
+      const snapshot = await post("/actions/run", { id: action.id });
+      setRun(snapshot);
+      callbacks.current.onChange?.();
+      attach(snapshot.runId);
+    } catch (e) {
+      setRun({ label: action.label, status: "error" });
+      setOutput(e.message);
     }
   }
   async function answer(text) {
@@ -183,12 +213,12 @@ export function useActions({ onFinished } = {}) {
     }
   }
   async function cancel() {
-    setConfirm(null);
+    setCancelPrompt(false);
     try {
-      if (run?.runId) await post("/actions/cancel", { runId: run.runId });
-      else controller.current?.abort();
-    } catch {
-      controller.current?.abort();
+      // The server reports "cancelling" and the final status on the stream.
+      await post("/actions/cancel", { runId: run?.runId });
+    } catch (e) {
+      setOutput((previous) => previous + "\n" + e.message + "\n");
     }
   }
   return {
@@ -197,7 +227,10 @@ export function useActions({ onFinished } = {}) {
     run,
     output,
     confirm,
-    running: Boolean(controller.current) || run?.status === "running",
+    running: Boolean(active),
+    cancelPrompt,
+    requestCancel: () => setCancelPrompt(true),
+    dismissCancel: () => setCancelPrompt(false),
     start,
     answer,
     cancel,
@@ -244,14 +277,20 @@ export function ActionsPanel({ state }) {
       {state.run && (
         <section aria-label="Action run">
           <p className="execution-summary">
-            <strong>{state.run.action.label}</strong> · {state.run.status}
+            <strong>{state.run.label}</strong> · {state.run.status}
             {state.run.exitCode !== undefined && state.run.exitCode !== null
               ? " · exit " + state.run.exitCode
               : ""}
-            {state.running && (
-              <button onClick={state.cancel}>Cancel action</button>
+            {state.running && state.run.status !== "cancelling" && (
+              <button onClick={state.requestCancel}>Cancel action</button>
             )}
           </p>
+          {state.running && (
+            <p className="action-note">
+              This action keeps running if you reload or close this tab; come
+              back to follow it. Only Cancel stops it.
+            </p>
+          )}
           <AnsiOutput
             className="notice"
             role="log"
@@ -260,17 +299,41 @@ export function ActionsPanel({ state }) {
           />
         </section>
       )}
+      {state.cancelPrompt && (
+        <ConfirmDialog
+          title={"Cancel “" + (state.run?.label || "action") + "”?"}
+          message={
+            "Cancelling interrupts the script (Ctrl+C), then force-stops it after " +
+            (state.run?.cancelGraceSeconds ?? 30) +
+            " seconds. Cancelling a deployment part-way can leave cloud resources running and billing; check your cloud account or run the course's tear-down action afterwards."
+          }
+          confirmLabel="Cancel action"
+          onConfirm={state.cancel}
+          onCancel={state.dismissCancel}
+        />
+      )}
     </div>
   );
 }
 
-/** Banners for active course indicators; refreshed every 30s and on demand. */
 export function useIndicators() {
   const [indicators, setIndicators] = useState([]);
   const refresh = useCallback(() => {
     request("/indicators")
       .then((data) => setIndicators(data.indicators))
-      .catch(() => {});
+      .catch((e) =>
+        // Fail closed: an unknown cost status is shown, never hidden.
+        setIndicators([
+          {
+            path: "error:client",
+            level: "danger",
+            message:
+              "Cost status unknown: course indicators could not be checked (" +
+              e.message +
+              "). Resources may still be running.",
+          },
+        ]),
+      );
   }, []);
   useEffect(() => {
     refresh();
@@ -286,11 +349,13 @@ export function IndicatorBanner({ indicators }) {
       {indicators.map((item) => (
         <p key={item.path} className={"indicator " + item.level}>
           <strong>
-            {item.level === "danger"
-              ? "Cost alert"
-              : item.level === "warning"
-                ? "Warning"
-                : "Note"}
+            {item.path.startsWith("error:")
+              ? "Indicator check failed"
+              : item.level === "danger"
+                ? "Cost alert"
+                : item.level === "warning"
+                  ? "Warning"
+                  : "Note"}
           </strong>{" "}
           {item.message}
         </p>
@@ -480,11 +545,16 @@ export function FreePort({ port, onFreed }) {
       setError(e.message);
     }
   }
-  async function free() {
+  async function free(typed) {
     const target = holder;
     setHolder(null);
     try {
-      await post("/ports/free", { port, pid: target.pid, confirm: true });
+      await post("/ports/free", {
+        port,
+        pid: target.pid,
+        confirm: true,
+        ...(target.wildcard ? { confirmName: typed } : {}),
+      });
       onFreed?.(
         "Stopped process " +
           target.pid +
@@ -496,15 +566,7 @@ export function FreePort({ port, onFreed }) {
       setError(e.message);
     }
   }
-  const blocked =
-    holder &&
-    (holder.self
-      ? "This is the workshop itself."
-      : holder.engineOwned
-        ? "This is a workshop process; stop it from the Processes tab."
-        : !holder.loopback
-          ? "It listens on a non-loopback address and will not be stopped from here."
-          : "");
+  const blocked = holder?.refusal || "";
   return (
     <div className="port-conflict" role="region" aria-label="Port conflict">
       <p>Port {port} is used by another process.</p>
@@ -515,8 +577,12 @@ export function FreePort({ port, onFreed }) {
           title={"Stop the process on port " + port + "?"}
           message={
             blocked ||
-            "This terminates a process that the workshop did not start. Unsaved work in it will be lost."
+            "This terminates a process that the workshop did not start (not its child processes). Unsaved work in it will be lost." +
+              (holder.wildcard
+                ? " It listens on all network interfaces, so type its name to confirm."
+                : "")
           }
+          expected={!blocked && holder.wildcard ? holder.name : undefined}
           confirmLabel={"Stop process " + holder.pid}
           confirmDisabled={Boolean(blocked)}
           onCancel={() => setHolder(null)}

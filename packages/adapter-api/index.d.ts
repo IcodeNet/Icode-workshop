@@ -22,7 +22,7 @@ export type RuntimeSession = {
   id: string;
   previewUrl?: string;
   completion: Promise<RunResult>;
-  stop(): Promise<void>;
+  stop(options?: { signal?: string; graceMs?: number }): Promise<void>;
   pid?: number;
   running?: boolean;
   write?(text: string): boolean;

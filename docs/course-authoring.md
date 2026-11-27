@@ -90,7 +90,7 @@ The Compare panel supports source/target variants and a target lesson. It compar
 }
 ```
 
-A script asks for confirmation by printing `::icode-confirm::{"expected":"deploy-prod","message":"…"}`; the UI requires the learner to type `expected` and sends it to the script's stdin (Cancel sends an empty line), and the script re-checks it. See [running and operating a course](course-operations.md) for the full protocol, validation rules, the Processes view, port freeing, live reload, editor launch and the install check.
+A script asks for confirmation by printing `::icode-confirm:<ICODE_CONFIRM_TOKEN>::{"expected":"deploy-prod","message":"…"}`, using the per-run token from its environment; the UI requires the learner to type `expected` and sends it to the script's stdin (Cancel sends an empty line), and the script re-checks it. Runs are detached from the browser: reloading or closing the tab never cancels them, the UI re-attaches, and only an explicit Cancel stops a run (SIGINT first, SIGKILL after `cancelGraceSeconds`, default 30). See [running and operating a course](course-operations.md) for the full protocol, validation rules, the Processes view, port freeing, live reload, editor launch and the install check.
 
 ## Embedded services
 
