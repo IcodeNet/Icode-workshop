@@ -789,9 +789,20 @@ function App() {
                 <p>{exercise.description}</p>
               </div>
               <div className="learning-layout">
-                <article className="lesson-panel">
+                <article className="lesson-panel" onClick={(event) => {
+                  const href = event.target.closest("a")?.getAttribute("href");
+                  if (href?.startsWith("#file=")) {
+                    event.preventDefault();
+                    if (!busy) { setTab("playground"); openFile(decodeURIComponent(href.slice(6))).catch(e=>setResult(e.message)); }
+                  } else if (href === "#comparison") {
+                    event.preventDefault(); if (!busy) compare();
+                  }
+                }}>
                   <div className="eyebrow">LESSON · {selected}</div>
                   <Markdown>{exercise.instructions}</Markdown>
+                  {exercise.documents?.filter(doc => doc.title !== "Problem lesson" && doc.title !== "Lesson").map(doc => (
+                    <details key={doc.path}><summary>{doc.title}</summary><Markdown>{doc.content}</Markdown></details>
+                  ))}
                   {exercise.media && (
                     <section className="lesson-media">
                       {exercise.media.src && (
@@ -866,6 +877,7 @@ function App() {
                         >
                           Save
                         </button>
+                        <button disabled={busy || !file} onClick={() => openFile(file).catch(e=>setResult(e.message))}>Reload file</button>
                         <button
                           disabled={busy}
                           className="primary"

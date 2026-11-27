@@ -1,3 +1,4 @@
+import { stepLayout } from "../core/layout.mjs";
 import {
   lstat,
   readdir,
@@ -46,7 +47,7 @@ export function variantRoot(root, id, variant = "playground") {
     throw new Error("Invalid variant");
   return variant === "playground"
     ? workspacePath(root, id)
-    : join(resolve(root), "exercises", id, variant);
+    : stepLayout(root, id)[variant];
 }
 export async function listFiles(root, id, variant) {
   const base = variantRoot(root, id, variant),
@@ -54,7 +55,7 @@ export async function listFiles(root, id, variant) {
   async function walk(dir, prefix = "") {
     for (const item of await readdir(dir, { withFileTypes: true })) {
       if (
-        item.name.startsWith(".") ||
+        item.name.startsWith(".") || /\.(sqlite|db)(-wal|-shm)?$/.test(item.name) ||
         ["node_modules", "__pycache__", "target", "bin", "obj"].includes(
           item.name,
         )

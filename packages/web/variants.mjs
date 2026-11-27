@@ -1,3 +1,4 @@
+import { prepareWorkspace } from "./setup.mjs";
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { variantRoot, assertSafePath, listFiles } from "./files.mjs";
@@ -14,6 +15,7 @@ export async function executionWorkspace(root, id, variant = "playground") {
   const path = await mkdtemp(join(base, id + "-" + variant + "-"));
   try {
     await cp(source, path, { recursive: true, dereference: false });
+    await prepareWorkspace(root, path);
   } catch (e) {
     await rm(path, { recursive: true, force: true });
     throw e;

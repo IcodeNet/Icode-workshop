@@ -1,3 +1,5 @@
+import { stepLayout } from "../core/layout.mjs";
+import { prepareWorkspace } from "./setup.mjs";
 import { cp, mkdir, readFile, stat, writeFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { validateId } from "../core/index.mjs";
@@ -18,7 +20,7 @@ export function workspacePath(root, id) {
 }
 export async function selectWorkspace(root, id) {
   const path = workspacePath(root, id);
-  const starter = join(resolve(root), "exercises", id, "problem");
+  const starter = stepLayout(root, id).problem;
   const { assertSafePath } = await import("./files.mjs");
   await assertSafePath(path);
   await assertSafePath(starter);
@@ -32,6 +34,7 @@ export async function selectWorkspace(root, id) {
       force: false,
       errorOnExist: true,
     });
+    try { await prepareWorkspace(root, path); } catch (error) { await rm(path, { recursive: true, force: true }); throw error; }
   }
   const config = await labConfig(root, id);
   const { listFiles, readProjectFile } = await import("./files.mjs");
@@ -129,6 +132,8 @@ export async function replaceWorkspace(
       errorOnExist: true,
       force: false,
     });
+    // Restoring a backup preserves its database; fresh authored copies run setup before replacing work.
+    if (!backup && variant !== "playground") await prepareWorkspace(root, staging);
     const hadPrevious = await exists(path);
     if (hadPrevious) await rename(path, previous);
     try {

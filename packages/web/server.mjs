@@ -1,3 +1,4 @@
+import { lessonText, lessonDocuments } from "./lessons.mjs";
 import { integrationStatus, readIntegration } from "./integrations.mjs";
 import { planMigration, migrateWorkspace } from "./migration.mjs";
 import { askTutor, tutorConfig } from "./tutor.mjs";
@@ -58,16 +59,13 @@ async function load(id) {
   validateId(id);
   const base = join(root, "exercises", id);
   const config = await labConfig(root, id);
-  let instructions = config.description;
-  try {
-    instructions = await readText(join(base, "README.md"));
-  } catch (e) {
-    if (e.code !== "ENOENT") throw e;
-  }
+  const instructions = await lessonText(root,id) || config.description;
+  const documents = await lessonDocuments(root,id);
   return {
     id,
     ...config,
     instructions,
+    documents,
     topic: "AI engineering",
     problem: await readProjectFile(root, id, config.entry, "problem"),
     solution: await readProjectFile(root, id, config.entry, "solution"),

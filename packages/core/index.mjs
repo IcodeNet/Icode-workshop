@@ -1,3 +1,4 @@
+import { discoverSteps } from './layout.mjs'
 import { cp, mkdir, readdir, rename, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -13,8 +14,7 @@ export function validateId(id) {
   return id
 }
 export async function listExercises(contentRoot) {
-  const entries = await readdir(join(resolve(contentRoot), 'exercises'), { withFileTypes: true })
-  return entries.filter((entry) => entry.isDirectory() && /^[0-9]{2}$/.test(entry.name)).map((entry) => entry.name).sort()
+  return discoverSteps(contentRoot).map(step => step.id)
 }
 export async function setExercise(contentRoot, id) {
   validateId(id)
