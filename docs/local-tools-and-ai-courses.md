@@ -50,12 +50,14 @@ Microsoft documents the vNext gateway on 8081, Data Explorer on 1234 and health 
 
 Keep these contracts separate:
 
-- Runtime adapter: Node, Python, future Rust/.NET/Jupyter; build/test/run and owned processes.
+- Runtime adapter: Node, Python, Rust/.NET/Jupyter/Docker; build/test/run and owned processes.
 - Service provider: attach/check/start/stop a named dependency; preserve data volumes and never stop a learner-owned instance.
 - Tool view: embedded UI, external link or native Workshop panel; no credentials in URLs.
 - Assessment provider: deterministic tests and versioned evaluation evidence; record thresholds, dataset and evaluator versions.
 
-Remaining implementation: service readiness API, secret storage/redaction, Compose ownership, dataset fixtures, native trace/score panels, real Langfuse acceptance tests, Cosmos embedding acceptance, cross-platform Docker setup checks. The current Tools panel alone is not this complete integration.
+Implemented connection code: opt-in, server-side configuration; bounded read-only Langfuse observation and Cosmos document projections; native summary panels and sanitised error handling. Fixture/contract tests verify these boundaries, not live authenticated connectivity. See [setup](ai-and-runtime-setup.md) for configuration.
+
+Remaining integration/course work: real authenticated Langfuse/Cosmos acceptance, course-owned infrastructure lifecycle and dataset/evaluation fixtures, Cosmos embedding acceptance, and course-specific Docker setup checks. Docker runtime assessment is implemented and verified in CI; that does not provision these services.
 
 ## Primary sources
 

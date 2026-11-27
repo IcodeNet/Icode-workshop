@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
+import { startProcess } from "../adapter-api/node.mjs";
 import { fileURLToPath } from "node:url";
 import { courseConfig, readProgress } from "../web/course.mjs";
 import { selectWorkspace, replaceWorkspace } from "../web/workspaces.mjs";
@@ -67,36 +68,39 @@ async function main() {
   if (command === "start") {
     const cwd = fileURLToPath(new URL("../web/", import.meta.url));
     const env = { ...process.env, WORKSHOP_CONTENT: content };
-    const api = spawn(process.execPath, ["server.mjs"], {
-      cwd,
-      env,
-      stdio: "inherit",
-    });
-    const web = spawn(
-      process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-      ["dev"],
-      { cwd, env, stdio: "inherit" },
+    const require = createRequire(
+      new URL("../web/package.json", import.meta.url),
     );
-    let closing = false;
-    const stop = () => {
-      if (closing) return;
-      closing = true;
-      api.kill();
-      web.kill();
+    const vite = resolve(
+      require.resolve("vite/package.json"),
+      "../bin/vite.js",
+    );
+    const context = {
+      workspaceRoot: cwd,
+      env,
+      emit: ({ type, text }) => process[type].write(text),
     };
-    for (const child of [api, web]) {
-      child.on("error", (e) => {
-        console.error(e.message);
-        process.exitCode = 1;
-        stop();
-      });
-      child.on("exit", (code) => {
-        if (!closing && code) process.exitCode = code;
-        stop();
-      });
+    const sessions = [];
+    let closing;
+    const stop = () =>
+      (closing ??= Promise.allSettled(sessions.map((s) => s.stop())));
+    const onSignal = () => {
+      void stop();
+    };
+    process.on("SIGINT", onSignal);
+    process.on("SIGTERM", onSignal);
+    try {
+      sessions.push(startProcess(process.execPath, ["server.mjs"], context));
+      sessions.push(
+        startProcess(process.execPath, [vite, "--host", "127.0.0.1"], context),
+      );
+      const result = await Promise.race(sessions.map((s) => s.completion));
+      if (!closing) process.exitCode = result.exitCode ?? 1;
+    } finally {
+      await stop();
+      process.removeListener("SIGINT", onSignal);
+      process.removeListener("SIGTERM", onSignal);
     }
-    process.on("SIGINT", stop);
-    process.on("SIGTERM", stop);
     return;
   }
   throw new Error(

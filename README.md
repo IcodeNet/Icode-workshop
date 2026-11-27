@@ -1,6 +1,6 @@
 # Icode Workshop
 
-A local-first learning workbench for programming and AI engineering. **Development preview: full Epic Workshop parity is not yet complete. PR #2 remains unmerged.**
+A local-first learning workbench for programming and AI engineering. **Development preview: agreed platform features are implemented; live service acceptance and release decisions remain separate gates. PR #2 remains draft and unmerged.**
 
 ## Running application
 
@@ -48,13 +48,13 @@ pnpm exec playwright install chromium
 pnpm test:browser
 ```
 
-CI installs Python/pytest, runs unit/integration tests, builds React, runs Chromium acceptance tests and uploads screenshot evidence. Browser tests use disposable content directories. An optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` selects an already installed browser for restricted environments.
+CI installs the required language runtimes, requires real Rust/.NET/Jupyter/Docker failing/passing/no-assessment checks without skips, runs unit/integration tests and typecheck, builds React, runs Chromium acceptance tests and uploads screenshot evidence. A separate Linux/macOS/Windows matrix checks process-tree cancellation. Browser tests use disposable content directories. An optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` selects an already installed browser for restricted environments.
 
-The CLI uses the same per-step playgrounds as the UI. Run `pnpm workshop validate --content ./examples`, `pnpm workshop start --content ./examples`, or `pnpm workshop test 01 --content ./examples`. See [course authoring](docs/course-authoring.md) for the complete workflow. Old core helper APIs remain for compatibility; new CLI commands do not use the legacy single playground.
+The CLI uses the same per-step playgrounds as the UI. Its start command owns API and Vite process trees and stops both on interruption or when either service exits. Run `pnpm workshop validate --content ./examples`, `pnpm workshop start --content ./examples`, or `pnpm workshop test 01 --content ./examples`. See [course authoring](docs/course-authoring.md) for the complete workflow. Old core helper APIs remain for compatibility; new CLI commands do not use the legacy single playground.
 
 ## Parity and roadmap
 
-The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. Full parity still includes unresolved capabilities and external integrations; see the explicit release-gate table in the audit. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
+The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. The agreed platform feature set is implemented; live authenticated integration acceptance and the subsequent senior AI course remain explicit dependencies in the audit. This is not a claim of every Epic product capability. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
 
 Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI requires real failing/passing/no-assessment journeys for all four; local unavailable runtimes are explicitly reported. See [AI and runtime setup](docs/ai-and-runtime-setup.md) for contracts and environment requirements.
 
