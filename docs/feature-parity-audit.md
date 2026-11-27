@@ -1,6 +1,6 @@
-# Icode Workshop — final verification checkpoint
+# Icode Workshop — native workflow verification checkpoint
 
-Date: 2026-11-27. Scope: the agreed workshop platform, branding, extensibility and integration connection code. **Platform implementation is complete against the recorded requirements; live authenticated acceptance remains blocked on configuration. The senior AI engineer course is the next deliverable, not part of this platform completion gate. PR #2 remains draft/unmerged.**
+Date: 2026-11-27. This records verification of the implemented native workflow subset. **It does not establish full Epic parity. The broader [Epic platform and MCP course audit](epic-platform-gap-audit.md) supersedes the earlier platform-complete claim and identifies setup, authoring, runtime and MCP gaps.** PR #2 has been merged; live authenticated acceptance remains unverified.
 
 The reference workshop tutorial was previously run locally and its home/exercise workflows inspected. No reference implementation code was imported. This check compares the recorded workflow requirements against the current Icode implementation and executable tests. It does not claim every reference-product capability was exercised.
 

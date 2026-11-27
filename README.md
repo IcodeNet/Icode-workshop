@@ -1,6 +1,6 @@
 # Icode Workshop
 
-A local-first learning workbench for programming and AI engineering. **Development preview: agreed platform features are implemented; live service acceptance and release decisions remain separate gates. PR #2 remains draft and unmerged.**
+A local-first learning workbench for programming and AI engineering. **Development preview: core native workflows are implemented and PR #2 is merged. Full Epic parity and unchanged Epic course compatibility are incomplete; see the [platform gap audit](docs/epic-platform-gap-audit.md).**
 
 ## Running application
 
@@ -54,7 +54,7 @@ The CLI uses the same per-step playgrounds as the UI. Its start command owns API
 
 ## Parity and roadmap
 
-The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. The agreed platform feature set is implemented; live authenticated integration acceptance and the subsequent senior AI course remain explicit dependencies in the audit. This is not a claim of every Epic product capability. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
+The Epic Workshop tutorial was run locally and its home and exercise pages inspected. Icode now keeps instructions beside the working area, but it does **not** yet match Epic's complete workflow. The current branch adds hierarchy, runnable references, cross-step comparison/copy, authored media, shortcuts, streamed output and a unified CLI. The broader audit identifies missing setup, course compatibility, authoring and MCP workflows, alongside live integration acceptance and the subsequent senior AI course. This is not a claim of every Epic product capability. VS Code links, conservative three-way file reconciliation and structured execution summaries are implemented. Automatic transcription and line-level conflict resolution remain outside the current implementation.
 
 Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI requires real failing/passing/no-assessment journeys for all four; local unavailable runtimes are explicitly reported. See [AI and runtime setup](docs/ai-and-runtime-setup.md) for contracts and environment requirements.
 
@@ -66,4 +66,4 @@ Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI req
 - [Langfuse, evaluation courses and embedded tools](docs/local-tools-and-ai-courses.md)
 - [Development PR #2](https://github.com/IcodeNet/Icode-workshop/pull/2)
 
-No package has been published or merged. Real model/service acceptance requires configured endpoints and credentials; all remaining validation boundaries are recorded in the parity audit.
+PR #2 is merged. No package has been published. Real model/service acceptance requires configured endpoints and credentials; all remaining validation boundaries are recorded in the parity audit.
