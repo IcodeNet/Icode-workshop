@@ -112,3 +112,33 @@ test(
     assert.equal(result.aborted, true);
   },
 );
+
+test("managed process stdin can be piped and written", async () => {
+  const { startProcess } = await import("./node.mjs");
+  let output = "";
+  const session = startProcess(
+    process.execPath,
+    ["-e", 'process.stdin.once("data",d=>{console.log("got:"+String(d).trim());process.exit(0)})'],
+    { workspaceRoot: tmpdir(), stdin: true, emit: (e) => (output += e.text) },
+  );
+  assert.ok(session.pid > 0);
+  assert.equal(session.running, true);
+  assert.equal(session.write("hello\n"), true);
+  const result = await session.completion;
+  assert.equal(result.exitCode, 0);
+  assert.match(output, /got:hello/);
+  assert.equal(session.running, false);
+  assert.equal(session.write("late"), false);
+});
+test("managed process honours an unlimited output limit and onSpawn", async () => {
+  const { execute } = await import("./node.mjs");
+  let size = 0, spawned;
+  await execute(process.execPath, ["-e", 'process.stdout.write("x".repeat(120000))'], {
+    workspaceRoot: tmpdir(),
+    outputLimit: Infinity,
+    onSpawn: (s) => (spawned = s),
+    emit: (e) => (size += e.text.length),
+  });
+  assert.equal(size, 120000);
+  assert.ok(spawned.pid > 0);
+});

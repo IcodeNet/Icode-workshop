@@ -1,0 +1,153 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  mkdtemp,
+  writeFile,
+  chmod,
+  readFile,
+  rm,
+  mkdir,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  editorArgs,
+  editorKind,
+  parseEditorSetting,
+  detectEditors,
+  chooseEditor,
+  launchEditor,
+  findExecutable,
+  publicEditors,
+} from "./editors.mjs";
+
+test("editor kinds and line/column arguments", () => {
+  assert.equal(editorKind("/usr/bin/code"), "code");
+  assert.equal(editorKind("C:\\Tools\\Cursor.exe"), "cursor");
+  assert.equal(editorKind("webstorm.sh"), "webstorm");
+  assert.equal(editorKind("idea64.exe"), "idea");
+  assert.equal(editorKind("nvim"), "nvim");
+  assert.equal(editorKind("my-editor"), "generic");
+  assert.deepEqual(editorArgs("code", "/a b/x.mjs", 3, 7), [
+    "--goto",
+    "/a b/x.mjs:3:7",
+  ]);
+  assert.deepEqual(editorArgs("webstorm", "/x", 2, 4), [
+    "--line",
+    "2",
+    "--column",
+    "4",
+    "/x",
+  ]);
+  assert.deepEqual(editorArgs("subl", "/x", 2, 4), ["/x:2:4"]);
+  assert.deepEqual(editorArgs("vim", "/x", 5, 1), ["+call cursor(5, 1)", "/x"]);
+  assert.deepEqual(editorArgs("generic", "/x; rm -rf /", 1, 1), [
+    "/x; rm -rf /",
+  ]);
+  assert.deepEqual(editorArgs("code", "/x", "bad", -3), ["--goto", "/x:1:1"]);
+});
+
+test("ICODE_EDITOR accepts an executable or a JSON argument array", () => {
+  assert.deepEqual(parseEditorSetting("code"), ["code"]);
+  assert.deepEqual(parseEditorSetting('["/opt/ed","--new-window"]'), [
+    "/opt/ed",
+    "--new-window",
+  ]);
+  assert.equal(parseEditorSetting(""), null);
+  assert.throws(() => parseEditorSetting("[1]"), /JSON array/);
+});
+
+async function fakeBin() {
+  const dir = await mkdtemp(join(tmpdir(), "icode-editors-"));
+  const log = join(dir, "args.json");
+  // A Node script stands in for an editor: it records its arguments.
+  const script = join(dir, "record.mjs");
+  await writeFile(
+    script,
+    `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));\n`,
+  );
+  return { dir, log, script };
+}
+
+test(
+  "detection honours ICODE_EDITOR, VISUAL/EDITOR and PATH",
+  { skip: process.platform === "win32" },
+  async () => {
+    const { dir } = await fakeBin();
+    try {
+      await mkdir(join(dir, "bin"));
+      for (const name of ["code", "vim"]) {
+        await writeFile(join(dir, "bin", name), "#!/bin/sh\n");
+        await chmod(join(dir, "bin", name), 0o755);
+      }
+      const env = {
+        PATH: join(dir, "bin"),
+        EDITOR: "vim",
+        VISUAL: "code --wait",
+      };
+      assert.equal(findExecutable("code", { env }), join(dir, "bin", "code"));
+      const editors = detectEditors({ env, tty: false });
+      const visual = editors.find((e) => e.id === "visual");
+      assert.equal(visual.kind, "code");
+      assert.equal(visual.available, true);
+      assert.deepEqual(visual.extraArgs, ["--wait"]);
+      const vim = editors.find((e) => e.id === "editor");
+      assert.equal(vim.available, false);
+      assert.match(vim.reason, /terminal/);
+      assert.equal(
+        detectEditors({ env, tty: true }).find((e) => e.id === "editor")
+          .available,
+        true,
+      );
+      assert.equal(
+        editors.some((e) => e.id === "code"),
+        false,
+        "PATH duplicate of $VISUAL omitted",
+      );
+      assert.equal(editors.find((e) => e.id === "cursor").available, false);
+      assert.equal(chooseEditor(editors).id, "visual");
+      assert.throws(() => chooseEditor(editors, "cursor"), /unavailable/);
+      assert.throws(() => chooseEditor(editors, "nope"), /Unknown editor/);
+      assert.equal(
+        publicEditors(editors)[0].command,
+        undefined,
+        "paths are not exposed",
+      );
+      const override = detectEditors({
+        env: { ...env, ICODE_EDITOR: "subl" },
+        tty: false,
+      });
+      assert.equal(override[0].id, "override");
+      assert.equal(override[0].available, false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test("launch spawns the editor with an argument array, never a shell", async () => {
+  const { dir, log, script } = await fakeBin();
+  try {
+    const target = join(dir, "file with $(spaces) & quotes'.mjs");
+    await writeFile(target, "x\n");
+    const env = {
+      ...process.env,
+      ICODE_EDITOR: JSON.stringify([process.execPath, script]),
+    };
+    const result = await launchEditor(target, { line: 4, column: 2, env });
+    assert.equal(result.launched, true);
+    let args;
+    for (let i = 0; i < 100 && !args; i++) {
+      args = await readFile(log, "utf8").catch(() => undefined);
+      if (!args) await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.deepEqual(JSON.parse(args), [target]);
+    await assert.rejects(launchEditor("relative.mjs", { env }), /absolute/);
+    await assert.rejects(
+      launchEditor(join(dir, "missing.mjs"), { env }),
+      /not found/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

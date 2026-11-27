@@ -6,6 +6,12 @@ export type RuntimeContext = {
   workspaceRoot: string;
   signal?: AbortSignal;
   env?: Record<string, string>;
+  /** Pipe stdin; the session then accepts write() and end(). */
+  stdin?: boolean;
+  /** Maximum characters emitted (default 50000). */
+  outputLimit?: number;
+  /** Observer called once the process is spawned. */
+  onSpawn?(session: RuntimeSession): void;
   emit?(event: {
     type: "stdout" | "stderr" | "diagnostic";
     text: string;
@@ -17,6 +23,11 @@ export type RuntimeSession = {
   previewUrl?: string;
   completion: Promise<RunResult>;
   stop(): Promise<void>;
+  pid?: number;
+  running?: boolean;
+  write?(text: string): boolean;
+  end?(): void;
+  killNow?(): void;
 };
 export interface WorkshopAdapter {
   id: string;

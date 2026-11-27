@@ -2,6 +2,7 @@ import { courseEnvironment } from "./setup.mjs";
 import { executionWorkspace } from "./variants.mjs";
 import { startProcess } from "../adapter-api/node.mjs";
 import { labConfig } from "./runtime.mjs";
+import { registerProcess } from "./processes.mjs";
 const sessions = new Map();
 export function validatePreview(preview) {
   if (preview === undefined) return undefined;
@@ -39,9 +40,12 @@ export async function startPreview(root, id, variant = "playground") {
     await fetch("http://127.0.0.1:" + port, {
       signal: AbortSignal.timeout(400),
     });
-    throw new Error("Preview port already occupied");
+    throw Object.assign(new Error("Preview port already occupied"), {
+      code: "PORT_OCCUPIED",
+      port,
+    });
   } catch (e) {
-    if (e.message === "Preview port already occupied") throw e;
+    if (e.code === "PORT_OCCUPIED") throw e;
   }
   let output = "",
     finished = false;
@@ -55,7 +59,16 @@ export async function startPreview(root, id, variant = "playground") {
   });
   session.cleanup = workspace.cleanup;
   session.port = port;
+  session.variant = variant;
   sessions.set(id, session);
+  registerProcess({
+    kind: "preview",
+    label: "Preview " + id + " (" + variant + ")",
+    command,
+    port,
+    session,
+    stop: () => stopPreview(id),
+  });
   session.completion.then(
     () => {
       finished = true;
@@ -82,4 +95,12 @@ export async function startPreview(root, id, variant = "playground") {
 }
 export async function stopAllPreviews() {
   await Promise.all([...sessions.keys()].map(stopPreview));
+}
+
+export function runningPreviews() {
+  return [...sessions.entries()].map(([id, s]) => ({
+    id,
+    port: s.port,
+    variant: s.variant,
+  }));
 }

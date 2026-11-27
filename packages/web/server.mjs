@@ -5,12 +5,41 @@ import { askTutor, tutorConfig } from "./tutor.mjs";
 import { courseConfig, readProgress, updateProgress } from "./course.mjs";
 import { executionWorkspace } from "./variants.mjs";
 import { startPreview, stopPreview, stopAllPreviews } from "./previews.mjs";
+import {
+  courseOperations,
+  indicatorStatus,
+  runAction,
+  sendActionInput,
+  cancelAction,
+  currentAction,
+} from "./operations.mjs";
+import {
+  registerProcess,
+  listProcesses,
+  stopProcess,
+  portHolder,
+} from "./processes.mjs";
+import {
+  startSidecars,
+  listSidecars,
+  sidecarLogs,
+  restartSidecar,
+  stopSidecar,
+  stopAllSidecars,
+  killAllSidecarsNow,
+} from "./sidecars.mjs";
+import { watchPlayground, closeAllWatchers } from "./watch.mjs";
+import { detectEditors, publicEditors, launchEditor } from "./editors.mjs";
+import { doctor } from "./setup.mjs";
+import { lstat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import {
   listFiles,
   variantRoot,
+  validateFile,
+  assertSafePath,
   readProjectFile,
   writeProjectFile,
   deleteProjectFile,
@@ -72,6 +101,31 @@ async function load(id) {
   };
 }
 let mutationActive = false;
+// Endpoints that must work while a long mutation (an action or a test run)
+// holds the gate: answering an action's confirmation, cancelling it, and
+// stopping engine-owned processes.
+const gateExempt = (pathname) =>
+  pathname === "/api/processes/stop" ||
+  (currentAction() !== null &&
+    ["/api/actions/input", "/api/actions/cancel"].includes(pathname));
+async function previewPorts() {
+  const { ids } = await courseConfig(root);
+  const ports = new Set();
+  for (const id of ids) {
+    const port = (await labConfig(root, id)).preview?.port;
+    if (port) ports.add(port);
+  }
+  return [...ports];
+}
+function ndjson(res) {
+  res.writeHead(200, {
+    "content-type": "application/x-ndjson",
+    "cache-control": "no-store",
+  });
+  return (event) => {
+    if (!res.destroyed) res.write(JSON.stringify(event) + "\n");
+  };
+}
 const server = createServer(async (req, res) => {
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(req.headers.host))
     return json(res, 403, { error: "Host denied" });
@@ -88,7 +142,7 @@ const server = createServer(async (req, res) => {
   let ownsMutation = false;
   try {
     const url = new URL(req.url, "http://localhost");
-    if (!["GET", "HEAD"].includes(req.method)) {
+    if (!["GET", "HEAD"].includes(req.method) && !gateExempt(url.pathname)) {
       if (mutationActive)
         return json(res, 409, {
           error:
@@ -111,6 +165,136 @@ const server = createServer(async (req, res) => {
           : await stopPreview(id),
       );
     }
+    if (url.pathname === "/api/operations" && req.method === "GET") {
+      const { actions, sidecars } = await courseOperations(root);
+      return json(res, 200, {
+        actions,
+        sidecars: sidecars.map((sidecar) => ({
+          ...sidecar,
+          ...listSidecars().find((item) => item.name === sidecar.name),
+        })),
+        running: currentAction(),
+      });
+    }
+    if (url.pathname === "/api/actions/run" && req.method === "POST") {
+      const { id } = await readBody(req);
+      if (typeof id !== "string") throw new Error("Unknown course action");
+      const { actions } = await courseOperations(root);
+      if (!actions.some((action) => action.id === id))
+        throw new Error("Unknown course action");
+      if (currentAction()) throw new Error("Another course action is already running");
+      // Closing the stream (tab closed, navigation) cancels the action: nobody
+      // would be left to answer its confirmation prompts.
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      res.on("close", cancel);
+      try {
+        const send = ndjson(res);
+        const result = await runAction(root, id, {
+          emit: send,
+          signal: controller.signal,
+        });
+        send({ type: "result", ...result });
+        return res.end();
+      } finally {
+        res.off("close", cancel);
+      }
+    }
+    if (url.pathname === "/api/actions/input" && req.method === "POST") {
+      const { runId, text } = await readBody(req);
+      return json(res, 200, sendActionInput(runId, text));
+    }
+    if (url.pathname === "/api/actions/cancel" && req.method === "POST") {
+      const { runId } = await readBody(req);
+      return json(res, 200, await cancelAction(runId));
+    }
+    if (url.pathname === "/api/indicators" && req.method === "GET")
+      return json(res, 200, await indicatorStatus(root));
+    if (url.pathname === "/api/processes" && req.method === "GET")
+      return json(res, 200, {
+        processes: listProcesses(),
+        previewPorts: await previewPorts(),
+      });
+    if (url.pathname === "/api/processes/stop" && req.method === "POST") {
+      const { id } = await readBody(req);
+      if (typeof id !== "string") throw new Error("Unknown or finished process");
+      return json(res, 200, await stopProcess(id));
+    }
+    if (url.pathname === "/api/ports/holder" && req.method === "GET")
+      return json(
+        res,
+        200,
+        await portHolder(Number(url.searchParams.get("port")), await previewPorts()),
+      );
+    if (url.pathname === "/api/ports/free" && req.method === "POST") {
+      const { port, pid, confirm } = await readBody(req);
+      if (confirm !== true || !Number.isInteger(pid))
+        throw new Error("Freeing a port requires explicit confirmation");
+      return json(
+        res,
+        200,
+        await portHolder(Number(port), await previewPorts(), { confirmPid: pid }),
+      );
+    }
+    if (url.pathname === "/api/sidecars" && req.method === "GET")
+      return json(res, 200, { sidecars: listSidecars() });
+    if (url.pathname === "/api/sidecars/logs" && req.method === "GET")
+      return json(res, 200, sidecarLogs(url.searchParams.get("name")));
+    if (
+      ["/api/sidecars/restart", "/api/sidecars/stop"].includes(url.pathname) &&
+      req.method === "POST"
+    ) {
+      const { name } = await readBody(req);
+      if (typeof name !== "string") throw new Error("Unknown sidecar");
+      return json(
+        res,
+        200,
+        url.pathname.endsWith("restart")
+          ? await restartSidecar(root, name)
+          : await stopSidecar(name),
+      );
+    }
+    if (url.pathname === "/api/events" && req.method === "GET") {
+      const id = url.searchParams.get("id");
+      validateId(id);
+      await selectWorkspace(root, id);
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-store",
+        connection: "keep-alive",
+        "access-control-allow-origin": allowedOrigin,
+      });
+      res.write("retry: 2000\n\n");
+      const unsubscribe = await watchPlayground(root, id, (event) => {
+        if (!res.destroyed)
+          res.write("event: change\ndata: " + JSON.stringify(event) + "\n\n");
+      });
+      res.write("event: ready\ndata: " + JSON.stringify({ id }) + "\n\n");
+      const heartbeat = setInterval(() => {
+        if (!res.destroyed) res.write(": keep-alive\n\n");
+      }, 15000);
+      res.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      });
+      return;
+    }
+    if (url.pathname === "/api/editors" && req.method === "GET")
+      return json(res, 200, { editors: publicEditors(detectEditors()) });
+    if (url.pathname === "/api/editor/launch" && req.method === "POST") {
+      const { id, name, variant = "playground", line, column, editor } =
+        await readBody(req);
+      validateFile(name);
+      const path = await assertSafePath(
+        resolve(variantRoot(root, id, variant), name),
+      );
+      if (!(await lstat(path)).isFile()) throw new Error("Not a file");
+      if (editor !== undefined && typeof editor !== "string")
+        throw new Error("Unknown editor");
+      return json(res, 200, await launchEditor(path, { line, column, editor }));
+    }
+    if (url.pathname === "/api/doctor" && req.method === "GET")
+      return json(res, 200, await doctor(root));
     if (url.pathname === "/api/integrations" && req.method === "GET")
       return json(res, 200, { integrations: integrationStatus() });
     if (url.pathname === "/api/integrations/read" && req.method === "POST")
@@ -311,6 +495,14 @@ const server = createServer(async (req, res) => {
             workspaceRoot: workspace.path,
             signal: controller.signal,
             emit: send,
+            onSpawn: (session) =>
+              registerProcess({
+                kind: "test",
+                label: "Tests " + id + " (" + variant + ")",
+                command: ["test", id, variant],
+                session,
+                stop: () => controller.abort(),
+              }),
           });
           await workspace.cleanup();
           send({ type: "result", ...result });
@@ -340,20 +532,38 @@ const server = createServer(async (req, res) => {
             output: error.message,
           }) + "\n",
         );
-    } else json(res, 400, { error: error.message });
+    } else
+      json(res, 400, {
+        error: error.message,
+        ...(error.code === "PORT_OCCUPIED" ? { code: error.code, port: error.port } : {}),
+      });
   } finally {
     if (ownsMutation) mutationActive = false;
   }
 });
-server.listen(port, host, () =>
+server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
-  ),
-);
+  );
+  if (process.env.ICODE_SIDECARS !== "0")
+    startSidecars(root).catch((error) =>
+      console.error("Sidecars not started: " + error.message),
+    );
+});
 
+let shuttingDown = false;
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, async () => {
-    await stopAllPreviews();
+    if (shuttingDown) return;
+    shuttingDown = true;
+    closeAllWatchers();
+    const running = currentAction();
+    await Promise.allSettled([
+      stopAllPreviews(),
+      stopAllSidecars(),
+      running ? cancelAction(running.runId) : undefined,
+    ]);
     server.close();
     process.exit(0);
   });
+process.on("exit", killAllSidecarsNow);
