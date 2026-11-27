@@ -1,3 +1,7 @@
+import { fileURLToPath } from "node:url";
+import { stepLayout, hostConfig } from "../core/layout.mjs";
+import { courseEnvironment, npmCLI } from "./setup.mjs";
+import { execute } from "../adapter-api/node.mjs";
 import {
   createRustAdapter,
   createDotnetAdapter,
@@ -30,13 +34,35 @@ await loadAdapters(registry, JSON.parse(process.env.WORKSHOP_ADAPTERS || "[]"));
 export async function labConfig(root, id) {
   validateId(id);
   let config;
+  const layout = stepLayout(root, id);
+  const host = hostConfig(root);
   try {
     config = JSON.parse(
       await readFile(join(root, "exercises", id, "lab.json"), "utf8"),
     );
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
-    config = { runtime: "node", entry: "index.mjs" };
+    config = layout.epic
+      ? {
+          runtime: "node",
+          entry: "src/index.ts",
+          title: layout.title,
+          description: layout.module,
+          testScript: host.testScript,
+          testArgs: host.testArgs,
+          preview: host.inspector
+            ? {
+                command: [
+                  process.execPath,
+                  fileURLToPath(
+                    new URL("../cli/inspector.mjs", import.meta.url),
+                  ),
+                ],
+                port: 4400 + Number(id),
+              }
+            : undefined,
+        }
+      : { runtime: "node", entry: "index.mjs" };
   }
   if (!registry.get(config.runtime))
     throw new Error("Unsupported lab runtime: " + config.runtime);
@@ -54,6 +80,8 @@ export async function labConfig(root, id) {
   if (config.entry?.split("/").includes(".."))
     throw new Error("Invalid entry file");
   return {
+    testScript: config.testScript,
+    testArgs: config.testArgs,
     media: validateMedia(config.media),
     tools: validateTools(config.tools),
     preview: validatePreview(config.preview),
@@ -86,6 +114,7 @@ async function runLab(
       workspaceRoot:
         workspaceRoot || join(root, ".workshop", "playgrounds", id),
       signal: controller.signal,
+      env: courseEnvironment(root),
       emit: (event) => {
         if (events.join("").length < 50000) {
           events.push(event.text);
@@ -109,7 +138,7 @@ async function runLab(
         const name = path.split("/").at(-1);
         return config.runtime === "python"
           ? /^test_.*\.py$|^.*_test\.py$/.test(name)
-          : /(?:^test.*|.*\.test)\.(?:mjs|js|cjs)$/.test(name);
+          : /(?:^test.*|.*\.test)\.(?:mjs|js|cjs|ts|tsx|mts)$/.test(name);
       });
     if (!hasTests)
       return {
@@ -119,7 +148,20 @@ async function runLab(
         output: "No test files found; cannot report a passing lab.",
       };
     await adapter.prepare(context);
-    const result = await adapter.run("test", context);
+    if (
+      config.testScript &&
+      (!/^[a-zA-Z0-9:_-]+$/.test(config.testScript) ||
+        !Array.isArray(config.testArgs) ||
+        config.testArgs.some((x) => typeof x !== "string"))
+    )
+      throw new Error("Invalid test script configuration");
+    const result = config.testScript
+      ? await execute(
+          process.execPath,
+          [npmCLI(), "run", config.testScript, "--", ...config.testArgs],
+          context,
+        )
+      : await adapter.run("test", context);
     return {
       passed: result.exitCode === 0 && !result.aborted,
       status: result.aborted

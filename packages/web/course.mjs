@@ -1,3 +1,4 @@
+import { discoverSteps, hostConfig } from "../core/layout.mjs";
 import { randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,6 +12,14 @@ export async function courseConfig(root) {
     course = JSON.parse(await readFile(join(root, "course.json"), "utf8"));
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
+  }
+  if (!course && hostConfig(root).format === "epic") {
+    const steps = discoverSteps(root), groups = new Map();
+    for (const step of steps) {
+      if (!groups.has(step.module)) groups.set(step.module, { id: step.module, title: step.module.replace(/^\d+\./, "").replaceAll("-", " "), steps: [] });
+      groups.get(step.module).steps.push(step.id);
+    }
+    return {schemaVersion:1, title:hostConfig(root).title || "Workshop", modules:[...groups.values()], ids};
   }
   if (!course)
     return {

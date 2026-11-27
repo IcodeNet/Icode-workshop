@@ -792,6 +792,9 @@ function App() {
                 <article className="lesson-panel">
                   <div className="eyebrow">LESSON · {selected}</div>
                   <Markdown>{exercise.instructions}</Markdown>
+                  {exercise.documents?.filter(doc => doc.title !== "Problem lesson" && doc.title !== "Lesson").map(doc => (
+                    <details key={doc.path}><summary>{doc.title}</summary><Markdown>{doc.content}</Markdown></details>
+                  ))}
                   {exercise.media && (
                     <section className="lesson-media">
                       {exercise.media.src && (

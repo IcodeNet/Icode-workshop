@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { lessonText } from "../web/lessons.mjs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -53,7 +54,7 @@ server.registerTool(
       description: config.description,
       runtime: config.runtime,
       instructions: (
-        await readFile(join(root, "exercises", id, "README.md"), "utf8")
+        await lessonText(root, id)
       ).slice(0, 30000),
     });
   },

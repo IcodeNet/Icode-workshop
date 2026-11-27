@@ -1,3 +1,4 @@
+import { courseEnvironment } from "./setup.mjs";
 import { executionWorkspace } from "./variants.mjs";
 import { startProcess } from "../adapter-api/node.mjs";
 import { labConfig } from "./runtime.mjs";
@@ -47,7 +48,7 @@ export async function startPreview(root, id, variant = "playground") {
   const workspace = await executionWorkspace(root, id, variant);
   const session = startProcess(command[0], command.slice(1), {
     workspaceRoot: workspace.path,
-    env: { PORT: String(port), HOST: "127.0.0.1" },
+    env: { ...courseEnvironment(root), PORT: String(port), HOST: "127.0.0.1" },
     emit: (e) => {
       output = (output + e.text).slice(-10000);
     },
@@ -68,7 +69,7 @@ export async function startPreview(root, id, variant = "playground") {
     },
   );
   const url = "http://127.0.0.1:" + port;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 100; i++) {
     if (finished) throw new Error("Preview exited: " + output);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(300) });

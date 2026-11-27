@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { setupCourse, doctor } from "../web/setup.mjs";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import { startProcess } from "../adapter-api/node.mjs";
@@ -13,6 +14,8 @@ const args = process.argv.slice(2),
 const content = resolve(contentFlag < 0 ? "." : (args[contentFlag + 1] ?? "."));
 const id = args[1];
 async function main() {
+  if (command === "doctor") { const report = await doctor(content); console.log(JSON.stringify(report,null,2)); process.exitCode = report.ok ? 0 : 1; return; }
+  if (command === "setup") return console.log(JSON.stringify(await setupCourse(content, {emit: e=>process.stdout.write(e.text)}),null,2));
   if (command === "list")
     return console.log((await courseConfig(content)).ids.join("\n"));
   if (command === "set") return console.log(await selectWorkspace(content, id));
@@ -104,7 +107,7 @@ async function main() {
     return;
   }
   throw new Error(
-    "Usage: workshop list|set <id>|reset <id>|test <id>|diff <id>|progress|validate|start --content <path>",
+    "Usage: workshop setup|doctor|list|set <id>|reset <id>|test <id>|diff <id>|progress|validate|start --content <path>",
   );
 }
 main().catch((error) => {

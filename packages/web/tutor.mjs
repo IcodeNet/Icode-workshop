@@ -1,3 +1,4 @@
+import { lessonText } from "./lessons.mjs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { labConfig } from "./runtime.mjs";
@@ -47,7 +48,7 @@ export async function askTutor(
     throw new Error("Invalid tutor question or history");
   const lab = await labConfig(root, id);
   const instructions = (
-    await readFile(join(root, "exercises", id, "README.md"), "utf8")
+    await lessonText(root, id)
   ).slice(0, 12000);
   const code = name
     ? (await readProjectFile(root, id, name)).slice(0, 16000)
