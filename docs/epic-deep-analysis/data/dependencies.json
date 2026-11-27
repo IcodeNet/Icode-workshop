@@ -1,0 +1,4261 @@
+{
+ "commit": "12089440399689c914f3e0f69b3ec52c07b9a3a8",
+ "packages": {
+  "example/epicshop/epic-me": {
+   "name": "epic-me-app",
+   "scripts": {
+    "dev": "node server.js"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example/epicshop": {
+   "name": null,
+   "scripts": {},
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/01.exercise-navigation/01.problem.first-step": {
+   "name": "exercises_01.exercise-navigation_01.problem.first-step",
+   "scripts": {
+    "dev": "node index.js",
+    "test": "node --test"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/01.exercise-navigation/01.solution.first-step": {
+   "name": "exercises_01.exercise-navigation_01.solution.first-step",
+   "scripts": {
+    "dev": "node index.js",
+    "test": "node --test"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/01.exercise-navigation/02.problem.multi-step": {
+   "name": "exercises_01.exercise-navigation_02.problem.multi-step",
+   "scripts": {
+    "dev": "node index.js",
+    "test": "node --test"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/01.exercise-navigation/02.solution.multi-step": {
+   "name": "exercises_01.exercise-navigation_02.solution.multi-step",
+   "scripts": {
+    "dev": "node index.js",
+    "test": "node --test"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/02.app-varieties/01.problem.no-preview": {
+   "name": "exercises_02.app-varieties_01.problem.no-preview",
+   "scripts": {},
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/02.app-varieties/01.solution.no-preview": {
+   "name": "exercises_02.app-varieties_01.solution.no-preview",
+   "scripts": {},
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/03.export-app/01.problem.export": {
+   "name": "03.01.problem.export",
+   "scripts": {},
+   "bin": null,
+   "exports": null
+  },
+  "example/exercises/03.export-app/01.solution.export": {
+   "name": "03.01.solution.export",
+   "scripts": {},
+   "bin": null,
+   "exports": null
+  },
+  "example/extra/non-app": {
+   "name": "non-dev-example",
+   "scripts": {
+    "test": "node src/index.js"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "example": {
+   "name": "epicshop-example",
+   "scripts": {
+    "postinstall": "cd ./epicshop && npm install",
+    "start": "npx --prefix ./epicshop epicshop start",
+    "dev": "npx --prefix ./epicshop epicshop start",
+    "test": "npm run test --silent --prefix playground",
+    "test:e2e": "npm run test:e2e --silent --prefix playground",
+    "test:e2e:dev": "npm run test:e2e:dev --silent --prefix playground",
+    "test:e2e:run": "npm run test:e2e:run --silent --prefix playground",
+    "setup": "node ./epicshop/setup.js",
+    "setup:custom": "node ./epicshop/setup-custom.js",
+    "lint": "oxlint .",
+    "format": "oxfmt",
+    "typecheck": "tsc -b",
+    "validate:all": "npm-run-all --parallel --print-label --print-name --continue-on-error test:all lint typecheck"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "other/update-workshops": {
+   "name": "update-workshops",
+   "scripts": {
+    "start": "node index.js",
+    "test": "node helpers.test.js"
+   },
+   "bin": null,
+   "exports": null
+  },
+  ".": {
+   "name": "epic-workshop",
+   "scripts": {
+    "cli": "tsx ./packages/workshop-cli/src/cli.ts",
+    "prepare": "husky",
+    "postinstall": "cd ./example && npm install --prefer-offline --no-audit --no-fund",
+    "typecheck": "./other/nx-fallback.js run-many --target typecheck",
+    "lint": "./other/nx-fallback.js lint",
+    "build": "./other/nx-fallback.js run-many --target build",
+    "prestart": "npm run build -s",
+    "setup": "npm install && npm run validate",
+    "go": "cross-env NODE_ENV=development EPICSHOP_CONTEXT_CWD=$PWD/packages/example tsx watch $@",
+    "start": "cross-env NODE_ENV=production npm --prefix example run start",
+    "dev": "npm --prefix example run start",
+    "warm": "npm --prefix example run warm",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "./other/nx-fallback.js test:e2e",
+    "format": "oxfmt -c ./oxfmt.config.ts",
+    "format:check": "oxfmt -c ./oxfmt.config.ts --check",
+    "format:staged": "lint-staged",
+    "precommit": "npm run format:staged && npm run lint && npm run typecheck && npm run build",
+    "prepush": "npm run test",
+    "validate": "./other/nx-fallback.js run-many --target build,typecheck,lint,test --parallel"
+   },
+   "bin": null,
+   "exports": null
+  },
+  "packages/workshop-app": {
+   "name": "@epic-web/workshop-app",
+   "scripts": {
+    "build": "run-p --print-label --print-name build:*",
+    "build:app": "react-router build --sourcemapClient --sourcemapServer",
+    "build:server": "tsx ./other/build-dir.ts server",
+    "dev": "node ./server/dev-server.js",
+    "format": "oxfmt -c ../../oxfmt.config.ts",
+    "lint": "oxlint .",
+    "start": "cross-env NODE_ENV=production node ./start.js",
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "validate": "run-p lint typecheck"
+   },
+   "bin": null,
+   "exports": [
+    "./start",
+    "./package.json",
+    "./instrument"
+   ]
+  },
+  "packages/workshop-cli": {
+   "name": "epicshop",
+   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "build": "zshy",
+    "postbuild": "node fix-bin.js",
+    "build:watch": "nx watch --projects=epicshop -- nx run \\$NX_PROJECT_NAME:build"
+   },
+   "bin": "./cli.js",
+   "exports": [
+    "./package.json",
+    "./cleanup",
+    "./setup",
+    "./warm",
+    "./start",
+    "./update",
+    "./workshops",
+    "./playground",
+    "./progress",
+    "./diff",
+    "./exercises",
+    "./auth",
+    "./admin"
+   ]
+  },
+  "packages/workshop-mcp": {
+   "name": "@epic-web/workshop-mcp",
+   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "zshy",
+    "inspect": "mcp-inspector",
+    "build:watch": "nx watch --projects=@epic-web/workshop-mcp -- nx run \\$NX_PROJECT_NAME:build"
+   },
+   "bin": "./dist/index.js",
+   "exports": [
+    "./package.json",
+    "."
+   ]
+  },
+  "packages/workshop-presence": {
+   "name": "@epic-web/workshop-presence",
+   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "zshy",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+   },
+   "bin": null,
+   "exports": [
+    "./package.json",
+    "./presence.server",
+    "./presence"
+   ]
+  },
+  "packages/workshop-utils": {
+   "name": "@epic-web/workshop-utils",
+   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "zshy",
+    "build:watch": "nx watch --projects=@epic-web/workshop-utils -- nx run \\$NX_PROJECT_NAME:build"
+   },
+   "bin": null,
+   "exports": [
+    "./package.json",
+    "./apps.server",
+    "./diff.server",
+    "./env.server",
+    "./epic-api.server",
+    "./user.server",
+    "./cache.server",
+    "./config.server",
+    "./db.server",
+    "./data-storage.server",
+    "./launch-editor.server",
+    "./timing.server",
+    "./modified-time.server",
+    "./compile-mdx.server",
+    "./git.server",
+    "./iframe-sync",
+    "./init-env",
+    "./logger",
+    "./playwright.server",
+    "./notifications.server",
+    "./offline-videos.server",
+    "./offline-video-utils",
+    "./process-manager.server",
+    "./test",
+    "./request-context.server",
+    "./utils.server",
+    "./utils",
+    "./workshops.server"
+   ]
+  }
+ },
+ "dependencies": {
+  "@cloudflare/workers-types": {
+   "declared": [
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "devDependencies",
+     "version": "^5.20261009.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@conform-to/react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.19.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/theme/index.tsx"
+   ],
+   "symbols": {
+    "getFormProps": 1,
+    "useForm": 1
+   },
+   "subpaths": {}
+  },
+  "@conform-to/zod": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.19.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/theme/index.tsx"
+   ],
+   "symbols": {
+    "parseWithZod": 1
+   },
+   "subpaths": {
+    "@conform-to/zod/v4": 1
+   }
+  },
+  "@epic-web/cachified": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.6.2"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.6.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/compile-app.server.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/cache.server.ts",
+    "packages/workshop-utils/src/diff.server.ts",
+    "packages/workshop-utils/src/timing.server.ts"
+   ],
+   "symbols": {
+    "CacheEntry": 4,
+    "CreateReporter": 2,
+    "*": 1,
+    "C": 1
+   },
+   "subpaths": {}
+  },
+  "@epic-web/client-hints": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.3.9"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/client-hints.tsx"
+   ],
+   "symbols": {
+    "clientHint": 3,
+    "getHintUtils": 1,
+    "colorSchemeHint": 1,
+    "subscribeToSchemeChange": 1,
+    "reducedMotionHint": 1,
+    "subscribeToMotionChange": 1,
+    "timeZoneHint": 1
+   },
+   "subpaths": {
+    "@epic-web/client-hints/color-scheme": 1,
+    "@epic-web/client-hints/reduced-motion": 1,
+    "@epic-web/client-hints/time-zone": 1
+   }
+  },
+  "@epic-web/config": {
+   "declared": [
+    {
+     "package": "example",
+     "name": "epicshop-example",
+     "kind": "devDependencies",
+     "version": "^3.1.0"
+    },
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^3.1.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "devDependencies",
+     "version": "^3.1.0"
+    }
+   ],
+   "importingFiles": [
+    "example/oxfmt.config.ts",
+    "oxfmt.config.ts",
+    "packages/workshop-cli/reset.d.ts"
+   ],
+   "symbols": {
+    "epicOxfmt": 2
+   },
+   "subpaths": {
+    "@epic-web/config/oxfmt": 2,
+    "@epic-web/config/reset": 1
+   }
+  },
+  "@epic-web/invariant": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.0.0"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^1.0.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/workshop-config.tsx",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/__utils.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/api.$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/test.$testName.ts",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.$.ts",
+    "packages/workshop-app/app/routes/mcp-ui+/epic-video.tsx",
+    "packages/workshop-app/app/routes/og.tsx",
+    "packages/workshop-app/app/routes/progress.tsx",
+    "packages/workshop-app/app/routes/resources+/lookout.ts",
+    "packages/workshop-app/app/routes/resources+/offline-videos.$playbackId.ts",
+    "packages/workshop-app/app/routes/start.tsx",
+    "packages/workshop-app/app/utils/root-loader.ts",
+    "packages/workshop-mcp/src/resources.ts",
+    "packages/workshop-mcp/src/tools.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/epic-api.server.ts"
+   ],
+   "symbols": {
+    "invariantResponse": 13,
+    "invariant": 9
+   },
+   "subpaths": {}
+  },
+  "@epic-web/remember": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.1.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/auth.server.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/cache.server.ts",
+    "packages/workshop-utils/src/process-manager.server.ts",
+    "packages/workshop-utils/src/request-context.server.ts",
+    "packages/workshop-utils/src/utils.ts"
+   ],
+   "symbols": {
+    "remember": 6
+   },
+   "subpaths": {}
+  },
+  "@epic-web/restore-scroll": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/index.tsx"
+   ],
+   "symbols": {
+    "ElementScrollRestoration": 7
+   },
+   "subpaths": {}
+  },
+  "@epic-web/workshop-app": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "file:../../packages/workshop-app"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@epic-web/workshop-presence": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "file:../workshop-presence"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/utils/presence.tsx",
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "getPresentUsers": 2,
+    "MessageSchema": 1,
+    "presenceHost": 1,
+    "presenceRoom": 1,
+    "Message": 1,
+    "User": 1
+   },
+   "subpaths": {
+    "@epic-web/workshop-presence/presence.server": 2,
+    "@epic-web/workshop-presence/presence": 2
+   }
+  },
+  "@epic-web/workshop-utils": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "file:../../packages/workshop-utils"
+    },
+    {
+     "package": "example",
+     "name": "epicshop-example",
+     "kind": "dependencies",
+     "version": "file:../packages/workshop-utils"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "file:../workshop-utils"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "file:../workshop-utils"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "file:../workshop-utils"
+    },
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "dependencies",
+     "version": "file:../workshop-utils"
+    }
+   ],
+   "importingFiles": [
+    "example/epicshop/setup-custom.js",
+    "example/exercises/02.app-varieties/02.solution.simple/index.test.ts",
+    "example/tests/in-browser-tests.spec.ts",
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/components/update-repo.tsx",
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/account.tsx",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/__utils.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/api.$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/epic_ws[.js].ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/file-preview.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/files.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/index.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/test.$testName.ts",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/preview.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/tests.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/utils.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/app.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/test.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/__shared/error-boundary.server.ts",
+    "packages/workshop-app/app/routes/_app+/exercise+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/l.tsx",
+    "packages/workshop-app/app/routes/_app+/login.tsx",
+    "packages/workshop-app/app/routes/_app+/preferences.tsx",
+    "packages/workshop-app/app/routes/_app+/workspace-structure.tsx",
+    "packages/workshop-app/app/routes/admin+/admin-utils.server.tsx",
+    "packages/workshop-app/app/routes/admin+/apps.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.$.ts",
+    "packages/workshop-app/app/routes/admin+/cache.tsx",
+    "packages/workshop-app/app/routes/admin+/db.tsx",
+    "packages/workshop-app/app/routes/admin+/index.tsx",
+    "packages/workshop-app/app/routes/admin+/notifications.tsx",
+    "packages/workshop-app/app/routes/admin+/offline-videos.tsx",
+    "packages/workshop-app/app/routes/admin+/version.tsx",
+    "packages/workshop-app/app/routes/apps.tsx",
+    "packages/workshop-app/app/routes/diff.$shortcut.tsx",
+    "packages/workshop-app/app/routes/diff.tsx",
+    "packages/workshop-app/app/routes/exercises.tsx",
+    "packages/workshop-app/app/routes/launch-editor.tsx",
+    "packages/workshop-app/app/routes/mark-onboarding-complete.tsx",
+    "packages/workshop-app/app/routes/mcp-ui+/epic-video.tsx",
+    "packages/workshop-app/app/routes/og.tsx",
+    "packages/workshop-app/app/routes/persist-playground.tsx",
+    "packages/workshop-app/app/routes/processes.tsx",
+    "packages/workshop-app/app/routes/progress.tsx",
+    "packages/workshop-app/app/routes/resources+/connection-status.tsx",
+    "packages/workshop-app/app/routes/resources+/offline-video-progress.$playbackId.ts",
+    "packages/workshop-app/app/routes/resources+/offline-videos.$playbackId.ts",
+    "packages/workshop-app/app/routes/resources+/offline-videos.ts",
+    "packages/workshop-app/app/routes/saved-playgrounds.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx",
+    "packages/workshop-app/app/routes/start.tsx",
+    "packages/workshop-app/app/routes/test.tsx",
+    "packages/workshop-app/app/routes/video-player/index.tsx",
+    "packages/workshop-app/app/utils/auth.server.ts",
+    "packages/workshop-app/app/utils/compile-app.server.ts",
+    "packages/workshop-app/app/utils/discord.server.ts",
+    "packages/workshop-app/app/utils/misc.tsx",
+    "packages/workshop-app/app/utils/seo.ts",
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-app/tests/account-login-auth.test.ts",
+    "packages/workshop-app/tests/notifications-route.test.ts",
+    "packages/workshop-app/tests/set-playground-route.test.ts",
+    "packages/workshop-cli/src/cli.ts",
+    "packages/workshop-cli/src/commands/admin/launch-readiness.test.ts",
+    "packages/workshop-cli/src/commands/admin/launch-readiness.ts",
+    "packages/workshop-cli/src/commands/admin/set-videos.ts",
+    "packages/workshop-cli/src/commands/admin/workshop-content-utils.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-cli/src/commands/cleanup.ts",
+    "packages/workshop-cli/src/commands/diff.ts",
+    "packages/workshop-cli/src/commands/exercises.ts",
+    "packages/workshop-cli/src/commands/migrate.ts",
+    "packages/workshop-cli/src/commands/playground.ts",
+    "packages/workshop-cli/src/commands/progress.ts",
+    "packages/workshop-cli/src/commands/setup.ts",
+    "packages/workshop-cli/src/commands/start.ts",
+    "packages/workshop-cli/src/commands/update.test.ts",
+    "packages/workshop-cli/src/commands/update.ts",
+    "packages/workshop-cli/src/commands/warm.ts",
+    "packages/workshop-cli/src/commands/workshops.test.ts",
+    "packages/workshop-cli/src/commands/workshops.ts",
+    "packages/workshop-cli/src/utils/command-runner.ts",
+    "packages/workshop-cli/src/utils/package-manager.ts",
+    "packages/workshop-cli/src/utils/sentry-cli.ts",
+    "packages/workshop-mcp/src/index.ts",
+    "packages/workshop-mcp/src/prompts.ts",
+    "packages/workshop-mcp/src/quiz-me.test.ts",
+    "packages/workshop-mcp/src/resources.ts",
+    "packages/workshop-mcp/src/tools.ts",
+    "packages/workshop-mcp/src/utils.test.ts",
+    "packages/workshop-mcp/src/utils.ts",
+    "packages/workshop-presence/src/presence.server.ts",
+    "packages/workshop-utils/src/playwright.server.ts"
+   ],
+   "symbols": {
+    "makeTimings": 27,
+    "getWorkshopConfig": 20,
+    "getApps": 19,
+    "getServerTimeHeader": 16,
+    "getExercises": 12,
+    "combineServerTimings": 12,
+    "getAppByName": 11,
+    "getEpicVideoInfos": 10,
+    "getEnv": 9,
+    "isProblemApp": 8,
+    "getUserInfo": 8,
+    "isPlaygroundApp": 8,
+    "isExerciseStepApp": 8,
+    "getErrorMessage": 7,
+    "userHasAccessToWorkshop": 7
+   },
+   "subpaths": {
+    "@epic-web/workshop-utils/apps.server": 63,
+    "@epic-web/workshop-utils/epic-api.server": 36,
+    "@epic-web/workshop-utils/db.server": 30,
+    "@epic-web/workshop-utils/timing.server": 30,
+    "@epic-web/workshop-utils/config.server": 28,
+    "@epic-web/workshop-utils/workshops.server": 24,
+    "@epic-web/workshop-utils/diff.server": 15,
+    "@epic-web/workshop-utils/cache.server": 12
+   }
+  },
+  "@inquirer/prompts": {
+   "declared": [
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^8.4.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-cli/src/cli.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-cli/src/commands/cleanup.ts",
+    "packages/workshop-cli/src/commands/diff.ts",
+    "packages/workshop-cli/src/commands/playground.ts",
+    "packages/workshop-cli/src/commands/progress.ts",
+    "packages/workshop-cli/src/commands/workshops.ts"
+   ],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@kentcdodds/md-temp": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^10.0.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "rehypeCodeBlocksShiki": 1
+   },
+   "subpaths": {}
+  },
+  "@mcp-ui/server": {
+   "declared": [
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^6.1.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-mcp/src/tools.ts"
+   ],
+   "symbols": {
+    "createUIResource": 1
+   },
+   "subpaths": {}
+  },
+  "@mdx-js/mdx": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.1.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^3.1.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@modelcontextprotocol/inspector": {
+   "declared": [
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^0.21.2"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@modelcontextprotocol/sdk": {
+   "declared": [
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^1.29.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-mcp/src/index.ts",
+    "packages/workshop-mcp/src/prompts.ts",
+    "packages/workshop-mcp/src/resources.ts",
+    "packages/workshop-mcp/src/tools.ts"
+   ],
+   "symbols": {
+    "McpServer": 4,
+    "ReadResourceResult": 2,
+    "StdioServerTransport": 1,
+    "CallToolResult": 1,
+    "ResourceTemplate": 1,
+    "GetPromptResult": 1
+   },
+   "subpaths": {
+    "@modelcontextprotocol/sdk/server/mcp.js": 4,
+    "@modelcontextprotocol/sdk/types.js": 3,
+    "@modelcontextprotocol/sdk/server/stdio.js": 1
+   }
+  },
+  "@mux/mux-player-react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.12.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/routes/video-player/index.tsx",
+    "packages/workshop-app/app/utils/keyboard-shortcuts.client.ts"
+   ],
+   "symbols": {
+    "MuxPlayerRefAttributes": 3,
+    "RealMuxPlayer": 1,
+    "MinResolution": 1,
+    "MaxResolution": 1
+   },
+   "subpaths": {}
+  },
+  "@nasa-gcn/remix-seo": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.0.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/account.tsx",
+    "packages/workshop-app/app/routes/_app+/discord.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/guide.tsx",
+    "packages/workshop-app/app/routes/_app+/login.tsx",
+    "packages/workshop-app/app/routes/_app+/support.tsx",
+    "packages/workshop-app/app/routes/admin+/_layout.tsx",
+    "packages/workshop-app/app/routes/admin+/index.tsx",
+    "packages/workshop-app/app/routes/admin+/version.tsx",
+    "packages/workshop-app/app/routes/robots[.]txt.ts",
+    "packages/workshop-app/app/routes/sitemap[.]xml.ts"
+   ],
+   "symbols": {
+    "SEOHandle": 11,
+    "generateSitemap": 1,
+    "generateRobotsTxt": 1
+   },
+   "subpaths": {}
+  },
+  "@nx/devkit": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "22.7.0"
+    }
+   ],
+   "importingFiles": [
+    "other/release.ts"
+   ],
+   "symbols": {
+    "createProjectGraphAsync": 1,
+    "workspaceRoot": 1
+   },
+   "subpaths": {}
+  },
+  "@nx/js": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "22.7.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@nx/playwright": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "22.7.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@nx/workspace": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "22.7.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@pierre/diffs": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.19"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/diff.tsx"
+   ],
+   "symbols": {
+    "parsePatchFiles": 1,
+    "registerCustomCSSVariableTheme": 1,
+    "FileDiff": 1
+   },
+   "subpaths": {
+    "@pierre/diffs/react": 1
+   }
+  },
+  "@playwright/test": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^1.59.1"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.59.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.59.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/playwright.server.ts",
+    "playwright.config.ts",
+    "tests/smoke.spec.ts"
+   ],
+   "symbols": {
+    "expect": 2,
+    "test": 2,
+    "devices": 1,
+    "PlaywrightTestConfig": 1
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-accordion": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.2.12"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/accordion.tsx",
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/components/in-browser-test-runner.tsx"
+   ],
+   "symbols": {
+    "*": 3,
+    "Accordion": 3
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-dialog": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.15"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/command-palette.tsx",
+    "packages/workshop-app/app/components/ui/dialog.tsx"
+   ],
+   "symbols": {
+    "*": 2,
+    "DialogPrimitive": 2
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-popover": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.15"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/ui/popover.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/touched-files.tsx"
+   ],
+   "symbols": {
+    "*": 2,
+    "Popover": 1,
+    "PopoverPrimitive": 1
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-select": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.2.6"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx"
+   ],
+   "symbols": {
+    "*": 2,
+    "Select": 2
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-tabs": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.13"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/preview-tabs.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx"
+   ],
+   "symbols": {
+    "*": 3,
+    "Tabs": 3
+   },
+   "subpaths": {}
+  },
+  "@radix-ui/react-toast": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.2.15"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@radix-ui/react-tooltip": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.2.8"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/ui/tooltip.tsx"
+   ],
+   "symbols": {
+    "*": 1,
+    "TooltipPrimitive": 1
+   },
+   "subpaths": {}
+  },
+  "@react-router/dev": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^7.16.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes.ts",
+    "packages/workshop-app/vite.config.ts"
+   ],
+   "symbols": {
+    "reactRouter": 1,
+    "RouteConfig": 1
+   },
+   "subpaths": {
+    "@react-router/dev/vite": 1,
+    "@react-router/dev/routes": 1
+   }
+  },
+  "@react-router/express": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "createRequestHandler": 1
+   },
+   "subpaths": {}
+  },
+  "@react-router/node": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/app/routes/resources+/offline-videos.$playbackId.ts"
+   ],
+   "symbols": {
+    "createReadableStreamFromReadable": 2
+   },
+   "subpaths": {}
+  },
+  "@react-router/remix-routes-option-adapter": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes.ts"
+   ],
+   "symbols": {
+    "remixRoutesOptionAdapter": 1
+   },
+   "subpaths": {}
+  },
+  "@resvg/resvg-js": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.6.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/og.tsx"
+   ],
+   "symbols": {
+    "Resvg": 1
+   },
+   "subpaths": {}
+  },
+  "@sentry/node": {
+   "declared": [
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^10.50.0"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^10.50.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-cli/src/utils/sentry-cli.ts",
+    "packages/workshop-mcp/src/index.ts"
+   ],
+   "symbols": {
+    "*": 2,
+    "Sentry": 2
+   },
+   "subpaths": {}
+  },
+  "@sentry/profiling-node": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^10.50.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/instrument.js"
+   ],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@sentry/react-router": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^10.50.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^10.50.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/error-boundary.tsx",
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/utils/monitoring.client.ts",
+    "packages/workshop-app/instrument.js",
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-app/vite.config.ts",
+    "packages/workshop-utils/src/db.server.ts"
+   ],
+   "symbols": {
+    "sentryReactRouter": 1,
+    "SentryReactRouterBuildOptions": 1
+   },
+   "subpaths": {}
+  },
+  "@sentry/vite-plugin": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.2.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@sindresorhus/slugify": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/index.tsx",
+    "packages/workshop-app/app/utils/misc.tsx"
+   ],
+   "symbols": {
+    "slugify": 8
+   },
+   "subpaths": {}
+  },
+  "@tailwindcss/typography": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^0.5.19"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@tailwindcss/vite": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.2.4"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/vite.config.ts"
+   ],
+   "symbols": {
+    "tailwindcss": 1
+   },
+   "subpaths": {}
+  },
+  "@testing-library/dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^10.4.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^10.4.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/test.ts"
+   ],
+   "symbols": {
+    "*": 1,
+    "dtl": 1
+   },
+   "subpaths": {}
+  },
+  "@testing-library/jest-dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^6.9.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/test.ts"
+   ],
+   "symbols": {
+    "*": 1,
+    "matchers": 1
+   },
+   "subpaths": {
+    "@testing-library/jest-dom/matchers": 1
+   }
+  },
+  "@total-typescript/ts-reset": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^0.6.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^0.6.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/reset.d.ts",
+    "packages/workshop-mcp/reset.d.ts",
+    "packages/workshop-utils/reset.d.ts",
+    "packages/workshop-utils/src/apps.server.ts"
+   ],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/chai": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.2.3"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/chai-dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.11.3"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/compression": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.8.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/cross-spawn": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^6.0.6"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/etag": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.8.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/express": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^5.0.6"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/fs-extra": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^11.0.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/hast": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^3.0.4"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^3.0.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/lodash.escape": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.0.9"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/mdast": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.0.4"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^4.0.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/mime-types": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^3.0.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/morgan": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.9.10"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/node": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^25.6.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "devDependencies",
+     "version": "^25.6.0"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^25.6.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^25.6.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^19.2.14"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^19.2.14"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/react-dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^19.2.3"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^19.2.3"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/shell-quote": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^1.7.5"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/source-map-support": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^0.5.10"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/wait-on": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^5.3.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/ws": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^8.18.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@types/yargs": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^17.0.35"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "devDependencies",
+     "version": "^17.0.35"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "@vitest/browser-playwright": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/vitest.config.ts"
+   ],
+   "symbols": {
+    "playwright": 1
+   },
+   "subpaths": {}
+  },
+  "@vitest/expect": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^4.1.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/test.ts"
+   ],
+   "symbols": {
+    "JestAsymmetricMatchers": 1,
+    "JestChaiExpect": 1,
+    "JestExtend": 1,
+    "ExpectStatic": 1
+   },
+   "subpaths": {}
+  },
+  "address": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.0.3"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "ip": 1,
+    "ipAddress": 1
+   },
+   "subpaths": {}
+  },
+  "ansi-to-html": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^0.7.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/ansi-text.ts"
+   ],
+   "symbols": {
+    "AnsiToHTML": 1
+   },
+   "subpaths": {}
+  },
+  "chai": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^6.2.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/test.ts"
+   ],
+   "symbols": {
+    "*": 1,
+    "chai": 1
+   },
+   "subpaths": {}
+  },
+  "chai-dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.12.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/test.ts"
+   ],
+   "symbols": {
+    "chaiDOM": 1
+   },
+   "subpaths": {}
+  },
+  "chalk": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.6.2"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^5.6.2"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.6.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-cli/src/cli.ts",
+    "packages/workshop-cli/src/commands/admin/launch-readiness.ts",
+    "packages/workshop-cli/src/commands/admin/set-videos.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-cli/src/commands/cleanup.ts",
+    "packages/workshop-cli/src/commands/diff.ts",
+    "packages/workshop-cli/src/commands/exercises.ts",
+    "packages/workshop-cli/src/commands/playground.ts",
+    "packages/workshop-cli/src/commands/progress.ts",
+    "packages/workshop-cli/src/commands/setup.ts",
+    "packages/workshop-cli/src/commands/start.ts",
+    "packages/workshop-cli/src/commands/warm.ts",
+    "packages/workshop-cli/src/commands/workshops.ts",
+    "packages/workshop-cli/src/utils/cli-runtime.ts",
+    "packages/workshop-utils/src/process-manager.server.ts"
+   ],
+   "symbols": {
+    "chalk": 16
+   },
+   "subpaths": {}
+  },
+  "chokidar": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-utils/src/apps.server.ts"
+   ],
+   "symbols": {
+    "chokidar": 2,
+    "FSWatcher": 1
+   },
+   "subpaths": {}
+  },
+  "chromium-bidi": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "devDependencies",
+     "version": "^15.0.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "close-with-grace": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.5.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^2.5.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^2.5.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-cli/src/commands/start.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/process-manager.server.ts"
+   ],
+   "symbols": {
+    "closeWithGrace": 4
+   },
+   "subpaths": {}
+  },
+  "clsx": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.1.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/accordion.tsx",
+    "packages/workshop-app/app/components/button.tsx",
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/components/in-browser-browser.tsx",
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/admin+/index.tsx",
+    "packages/workshop-app/app/routes/progress.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx",
+    "packages/workshop-app/app/utils/mdx.tsx",
+    "packages/workshop-app/app/utils/misc.tsx"
+   ],
+   "symbols": {
+    "clsx": 10,
+    "ClassValue": 1
+   },
+   "subpaths": {}
+  },
+  "compression": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.8.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "compression": 1
+   },
+   "subpaths": {}
+  },
+  "confetti-react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.6.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/confetti.tsx"
+   ],
+   "symbols": {
+    "Index": 1,
+    "ConfettiShower": 1
+   },
+   "subpaths": {}
+  },
+  "cookie": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.1.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/theme/theme-session.server.ts",
+    "packages/workshop-app/app/utils/confetti.server.ts",
+    "packages/workshop-app/app/utils/split-layout.ts",
+    "packages/workshop-utils/src/compile-mdx.server.ts",
+    "packages/workshop-utils/src/epic-api.server.ts",
+    "packages/workshop-utils/src/user.server.ts"
+   ],
+   "symbols": {
+    "*": 6,
+    "cookie": 6
+   },
+   "subpaths": {}
+  },
+  "cross-env": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^10.1.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^10.1.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "cross-spawn": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.0.6"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^7.0.6"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/playwright.server.ts"
+   ],
+   "symbols": {
+    "crossSpawn": 1
+   },
+   "subpaths": {}
+  },
+  "dayjs": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.11.20"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/misc.tsx",
+    "packages/workshop-utils/src/utils.ts"
+   ],
+   "symbols": {
+    "dayjsLib": 2,
+    "relativeTimePlugin": 2,
+    "utcPlugin": 2,
+    "timeZonePlugin": 1
+   },
+   "subpaths": {
+    "dayjs/plugin/relativeTime": 1,
+    "dayjs/plugin/utc": 1,
+    "dayjs/plugin/relativeTime.js": 1,
+    "dayjs/plugin/timezone.js": 1,
+    "dayjs/plugin/utc.js": 1
+   }
+  },
+  "dotenv": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^17.4.2"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^17.4.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/start.js",
+    "playwright.config.ts"
+   ],
+   "symbols": {
+    "dotenv": 1
+   },
+   "subpaths": {
+    "dotenv/config": 1
+   }
+  },
+  "enquirer": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^2.4.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "epicshop": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "file:../../packages/workshop-cli"
+    }
+   ],
+   "importingFiles": [
+    "example/epicshop/setup-custom.js"
+   ],
+   "symbols": {
+    "warm": 1
+   },
+   "subpaths": {
+    "epicshop/warm": 1
+   }
+  },
+  "esbuild": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^0.28.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^0.28.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/compile-app.server.ts",
+    "packages/workshop-app/other/build-dir.ts"
+   ],
+   "symbols": {
+    "esbuild": 2,
+    "*": 1
+   },
+   "subpaths": {}
+  },
+  "etag": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.8.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts"
+   ],
+   "symbols": {
+    "etag": 1
+   },
+   "subpaths": {}
+  },
+  "execa": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    },
+    {
+     "package": "other/update-workshops",
+     "name": "update-workshops",
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    },
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^9.6.1"
+    }
+   ],
+   "importingFiles": [
+    "other/nx-fallback.js",
+    "other/update-workshops/index.js",
+    "packages/workshop-app/server/dev-server.js",
+    "packages/workshop-cli/src/commands/workshops.test.ts",
+    "packages/workshop-cli/src/utils/command-runner.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/diff.server.ts",
+    "packages/workshop-utils/src/git.server.ts",
+    "packages/workshop-utils/src/package-install/package-install-check.server.test.ts",
+    "packages/workshop-utils/src/package-install/package-install-check.server.ts",
+    "packages/workshop-utils/src/process-manager.server.ts"
+   ],
+   "symbols": {
+    "execa": 8,
+    "execaCommand": 1
+   },
+   "subpaths": {}
+  },
+  "express": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.2.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/align-loopback-origin.ts",
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-app/server/malformed-request.ts",
+    "packages/workshop-app/tests/align-loopback-origin.test.ts",
+    "packages/workshop-app/tests/malformed-request.test.ts"
+   ],
+   "symbols": {
+    "Request": 4,
+    "Response": 4,
+    "NextFunction": 2,
+    "express": 1
+   },
+   "subpaths": {}
+  },
+  "find-process": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^2.1.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/process-manager.server.ts"
+   ],
+   "symbols": {
+    "findProcessDefault": 1
+   },
+   "subpaths": {}
+  },
+  "fkill": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^10.0.3"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^10.0.3"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/process-manager.server.ts"
+   ],
+   "symbols": {
+    "fkill": 1
+   },
+   "subpaths": {}
+  },
+  "framer-motion": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^12.38.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/progress.tsx"
+   ],
+   "symbols": {
+    "motion": 2,
+    "useAnimationControls": 1
+   },
+   "subpaths": {}
+  },
+  "fs-extra": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^11.3.4"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^11.3.4"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^11.3.4"
+    }
+   ],
+   "importingFiles": [
+    "example/epicshop/setup-custom.js",
+    "other/release.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/__utils.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/api.$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/file-preview.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/index.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/test.$testName.ts",
+    "packages/workshop-app/app/routes/admin+/admin-utils.server.tsx",
+    "packages/workshop-app/app/routes/launch-editor.tsx",
+    "packages/workshop-app/other/build-dir.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/cache.server.ts",
+    "packages/workshop-utils/src/db.server.ts",
+    "packages/workshop-utils/src/diff.server.ts",
+    "packages/workshop-utils/src/launch-editor.server.ts",
+    "packages/workshop-utils/src/workshop-cache-metadata.server.ts",
+    "packages/workshop-utils/src/workshop-cache-metadata.test.ts"
+   ],
+   "symbols": {
+    "fsExtra": 17,
+    "fs": 1
+   },
+   "subpaths": {}
+  },
+  "get-port": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.2.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^7.2.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-cli/src/commands/start.ts"
+   ],
+   "symbols": {
+    "getPort": 2,
+    "portNumbers": 1
+   },
+   "subpaths": {}
+  },
+  "get-stream": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^9.0.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "glob": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^13.0.6"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/other/build-dir.ts"
+   ],
+   "symbols": {
+    "glob": 1
+   },
+   "subpaths": {}
+  },
+  "globby": {
+   "declared": [
+    {
+     "package": "other/update-workshops",
+     "name": "update-workshops",
+     "kind": "dependencies",
+     "version": "^16.2.0"
+    },
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^16.2.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^16.2.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^16.2.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/app.$appName+/files.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/modified-time.server.ts",
+    "packages/workshop-utils/src/package-install/package-install-check.server.ts"
+   ],
+   "symbols": {
+    "globby": 3,
+    "isGitIgnored": 2
+   },
+   "subpaths": {}
+  },
+  "hast": {
+   "declared": [],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "Element": 1,
+    "Root": 1,
+    "HastRoot": 1
+   },
+   "subpaths": {}
+  },
+  "husky": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "devDependencies",
+     "version": "^9.1.7"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "ignore": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^7.0.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/diff.server.ts"
+   ],
+   "symbols": {
+    "ignore": 1
+   },
+   "subpaths": {}
+  },
+  "isbot": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.1.39"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/instrument.js"
+   ],
+   "symbols": {
+    "isbot": 2
+   },
+   "subpaths": {}
+  },
+  "json5": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^2.2.3"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/notifications.server.ts"
+   ],
+   "symbols": {
+    "json5": 1
+   },
+   "subpaths": {}
+  },
+  "lint-staged": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "devDependencies",
+     "version": "^16.4.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "lru-cache": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^11.3.5"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^11.3.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/mdx.tsx",
+    "packages/workshop-utils/src/cache.server.ts"
+   ],
+   "symbols": {
+    "LRUCache": 2
+   },
+   "subpaths": {}
+  },
+  "lz-string": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.5.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "lz": 1
+   },
+   "subpaths": {}
+  },
+  "match-sorter": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^8.3.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^8.3.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^8.3.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/command-palette.ts",
+    "packages/workshop-cli/src/cli.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-cli/src/commands/diff.ts",
+    "packages/workshop-cli/src/commands/playground.ts",
+    "packages/workshop-cli/src/commands/progress.ts",
+    "packages/workshop-cli/src/commands/workshops.ts"
+   ],
+   "symbols": {
+    "matchSorter": 7,
+    "rankings": 2
+   },
+   "subpaths": {}
+  },
+  "md5-hex": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/cache.server.ts",
+    "packages/workshop-utils/src/compile-mdx.server.ts",
+    "packages/workshop-utils/src/env.server.ts",
+    "packages/workshop-utils/src/epic-api.server.ts"
+   ],
+   "symbols": {
+    "md5": 4
+   },
+   "subpaths": {}
+  },
+  "mdast": {
+   "declared": [],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "Root": 1,
+    "MdastRoot": 1,
+    "PhrasingContent": 1
+   },
+   "subpaths": {}
+  },
+  "mdast-util-mdx-jsx": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^3.2.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^3.2.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "MdxJsxAttribute": 1,
+    "MdxJsxFlowElement": 1
+   },
+   "subpaths": {}
+  },
+  "mdx-bundler": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^10.1.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^10.1.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/mdx.tsx",
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "MDXContentProps": 1,
+    "*": 1,
+    "mdxBundler": 1,
+    "bundleMDX": 1
+   },
+   "subpaths": {
+    "mdx-bundler/client": 2
+   }
+  },
+  "media-chrome": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^4.19.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/epic-video.tsx"
+   ],
+   "symbols": {
+    "MediaControlBar": 1,
+    "MediaController": 1,
+    "MediaFullscreenButton": 1,
+    "MediaMuteButton": 1,
+    "MediaPipButton": 1,
+    "MediaPlayButton": 1,
+    "MediaPlaybackRateButton": 1,
+    "MediaSeekBackwardButton": 1,
+    "MediaSeekForwardButton": 1,
+    "MediaTimeDisplay": 1,
+    "MediaTimeRange": 1,
+    "MediaVolumeRange": 1
+   },
+   "subpaths": {
+    "media-chrome/react": 1
+   }
+  },
+  "mermaid": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^11.14.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/mermaid.tsx"
+   ],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "mime-types": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.0.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/files.ts"
+   ],
+   "symbols": {
+    "mimeTypes": 2
+   },
+   "subpaths": {}
+  },
+  "morgan": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.10.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "morgan": 1
+   },
+   "subpaths": {}
+  },
+  "msw": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.13.6"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "npm-run-all": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^4.1.5"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "nx": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "22.7.0"
+    }
+   ],
+   "importingFiles": [
+    "other/release.ts"
+   ],
+   "symbols": {
+    "releaseChangelog": 1,
+    "releasePublish": 1,
+    "releaseVersion": 1,
+    "findMatchingProjects": 1
+   },
+   "subpaths": {
+    "nx/release/index.js": 1,
+    "nx/src/utils/find-matching-projects.js": 1
+   }
+  },
+  "open": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^11.0.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^11.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-cli/src/commands/start.ts"
+   ],
+   "symbols": {
+    "open": 1
+   },
+   "subpaths": {}
+  },
+  "openid-client": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^6.8.4"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^6.8.4"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^6.8.4"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/auth.server.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-mcp/src/tools.ts"
+   ],
+   "symbols": {
+    "*": 3,
+    "client": 3
+   },
+   "subpaths": {}
+  },
+  "ora": {
+   "declared": [
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^9.4.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-cli/src/commands/cleanup.ts",
+    "packages/workshop-cli/src/commands/workshops.ts"
+   ],
+   "symbols": {
+    "ora": 2
+   },
+   "subpaths": {}
+  },
+  "oxfmt": {
+   "declared": [
+    {
+     "package": "example",
+     "name": "epicshop-example",
+     "kind": "devDependencies",
+     "version": "^0.47.0"
+    },
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^0.47.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^0.47.0"
+    }
+   ],
+   "importingFiles": [
+    "example/oxfmt.config.ts",
+    "oxfmt.config.ts"
+   ],
+   "symbols": {
+    "defineConfig": 2
+   },
+   "subpaths": {}
+  },
+  "oxlint": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^1.62.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "p-limit": {
+   "declared": [
+    {
+     "package": "example/epicshop",
+     "name": null,
+     "kind": "dependencies",
+     "version": "^7.3.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "p-queue": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^9.2.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^9.2.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts",
+    "packages/workshop-utils/src/db.server.ts",
+    "packages/workshop-utils/src/epic-api.server.ts",
+    "packages/workshop-utils/src/modified-time.server.ts"
+   ],
+   "symbols": {
+    "PQueue": 4
+   },
+   "subpaths": {}
+  },
+  "parse-git-diff": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^0.0.20"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/diff.server.ts"
+   ],
+   "symbols": {
+    "parseGitDiff": 1,
+    "AnyFileChange": 1
+   },
+   "subpaths": {}
+  },
+  "partyserver": {
+   "declared": [
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "dependencies",
+     "version": "^0.5.10"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-presence/src/server.ts"
+   ],
+   "symbols": {
+    "routePartykitRequest": 1,
+    "Server": 1,
+    "Connection": 1,
+    "ConnectionContext": 1,
+    "WSMessage": 1
+   },
+   "subpaths": {}
+  },
+  "partysocket": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^1.1.18"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/presence.tsx"
+   ],
+   "symbols": {
+    "usePartySocket": 1
+   },
+   "subpaths": {
+    "partysocket/react": 1
+   }
+  },
+  "pkgmgr": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.1.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^19.2.5"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^19.2.5"
+    }
+   ],
+   "importingFiles": [
+    "example/extra/example-name/index.tsx",
+    "packages/workshop-app/app/components/accordion.tsx",
+    "packages/workshop-app/app/components/command-palette.tsx",
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/components/discord-chat.tsx",
+    "packages/workshop-app/app/components/download-progress-indicator.tsx",
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/components/error-boundary.tsx",
+    "packages/workshop-app/app/components/file-app-explorer.tsx",
+    "packages/workshop-app/app/components/icons.tsx",
+    "packages/workshop-app/app/components/in-browser-browser.tsx",
+    "packages/workshop-app/app/components/in-browser-test-runner.tsx",
+    "packages/workshop-app/app/components/keyboard-shortcuts-dialog.tsx",
+    "packages/workshop-app/app/components/loading.tsx",
+    "packages/workshop-app/app/components/media-query.ts",
+    "packages/workshop-app/app/components/mermaid.tsx",
+    "packages/workshop-app/app/components/native-video-preferences.ts",
+    "packages/workshop-app/app/components/offline-video-actions.tsx",
+    "packages/workshop-app/app/components/onboarding-indicator.tsx",
+    "packages/workshop-app/app/components/preview-tabs.tsx",
+    "packages/workshop-app/app/components/progress-bar.tsx",
+    "packages/workshop-app/app/components/retrieval-practice.tsx",
+    "packages/workshop-app/app/components/revalidation-ws.tsx",
+    "packages/workshop-app/app/components/toaster.tsx",
+    "packages/workshop-app/app/components/ui/dialog.tsx",
+    "packages/workshop-app/app/components/ui/popover.tsx",
+    "packages/workshop-app/app/components/ui/tooltip.tsx",
+    "packages/workshop-app/app/components/update-repo.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/preview.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/step-mdx.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/tests.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/touched-files.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/app.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/guide.tsx",
+    "packages/workshop-app/app/routes/_app+/login.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.tsx",
+    "packages/workshop-app/app/routes/admin+/index.tsx",
+    "packages/workshop-app/app/routes/admin+/notifications.tsx",
+    "packages/workshop-app/app/routes/launch-editor.tsx",
+    "packages/workshop-app/app/routes/mcp-ui+/__utils.ts",
+    "packages/workshop-app/app/routes/mcp-ui+/epic-video.tsx",
+    "packages/workshop-app/app/routes/progress.tsx",
+    "packages/workshop-app/app/routes/resources+/connection-status.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx",
+    "packages/workshop-app/app/routes/test.tsx",
+    "packages/workshop-app/app/routes/video-player/index.tsx",
+    "packages/workshop-app/app/utils/ansi-text.ts",
+    "packages/workshop-app/app/utils/client-hints.tsx",
+    "packages/workshop-app/app/utils/mdx.tsx",
+    "packages/workshop-app/app/utils/misc.tsx",
+    "packages/workshop-app/app/utils/monitoring.client.ts",
+    "packages/workshop-app/app/utils/online.ts",
+    "packages/workshop-app/app/utils/presence.tsx",
+    "packages/workshop-app/app/utils/server-status.ts",
+    "packages/workshop-app/tests/native-video-preferences.browser.test.tsx"
+   ],
+   "symbols": {
+    "React": 34,
+    "*": 33,
+    "useEffect": 20,
+    "useRef": 17,
+    "useState": 16,
+    "useMemo": 4,
+    "useSyncExternalStore": 2,
+    "Suspense": 2,
+    "useCallback": 2,
+    "PropsWithChildren": 2,
+    "useId": 1,
+    "useImperativeHandle": 1,
+    "createContext": 1,
+    "useContext": 1,
+    "useLayoutEffect": 1
+   },
+   "subpaths": {}
+  },
+  "react-dom": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^19.2.5"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^19.2.5"
+    }
+   ],
+   "importingFiles": [
+    "example/extra/example-name/index.tsx",
+    "packages/workshop-app/app/entry.client.tsx",
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/app/routes/og.tsx",
+    "packages/workshop-app/tests/exercise-404-error-boundary.test.tsx"
+   ],
+   "symbols": {
+    "*": 1,
+    "ReactDOM": 1,
+    "renderToPipeableStream": 1,
+    "hydrateRoot": 1,
+    "renderToString": 1,
+    "renderToStaticMarkup": 1
+   },
+   "subpaths": {
+    "react-dom/server": 3,
+    "react-dom/client": 2
+   }
+  },
+  "react-error-boundary": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^6.1.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/tests.tsx"
+   ],
+   "symbols": {
+    "ErrorBoundary": 2
+   },
+   "subpaths": {}
+  },
+  "react-router": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^7.16.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/button.tsx",
+    "packages/workshop-app/app/components/command-palette.tsx",
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/components/discord-chat.tsx",
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/components/error-boundary.tsx",
+    "packages/workshop-app/app/components/exercise-warning-banner.tsx",
+    "packages/workshop-app/app/components/nav-chevrons.tsx",
+    "packages/workshop-app/app/components/onboarding-indicator.tsx",
+    "packages/workshop-app/app/components/preview-tabs.tsx",
+    "packages/workshop-app/app/components/progress-bar.tsx",
+    "packages/workshop-app/app/components/revalidation-ws.tsx",
+    "packages/workshop-app/app/components/update-repo.tsx",
+    "packages/workshop-app/app/entry.client.tsx",
+    "packages/workshop-app/app/entry.server.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/routes/$.tsx",
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/account.tsx",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/__utils.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/api.$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/epic_ws[.js].ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/file-preview.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/files.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/index.ts",
+    "packages/workshop-app/app/routes/_app+/discord.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/preview.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/step-mdx.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/tests.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/touched-files.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/app.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/test.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.index.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.finished.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/__shared/error-boundary.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/$extra.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/finished.tsx",
+    "packages/workshop-app/app/routes/_app+/guide.tsx",
+    "packages/workshop-app/app/routes/_app+/index.tsx",
+    "packages/workshop-app/app/routes/_app+/l.tsx",
+    "packages/workshop-app/app/routes/_app+/login.tsx",
+    "packages/workshop-app/app/routes/_app+/preferences.tsx",
+    "packages/workshop-app/app/routes/_app+/support.tsx",
+    "packages/workshop-app/app/routes/_app+/workspace-structure.tsx",
+    "packages/workshop-app/app/routes/admin+/_layout.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.tsx",
+    "packages/workshop-app/app/routes/admin+/index.tsx",
+    "packages/workshop-app/app/routes/admin+/notifications.tsx",
+    "packages/workshop-app/app/routes/admin+/offline-videos.tsx",
+    "packages/workshop-app/app/routes/admin+/version.tsx",
+    "packages/workshop-app/app/routes/apps.tsx",
+    "packages/workshop-app/app/routes/diff.$shortcut.tsx",
+    "packages/workshop-app/app/routes/diff.tsx",
+    "packages/workshop-app/app/routes/exercises.tsx",
+    "packages/workshop-app/app/routes/launch-editor.tsx",
+    "packages/workshop-app/app/routes/mcp-ui+/epic-video.tsx",
+    "packages/workshop-app/app/routes/progress.tsx",
+    "packages/workshop-app/app/routes/resources+/connection-status.tsx",
+    "packages/workshop-app/app/routes/resources+/offline-video-progress.$playbackId.ts",
+    "packages/workshop-app/app/routes/resources+/offline-videos.ts",
+    "packages/workshop-app/app/routes/saved-playgrounds.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx",
+    "packages/workshop-app/app/routes/sitemap[.]xml.ts",
+    "packages/workshop-app/app/routes/start.tsx",
+    "packages/workshop-app/app/routes/test.tsx",
+    "packages/workshop-app/app/routes/theme/index.tsx",
+    "packages/workshop-app/app/routes/video-player/index.tsx",
+    "packages/workshop-app/app/utils/client-hints.tsx",
+    "packages/workshop-app/app/utils/confetti.server.ts",
+    "packages/workshop-app/app/utils/form-request.ts",
+    "packages/workshop-app/app/utils/mdx.tsx",
+    "packages/workshop-app/app/utils/misc.tsx",
+    "packages/workshop-app/app/utils/monitoring.client.ts",
+    "packages/workshop-app/app/utils/pe.tsx",
+    "packages/workshop-app/app/utils/presence.tsx",
+    "packages/workshop-app/app/utils/root-loader.ts",
+    "packages/workshop-app/app/utils/route-errors.ts",
+    "packages/workshop-app/app/utils/toast.server.ts",
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-app/tests/exercise-404-error-boundary.test.tsx",
+    "packages/workshop-app/tests/route-errors.test.ts",
+    "packages/workshop-utils/src/db.server.ts"
+   ],
+   "symbols": {
+    "data": 31,
+    "Link": 30,
+    "redirect": 17,
+    "useFetcher": 16,
+    "useLoaderData": 13,
+    "HeadersFunction": 12,
+    "useNavigation": 9,
+    "useSearchParams": 7,
+    "useLocation": 7,
+    "Outlet": 6,
+    "useRevalidator": 6,
+    "Form": 6,
+    "Await": 5,
+    "useFetchers": 5,
+    "isRouteErrorResponse": 3
+   },
+   "subpaths": {
+    "react-router/dom": 1
+   }
+  },
+  "rehype": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^13.0.2"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "rehype-autolink-headings": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^7.1.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "rehypeAutolinkHeadings": 1
+   },
+   "subpaths": {}
+  },
+  "remark": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^15.0.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "remark-emoji": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.0.2"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "emoji": 1
+   },
+   "subpaths": {}
+  },
+  "remark-gfm": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^4.0.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "gfm": 1
+   },
+   "subpaths": {}
+  },
+  "remix-flat-routes": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^0.8.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes.ts"
+   ],
+   "symbols": {
+    "flatRoutes": 1
+   },
+   "subpaths": {}
+  },
+  "remix-utils": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^9.3.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/confetti.tsx",
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/components/onboarding-indicator.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/routes/_app+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/login.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.tsx",
+    "packages/workshop-app/app/routes/login-sse.tsx",
+    "packages/workshop-app/app/routes/resources+/offline-video-progress.$playbackId.ts",
+    "packages/workshop-app/app/routes/test.tsx",
+    "packages/workshop-app/app/routes/theme/index.tsx",
+    "packages/workshop-app/app/utils/pe.tsx"
+   ],
+   "symbols": {
+    "useEventSource": 3,
+    "eventStream": 3,
+    "ClientOnly": 2,
+    "ServerOnly": 2,
+    "safeRedirect": 2,
+    "promiseHash": 1,
+    "useHydrated": 1
+   },
+   "subpaths": {
+    "remix-utils/sse/react": 3,
+    "remix-utils/sse/server": 3,
+    "remix-utils/client-only": 2,
+    "remix-utils/server-only": 2,
+    "remix-utils/safe-redirect": 2,
+    "remix-utils/promise": 1,
+    "remix-utils/use-hydrated": 1
+   }
+  },
+  "satori": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^0.26.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/og.tsx"
+   ],
+   "symbols": {
+    "satori": 1,
+    "SatoriOptions": 1
+   },
+   "subpaths": {}
+  },
+  "semver": {
+   "declared": [
+    {
+     "package": "other/update-workshops",
+     "name": "update-workshops",
+     "kind": "dependencies",
+     "version": "^7.8.5"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^7.7.4"
+    }
+   ],
+   "importingFiles": [
+    "other/update-workshops/index.js"
+   ],
+   "symbols": {
+    "semver": 1
+   },
+   "subpaths": {}
+  },
+  "shell-quote": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^1.8.3"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/launch-editor.server.ts"
+   ],
+   "symbols": {
+    "shellQuote": 1
+   },
+   "subpaths": {}
+  },
+  "sonner": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.0.7"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/epic-video.tsx",
+    "packages/workshop-app/app/components/retrieval-practice.tsx",
+    "packages/workshop-app/app/components/toaster.tsx",
+    "packages/workshop-app/app/components/update-repo.tsx",
+    "packages/workshop-app/app/routes/_app+/exercise+/$exerciseNumber_.$stepNumber.$type+/__shared/playground.tsx",
+    "packages/workshop-app/app/routes/admin+/notifications.tsx",
+    "packages/workshop-app/app/utils/mdx.tsx"
+   ],
+   "symbols": {
+    "toast": 7,
+    "showToast": 2,
+    "Toaster": 1
+   },
+   "subpaths": {}
+  },
+  "source-map-support": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^0.5.21"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "sourceMapSupport": 1
+   },
+   "subpaths": {}
+  },
+  "spin-delay": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^2.0.1"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/diff.tsx",
+    "packages/workshop-app/app/components/progress-bar.tsx",
+    "packages/workshop-app/app/root.tsx",
+    "packages/workshop-app/app/routes/diff.tsx",
+    "packages/workshop-app/app/utils/misc.tsx"
+   ],
+   "symbols": {
+    "useSpinDelay": 5
+   },
+   "subpaths": {}
+  },
+  "tailwind-merge": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.5.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/utils/misc.tsx"
+   ],
+   "symbols": {
+    "extendTailwindMerge": 1
+   },
+   "subpaths": {}
+  },
+  "tailwind-scrollbar": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.0.2"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "tailwindcss": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.2.4"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "tailwindcss-radix": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.0.2"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "tailwindcss-safe-area": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.3.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "tsx": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^4.21.0"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^4.21.0"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^4.21.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "tw-animate-css": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.4.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "typescript": {
+   "declared": [
+    {
+     "package": "example",
+     "name": "epicshop-example",
+     "kind": "devDependencies",
+     "version": "^6.0.3"
+    },
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^6.0.3"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^6.0.3"
+    },
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "devDependencies",
+     "version": "^6.0.3"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "unicorn-magic": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "devDependencies",
+     "version": "^0.4.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "unified": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^11.0.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "PluggableList": 1
+   },
+   "subpaths": {}
+  },
+  "unist-util-remove-position": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.0.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "unist-util-visit": {
+   "declared": [
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^5.1.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-utils/src/compile-mdx.server.ts"
+   ],
+   "symbols": {
+    "visit": 1
+   },
+   "subpaths": {}
+  },
+  "vite": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "8.0.10"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts",
+    "packages/workshop-app/vite.config.ts"
+   ],
+   "symbols": {
+    "defineConfig": 1
+   },
+   "subpaths": {}
+  },
+  "vite-env-only": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^3.0.3"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/routes/_app+/exercise+/_layout.tsx",
+    "packages/workshop-app/app/routes/_app+/extra+/_layout.tsx",
+    "packages/workshop-app/vite.config.ts"
+   ],
+   "symbols": {
+    "serverOnly$": 2,
+    "envOnlyMacros": 1
+   },
+   "subpaths": {
+    "vite-env-only/macros": 2
+   }
+  },
+  "vite-plugin-devtools-json": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^1.0.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/vite.config.ts"
+   ],
+   "symbols": {
+    "devtoolsJson": 1
+   },
+   "subpaths": {}
+  },
+  "vitest": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    },
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^4.1.5"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/tests/account-login-auth.test.ts",
+    "packages/workshop-app/tests/align-loopback-origin.test.ts",
+    "packages/workshop-app/tests/button.browser.test.tsx",
+    "packages/workshop-app/tests/catchall-route.test.ts",
+    "packages/workshop-app/tests/copy-to-clipboard.test.ts",
+    "packages/workshop-app/tests/exercise-404-error-boundary.test.tsx",
+    "packages/workshop-app/tests/launch-editor-input.test.ts",
+    "packages/workshop-app/tests/lookout-route.test.ts",
+    "packages/workshop-app/tests/malformed-request.test.ts",
+    "packages/workshop-app/tests/native-video-preferences.browser.test.tsx",
+    "packages/workshop-app/tests/node-version-check.test.ts",
+    "packages/workshop-app/tests/notifications-route.test.ts",
+    "packages/workshop-app/tests/offline-video-actions.browser.test.tsx",
+    "packages/workshop-app/tests/progress-toggle-check-indicator.browser.test.tsx",
+    "packages/workshop-app/tests/published-files.test.ts",
+    "packages/workshop-app/tests/route-errors.test.ts",
+    "packages/workshop-app/tests/sentry-filters.test.ts",
+    "packages/workshop-app/tests/set-playground-route.test.ts",
+    "packages/workshop-app/vitest.config.ts",
+    "packages/workshop-app/vitest.sentry-noise.config.ts",
+    "packages/workshop-cli/src/commands/admin/launch-readiness.test.ts",
+    "packages/workshop-cli/src/commands/admin/set-videos.test.ts",
+    "packages/workshop-cli/src/commands/cleanup.test.ts",
+    "packages/workshop-cli/src/commands/start.test.ts",
+    "packages/workshop-cli/src/commands/update.test.ts",
+    "packages/workshop-cli/src/commands/warm.test.ts",
+    "packages/workshop-cli/src/commands/workshops.test.ts",
+    "packages/workshop-cli/src/utils/sentry-cli-filters.test.ts",
+    "packages/workshop-cli/vitest.config.ts",
+    "packages/workshop-mcp/src/mcp-arg-validation.test.ts",
+    "packages/workshop-mcp/src/mcp-client.test.ts",
+    "packages/workshop-mcp/src/quiz-me.test.ts",
+    "packages/workshop-mcp/src/sentry-filters.test.ts",
+    "packages/workshop-mcp/src/utils.test.ts",
+    "packages/workshop-mcp/vitest.config.ts",
+    "packages/workshop-presence/src/presence.test.ts",
+    "packages/workshop-presence/vitest.config.ts",
+    "packages/workshop-utils/src/apps-server.test.ts",
+    "packages/workshop-utils/src/config.test.ts",
+    "packages/workshop-utils/src/data-storage.test.ts",
+    "packages/workshop-utils/src/db-auth-token-set.test.ts",
+    "packages/workshop-utils/src/db-presence-preferences.test.ts",
+    "packages/workshop-utils/src/epic-api-progress-resolution.test.ts",
+    "packages/workshop-utils/src/epic-api-progress-sync.test.ts",
+    "packages/workshop-utils/src/launch-editor.server.test.ts",
+    "packages/workshop-utils/src/offline-video-crypto.test.ts",
+    "packages/workshop-utils/src/package-install/package-install-check.server.test.ts",
+    "packages/workshop-utils/src/pending-progress-mutation-queue.test.ts",
+    "packages/workshop-utils/src/utils.test.ts",
+    "packages/workshop-utils/src/workshop-cache-metadata.test.ts",
+    "packages/workshop-utils/vitest.config.ts",
+    "tests/vitest-setup.ts",
+    "vitest.config.ts"
+   ],
+   "symbols": {
+    "expect": 45,
+    "test": 45,
+    "vi": 22,
+    "defineConfig": 7,
+    "page": 4,
+    "afterEach": 3,
+    "beforeEach": 2,
+    "MockInstance": 1,
+    "describe": 1
+   },
+   "subpaths": {
+    "vitest/config": 7,
+    "vitest/browser": 4
+   }
+  },
+  "vitest-browser-react": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "devDependencies",
+     "version": "^2.2.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/tests/button.browser.test.tsx",
+    "packages/workshop-app/tests/native-video-preferences.browser.test.tsx",
+    "packages/workshop-app/tests/offline-video-actions.browser.test.tsx",
+    "packages/workshop-app/tests/progress-toggle-check-indicator.browser.test.tsx"
+   ],
+   "symbols": {
+    "render": 4
+   },
+   "subpaths": {}
+  },
+  "wrangler": {
+   "declared": [
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "devDependencies",
+     "version": "^4.149.0"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "ws": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^8.20.0"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/server/index.ts"
+   ],
+   "symbols": {
+    "WebSocket": 1,
+    "WebSocketServer": 1
+   },
+   "subpaths": {}
+  },
+  "yargs": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^18.0.0"
+    },
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "dependencies",
+     "version": "^18.0.0"
+    }
+   ],
+   "importingFiles": [
+    "other/release.ts",
+    "packages/workshop-cli/src/cli.ts"
+   ],
+   "symbols": {
+    "yargs": 2,
+    "default": 1,
+    "ArgumentsCamelCase": 1,
+    "Argv": 1,
+    "hideBin": 1
+   },
+   "subpaths": {
+    "yargs/helpers": 1
+   }
+  },
+  "yoctocolors": {
+   "declared": [
+    {
+     "package": ".",
+     "name": "epic-workshop",
+     "kind": "dependencies",
+     "version": "^2.1.2"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  },
+  "zod": {
+   "declared": [
+    {
+     "package": "packages/workshop-app",
+     "name": "@epic-web/workshop-app",
+     "kind": "dependencies",
+     "version": "^4.3.6"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "dependencies",
+     "version": "^4.3.6"
+    },
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "dependencies",
+     "version": "^4.3.6"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "dependencies",
+     "version": "^4.3.6"
+    }
+   ],
+   "importingFiles": [
+    "packages/workshop-app/app/components/in-browser-test-runner.tsx",
+    "packages/workshop-app/app/components/revalidation-ws.tsx",
+    "packages/workshop-app/app/components/update-repo.tsx",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/api.$.ts",
+    "packages/workshop-app/app/routes/_app+/app.$appName+/file-preview.ts",
+    "packages/workshop-app/app/routes/_app+/exercise+/__shared/error-boundary.server.ts",
+    "packages/workshop-app/app/routes/_app+/exercise+/__shared/error-boundary.tsx",
+    "packages/workshop-app/app/routes/admin+/cache.tsx",
+    "packages/workshop-app/app/routes/launch-editor.tsx",
+    "packages/workshop-app/app/routes/login-sse.tsx",
+    "packages/workshop-app/app/routes/mcp-ui+/__utils.ts",
+    "packages/workshop-app/app/routes/og.tsx",
+    "packages/workshop-app/app/routes/saved-playgrounds.tsx",
+    "packages/workshop-app/app/routes/set-playground.tsx",
+    "packages/workshop-app/app/routes/test.tsx",
+    "packages/workshop-app/app/routes/theme/index.tsx",
+    "packages/workshop-app/app/routes/video-player/index.tsx",
+    "packages/workshop-app/app/utils/auth.server.ts",
+    "packages/workshop-app/app/utils/compile-app.server.ts",
+    "packages/workshop-app/app/utils/discord.server.ts",
+    "packages/workshop-app/app/utils/presence.tsx",
+    "packages/workshop-app/app/utils/toast.server.ts",
+    "packages/workshop-cli/src/commands/auth.ts",
+    "packages/workshop-cli/src/commands/workshops.ts",
+    "packages/workshop-mcp/src/prompts.ts",
+    "packages/workshop-mcp/src/resources.ts",
+    "packages/workshop-mcp/src/tools.ts",
+    "packages/workshop-mcp/src/utils.ts",
+    "packages/workshop-presence/src/presence.ts",
+    "packages/workshop-presence/src/server.ts",
+    "packages/workshop-utils/src/apps.server.ts",
+    "packages/workshop-utils/src/cache.server.ts",
+    "packages/workshop-utils/src/compile-mdx.server.ts",
+    "packages/workshop-utils/src/config.server.ts",
+    "packages/workshop-utils/src/db.server.ts",
+    "packages/workshop-utils/src/diff.server.ts",
+    "packages/workshop-utils/src/env.server.ts",
+    "packages/workshop-utils/src/epic-api.server.ts",
+    "packages/workshop-utils/src/git.server.ts",
+    "packages/workshop-utils/src/modified-time.server.ts",
+    "packages/workshop-utils/src/notifications.server.ts",
+    "packages/workshop-utils/src/playwright.server.ts",
+    "packages/workshop-utils/src/utils.server.ts",
+    "packages/workshop-utils/src/workshop-cache-metadata.server.ts",
+    "packages/workshop-utils/src/workshops.server.ts"
+   ],
+   "symbols": {
+    "z": 46,
+    "ZodTypeAny": 1
+   },
+   "subpaths": {
+    "zod/v3": 4
+   }
+  },
+  "zshy": {
+   "declared": [
+    {
+     "package": "packages/workshop-cli",
+     "name": "epicshop",
+     "kind": "devDependencies",
+     "version": "^0.7.1"
+    },
+    {
+     "package": "packages/workshop-mcp",
+     "name": "@epic-web/workshop-mcp",
+     "kind": "devDependencies",
+     "version": "^0.7.1"
+    },
+    {
+     "package": "packages/workshop-presence",
+     "name": "@epic-web/workshop-presence",
+     "kind": "devDependencies",
+     "version": "^0.7.1"
+    },
+    {
+     "package": "packages/workshop-utils",
+     "name": "@epic-web/workshop-utils",
+     "kind": "devDependencies",
+     "version": "^0.7.1"
+    }
+   ],
+   "importingFiles": [],
+   "symbols": {},
+   "subpaths": {}
+  }
+ },
+ "nodeBuiltins": {
+  "path": 67,
+  "fs": 51,
+  "os": 20,
+  "url": 13,
+  "crypto": 12,
+  "child_process": 9,
+  "http": 6,
+  "assert": 5,
+  "test": 4,
+  "events": 3,
+  "util": 3,
+  "stream": 3,
+  "net": 2,
+  "inspector": 1,
+  "async_hooks": 1
+ }
+}

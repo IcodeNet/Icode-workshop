@@ -1,0 +1,23 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 ../packages/workshop-utils/dist/playwright.server.js:55:13 › in-browser tests › /app/02.02.solution/test/index.test.ts (534ms)
+
+
+  1) ../packages/workshop-utils/dist/playwright.server.js:55:13 › in-browser tests › /app/02.02.solution/test/index.test.ts 
+
+    [
+      '[Compilation Error] Failed to compile file "/home/claude/epicshop/example/exercises/02.app-varieties/02.solution.simple/index.test.ts"',
+      'Could not resolve "./index.ts"\n' +
+        '  at ../../example/exercises/02.app-varieties/02.solution.simple/index.test.ts:4:7\n' +
+        "  import './index.ts'\n" +
+        '        ^',
+      '{status: fail, error: Compilation failed: Could not resolve "./index.ts"…index.test.ts:4:7\n' +
+        "  import './index.ts'\n" +
+        '        ^, timestamp: 1795818078718}'
+    ]
+
+    Error Context: test-results/in-browser-tests-in-browse-8036e-solution-test-index-test-ts/error-context.md
+
+  1 failed
+    ../packages/workshop-utils/dist/playwright.server.js:55:13 › in-browser tests › /app/02.02.solution/test/index.test.ts 

@@ -1,0 +1,20 @@
+
+
+  1) ../packages/workshop-utils/dist/playwright.server.js:55:13 › in-browser tests › /app/02.02.solution/test/index.test.ts 
+
+    Error: waitFor timed out after 10000ms
+
+      36 |         await sleep(interval);
+      37 |     }
+    > 38 |     throw lastError || new Error(`waitFor timed out after ${timeout}ms`);
+         |                        ^
+      39 | }
+      40 | export function setupInBrowserTests() {
+      41 |     // doing this because playwright needs the tests to be registered synchoronously
+        at waitFor (/home/claude/epicshop/packages/workshop-utils/dist/playwright.server.js:38:24)
+        at /home/claude/epicshop/packages/workshop-utils/dist/playwright.server.js:80:17
+
+    Error Context: test-results/in-browser-tests-in-browse-8036e-solution-test-index-test-ts/error-context.md
+
+  1 failed
+    ../packages/workshop-utils/dist/playwright.server.js:55:13 › in-browser tests › /app/02.02.solution/test/index.test.ts 
