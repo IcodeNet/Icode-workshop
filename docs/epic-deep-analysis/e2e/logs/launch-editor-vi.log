@@ -1,0 +1,6 @@
+# server log lines after clicking an InlineFile link (workshop started via npx, which exports EDITOR=vi)
+14:Vim: Warning: Output is not to a terminal
+15:Vim: Warning: Input is not from a terminal
+16-<home/claude/epicshop/example/playground/index.js"<de/epicshop/example/playground/index.js" 16L, 376Bimport { createServer } from 'http'
+17-
+18-export const server = createServer((req, res) => {res.writeHead(200, { 'Content-Type': 'text/plain' })// ð~_~P¨ change this to say "goodbye world"res.end('hello world')

@@ -1,0 +1,105 @@
+{
+  "server": {
+    "name": "epicshop",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "prompts": {
+      "listChanged": true
+    },
+    "resources": {
+      "listChanged": true
+    },
+    "tools": {
+      "listChanged": true
+    }
+  },
+  "tools": [
+    "login",
+    "logout",
+    "set_playground",
+    "list_saved_playgrounds",
+    "set_saved_playground",
+    "update_progress",
+    "get_workshop_context",
+    "get_exercise_context",
+    "get_diff_between_apps",
+    "get_exercise_step_progress_diff",
+    "get_exercise_step_context",
+    "view_video",
+    "open_exercise_step_files",
+    "get_user_info",
+    "get_user_access",
+    "get_user_progress",
+    "get_quiz_instructions",
+    "get_what_is_next"
+  ],
+  "resources": [],
+  "resourceTemplates": [
+    "epicshop://{workshopDirectory}/workshop-context",
+    "epicshop://{workshopDirectory}/exercise/{exerciseNumber}",
+    "epicshop://{workshopDirectory}/exercise/{exerciseNumber}/{stepNumber}",
+    "epicshop://{workshopDirectory}/diff-between-apps/{app1}__vs___{app2}",
+    "epicshop://{workshopDirectory}/exercise-step-progress-diff",
+    "epicshop://{workshopDirectory}/user/info",
+    "epicshop://{workshopDirectory}/user/access",
+    "epicshop://{workshopDirectory}/user/progress"
+  ],
+  "prompts": [
+    "quiz_me"
+  ],
+  "calls": {
+    "get_workshop_context": {
+      "isError": false,
+      "chars": 10014,
+      "head": "## Get Workshop Context\n\n✅ Workshop context retrieved.\n\nExercises: 3\n\nNext steps:\n- Use `get_exercise_context` for a specific exercise.\n- Use `get_what_is_next` to find the next action.\n{\"meta\":{\"README.md\":\"# Example\\n\\nThis is used for local development of the workshop app.\\n\",\"config\":{\"title\":\"Epic Workshop Tutorial 🔭\",\"subtitle\":\"Learn the foundational tools and skills of building web applic"
+    },
+    "get_exercise_context": {
+      "isError": false,
+      "chars": 16730,
+      "head": "## Get Exercise Context\n\n✅ Exercise 1 context retrieved.\n\nSteps: 2\n\nNext steps:\n- Use `get_exercise_step_context` for a specific step.\n- Use `get_exercise_step_progress_diff` to compare progress.\n{\"currentContext\":{\"user\":{\"hasAccess\":false,\"isAuthenticated\":false},\"playground\":{\"exerciseNumber\":1,\"stepNumber\":1}},\"exerciseInfo\":{\"number\":1,\"intro\":{\"content\":{\"path\":\"/home/claude/epicshop/example"
+    },
+    "get_exercise_step_context": {
+      "isError": false,
+      "chars": 11980,
+      "head": "## Get Exercise Step Context\n\n✅ Exercise 1 step 1 context retrieved.\n\nNext steps:\n- Use `set_playground` to open the step.\n- Use `get_exercise_step_progress_diff` to compare progress.\n{\"currentContext\":{\"user\":{\"hasAccess\":false,\"isAuthenticated\":false},\"playground\":{\"exerciseNumber\":1,\"stepNumber\":1}},\"exerciseInfo\":{\"number\":1,\"title\":\"Exercise Navigation\"},\"stepInfo\":{\"number\":1,\"isCurrent\":tru"
+    },
+    "get_what_is_next": {
+      "isError": false,
+      "chars": 144,
+      "head": "## Get What Is Next\n\n⚠️ User is not logged in.\n\nUse `login` to authenticate the user.\n\nNext steps:\n- Call `login` to start device authorization."
+    },
+    "get_diff_between_apps": {
+      "isError": false,
+      "chars": 633,
+      "head": "## Get Diff Between Apps\n\n✅ Diff generated for 01.01.problem vs 01.01.solution.\n\nDiff length: 387 chars\n\nNext steps:\n- Use `set_playground` to open the relevant step.\n- Use `open_exercise_step_files` to review changed files.\n\"diff --git ./index.js ./index.js\\nindex 2067011..877b7b5 100644\\n--- ./index.js\\n+++ ./index.js\\n@@ -2,8 +2,7 @@ import { createServer } from 'http'\\n \\n export const server "
+    },
+    "get_exercise_step_progress_diff": {
+      "isError": false,
+      "chars": 1660,
+      "head": "## Get Exercise Step Progress Diff\n\n✅ Progress diff generated for the current step.\n\nDiff length: 387 chars\n\nNext steps:\n- Use `open_exercise_step_files` to edit missing changes.\n- Re-run this tool to verify progress.\nBelow is the diff between the user's work in progress and the solution.\nLines starting with `-` show code that needs to be removed from the user's solution.\nLines starting with `+` s"
+    },
+    "list_saved_playgrounds": {
+      "isError": true,
+      "chars": 221,
+      "head": "## List Saved Playgrounds\n\n⚠️ Error: Playground persistence is disabled. Enable it in Preferences to use saved playgrounds.\n\nNext steps:\n- Enable playground persistence in Preferences and set the playground at least once."
+    },
+    "get_user_info": {
+      "isError": false,
+      "chars": 116,
+      "head": "## Get User Info\n\n⚠️ No authenticated user found.\n\nNext steps:\n- Call `login` if the user is not authenticated.\nnull"
+    },
+    "get_user_access": {
+      "isError": false,
+      "chars": 120,
+      "head": "## Get User Access\n\n⚠️ User access: free\n\nNext steps:\n- Encourage upgrade if access is required.\n{\"userHasAccess\":false}"
+    },
+    "get_quiz_instructions": {
+      "isError": false,
+      "chars": 17321,
+      "head": "## Get Quiz Instructions\n\n✅ Quiz instructions prepared.\n\nExercise: random selection\n\nNext steps:\n- Follow the prompt and ask questions one at a time.\nYou are an expert teacher.\n\nBelow is context about exercise 1 in the workshop titled \"Epic Workshop Tutorial 🔭\" (subtitled \"Learn the foundational tools and skills of building web applications\") found at /home/claude/epicshop/example.\n\nPlease use th"
+    }
+  },
+  "quiz_me": "{\"messages\":[{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"You are an expert teacher.\\n\\nBelow is context about exercise 1 in the workshop titled \\\"Epic Workshop Tutorial 🔭\\\" (subtitled \\\"Learn the foundational tools and skills of building web applications\\\") found at /home/claude/epicshop/exampl",
+  "stderr": "epicshop MCP Server running on stdio\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDirectory /home/claude/epicshop/example\nisWorkshopDirectory true\nisWorkshopDir"
+}

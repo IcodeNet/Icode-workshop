@@ -1,0 +1,633 @@
+{
+  "phase": "gated",
+  "results": [
+    {
+      "phase": "gated",
+      "id": "A1",
+      "observed": "document.title \"Epic Workshop Tutorial 🔭\"; h1 \"Epic Workshop App Tutorial 👨‍🏫\" (README.mdx heading, not config title);",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A1",
+      "observed": "home shows config title in body false, subtitle false, subtitle false, instructor false, product link 2x; EDIT ON GITHUB link 1x",
+      "evidence": "e2e/01-home.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A2",
+      "observed": "/apps lists 16 apps (playground, 01.01.problem, 01.01.solution, 01.02.problem, 01.02.solution, 02.01.problem, 02.01.solution, 02.02.problem, 02.02.solution, 03.01.problem, 03.01.solution, extra.async-search, extra.example-name, extra.non-app, extra.theme-toggle, extra.wsb-files); /exercises returns 1 entries",
+      "evidence": "GET /apps, /exercises"
+    },
+    {
+      "phase": "gated",
+      "id": "A2",
+      "observed": "/extra lists: Extras These extras are standalone references you can open alongside the exercises. Each extra has its own README with context, and the workshop app lists them in alphabetical order. EXTRAS • Async Se",
+      "evidence": "e2e/02-extras.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A2",
+      "observed": "/extra/async-search renders an extra with its own playground/preview: EXTRAS / ASYNC SEARCH EXAMPLE This example shows a debounced search input that simulates an async fetch and renders results. ← Previous Next → Edit PLAYGROUND E",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A3",
+      "observed": "export app /app/03.01.solution/ compiled in-browser; shows exports/console: Console Output LOG \"Input:\" [1, 2, 3, 4, 5] LOG \"Result:\" [2, 4, 6, 8, 10] Exports asyncResult PROMISE ✓ resolved: \"Async value loaded!\" config { name: \"Export App Demo\", version: 1, enabled: true } doubleNumbers [Function: doubleNumbers] greeting \"Hello from ",
+      "evidence": "e2e/03-export-app.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A3",
+      "observed": "simple app /app/02.02.solution/ served by workshop: \"Click me\"; injected scripts: 1 epic_ws",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A3",
+      "observed": "no-preview (non-UI) app step preview area: NO PREVIEW (💪 PROBLEM) No Preview Apps Without Preview Problem Pizqr ↗︎ Login for transcripts 👨‍💼 Some apps don't have a dev sc",
+      "evidence": "e2e/04-no-preview-app.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A4",
+      "observed": "step MDX: 3 callout elements, 2 highlighted code/line nodes, InlineFile button(s) 1, EpicVideo element(s) 2, autolinked heading anchors 17",
+      "evidence": "e2e/05-step-mdx.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A4",
+      "observed": "probe MDX: mermaid svg 1; LinkToApp -> /exercise/03/01/problem?pathname=%2Fhello; DiffLink -> /exercise/03/01/problem?preview=diff&app1=01.01.problem&app2=01.01.solution; DiffLink fullPage -> /diff?app1=01.01.problem&app2=01.01.solution; VideoEmbed iframe 1; add/remove line markers 2; danger/muted callouts 2; emoji true",
+      "evidence": "e2e/06-mdx-probe.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A5",
+      "observed": "exercise intro /exercise/01: Exercise Navigation Introduction to Exercise Navigation Hlkkd ↗︎ Login for transcripts For each exercise, you'll have a page like this one that gives important ",
+      "evidence": "e2e/08-exercise-intro.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A5",
+      "observed": "/exercise/01/01 -> 302 /exercise/01/01/problem",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A5",
+      "observed": "exercise finished page: 01. Exercise Navigation / Elaboration Exercise Navigation Wrap Up L1aqo ↗︎ Login for transcripts At the end of each exercise you will see the finished page like this one. This will sometimes give you ; iframes: https://www.epicweb.dev/tips/exercise-navigation-wrap-up-l1aqo/embed?theme=light | https://docs.google.com/forms/d/e/1FAIpQLSf3o9xyjQepTlOTH5Z7ZwkeSTdXh6YWI_RGc9KiyD3oUN0p6w",
+      "evidence": "e2e/09-exercise-finished.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A5",
+      "observed": "workshop finished page: EPIC WORKSHOP TUTORIAL 🔭 / ELABORATION Congratulations on Completing the Workshop Kn79h ↗︎ Login for transcripts You've arrived at the end of the workshop! By ",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A5",
+      "observed": "/l (last step shortcut) -> 302 /exercise/03/01/solution",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A6",
+      "observed": "retrieval practice: root loader practicePastLesson present=true; no quiz UI rendered without login/progress (2 matches on solution page)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A7",
+      "observed": "GET /admin/notifications -> 405; POST mute id=wsb-probe -> 200 {\"success\":true}; config notifications [] and remote feed unreachable (no notification banner shown)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A8",
+      "observed": "feedback form iframe(s): 1; URL template filled: yes",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A9",
+      "observed": "/guide: Workshop App Guide This guide will help you get the most out of the Epic Workshop App. Whether you're just getting started or need help troubleshootin",
+      "evidence": "e2e/10-guide.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A9",
+      "observed": "/support: Warning: Changes detected in exercises directory You should typically work in the playground directory, not the exercises directory. Learn more Go to ",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A9",
+      "observed": "/discord: Warning: Changes detected in exercises directory You should typically work in the playground directory, not the exercises directory. Learn more Go to ",
+      "evidence": "e2e/11-discord.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "A9",
+      "observed": "/workspace-structure: Workshop Structure & Guidelines ⚠️ Important: Work in the Right Directory Always work in the `playground` directory, not the `exercises` directory. To",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "A10",
+      "observed": "initialRoute \"/whatever\" in config; /app/playground -> 302 http://localhost:4000/ (project app redirects to its own port)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B1",
+      "observed": "\"Set to Playground\" (GET,POST /set-playground): playground exercises_01.exercise-navigation_01.problem.first-step -> exercises_01.exercise-navigation_02.problem.multi-step; files now [README.mdx, index.js, index.test.js, package.json, tsconfig.json]; hooks ran: pre(EPICSHOP_PLAYGROUND_TIMESTAMP,EPICSHOP_PLAYGROUND_DEST_DIR,EPICSHOP_PLAYGROUND_SRC_DIR,EPICSHOP_PLAYGROUND_WAS_RUNNING) ; post(EPICSHOP_PLAYGROUND_TIMESTAMP,EPICSHOP_PLAYGROUND_SRC_DIR,EPICSHOP_PLAYGROUND_DEST_DIR,EPICSHOP_PLAYGROUND_WAS_RUNNING,EPICSHOP_PLAYGROUND_IS_STILL_RUNNING,EPICSHOP_PLAYGROUND_RESTART_PLAYGROUND)",
+      "evidence": "e2e/12-set-playground.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "B2",
+      "observed": "POST /persist-playground persist=true -> 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B2",
+      "observed": "/saved-playgrounds after two sets with persistence on: status=success, 26 saved: 01.01.solution, 01.02.problem, 02.02.problem",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B2",
+      "observed": "restore saved playground 2026.11.27_22.30.24_01.01.solution -> 200; playground now exercises_01.exercise-navigation_01.solution.first-step",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B3",
+      "observed": "touched-files popover: RELEVANT FILES These are the files you'll need to modify for this exercise. Click any file to open it directly in your editor at the right location. Learn more → SET TO PLAYGROUND index.js",
+      "evidence": "e2e/14-touched-files.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "B4",
+      "observed": "GET /app/playground/files -> 200 {\"files\":[]}",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B4",
+      "observed": "GET /app/02.01.solution/files -> 200 {\"files\":[{\"path\":\"greet.js\",\"mimeType\":\"text/javascript\",\"kind\":\"text\",\"language\":\"javascript\"},{\"path\":\"package.json\",\"mimeType\":\"application/json\",\"kind\":\"te",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B4",
+      "observed": "GET /app/02.01.solution/file-preview?file=greet.js -> 400 Invalid preview query parameters",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B4",
+      "observed": "GET /app/02.01.solution/file-preview?path=greet.js -> 200 {\"code\":\"var Component=(()=>{var u=Object.create;var l=Object.defineProperty;var b=Object.getOwnPropertyDescriptor;var p=Object.getOwnPropertyNames;var h=Object",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B4",
+      "observed": "file-type extra: /files -> {\"files\":[{\"path\":\"notes.md\",\"mimeType\":\"text/markdown\",\"kind\":\"markdown\",\"language\":\"markdown\"},{\"path\":\"src/util.ts\",\"mimeType\":\"video/mp2t\",\"kind\":\"text\",\"language\":\"typescript\"}]}; explorer UI: EXTRAS / WSB FILE EXPLORER PROBE Temporary extra with no package.json and no index entry. ← Previous Next → Edit PLAYGROUND EXTRA DIFF CHAT START APP",
+      "evidence": "e2e/15b-file-explorer.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "B5",
+      "observed": "InlineFile click -> GET /assets/launch-editor-l0sNRNKZ.js ; POST /launch-editor.data [show-progress-bar=true&line=&column=&type=appFile&file=&appName=playground&appFile=./index.js]; response 200 \n//# sourceMappingURL=launch-editor-l0sNRNKZ.js.map\n; editor processes spawned: 10438 vi /home/claude/epicshop/example/playground/index.js",
+      "evidence": "e2e/15-launch-editor.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "B6",
+      "observed": "root loader carries repoUpdates/updatesAvailable/commitsBehind; update banner shown: false; EPICSHOP_PARENT_PORT present: true",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "B7",
+      "observed": "root data has dependenciesNeedInstall key: true; install banner shown: false",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C1",
+      "observed": "Start App -> processes playground:4000",
+      "evidence": "e2e/16-app-running.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C1",
+      "observed": "dev server on :4000 answers \"hello world\"",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C2",
+      "observed": "in-browser browser: iframes [http://localhost:4000/whatever], address input , back/forward buttons 0, open-in-new-window 0",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C3",
+      "observed": "/app/playground/epic_ws.js -> 302 http://localhost:4000/",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C3",
+      "observed": "after editing playground/index.js of a running project app: iframe shows \"hello world\" (server restarted? [\"playground\"])",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C1",
+      "observed": "Stop App -> /processes {}; pids still listening on :4000: [10522]",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C1",
+      "observed": "preview shows \"The port for this app is unavailable.\" with a STOP PORT button; after clicking it pids on :4000: [10522]",
+      "evidence": "e2e/16b-port-unavailable.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C1",
+      "observed": "POST /start intent=stop-port port=4999 (foreign node server) -> 200; holder exited: false (null)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C3",
+      "observed": "simple app /app/playground/ with epic_ws.js: editing playground/index.js caused 1 reload(s)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C3",
+      "observed": "editing playground/README.mdx: step page shows probe text without navigation? true (navigations 0)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C4",
+      "observed": "tests tab: \"Access Denied You must login or register for the workshop to view and run the tests.\" (gated by product.slug + login)",
+      "evidence": "e2e/17-tests-gated.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C4",
+      "observed": "POST /test intent=run without access -> 403 {\"success\":false,\"error\":\"You do not have access to this workshop. Login or register for the worksho",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C5",
+      "observed": "in-browser tests tab (02.02.solution): 02. APP VARIETIES / 02. SIMPLE APPS (🏁 SOLUTION) Simple Apps 👨‍💼 These kinds of apps will automatically refresh when you make changes. Good job on this one! ← Previous Next → Edit PLAYGROUND PROBLEM SOLUTION TESTS DIFF CHAT 2.2 Simple Apps (🏁 solution) ind",
+      "evidence": "e2e/18-in-browser-tests.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C5",
+      "observed": "GET /app/02.02.solution/test/index.test.ts: Access Denied page (login required)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C6",
+      "observed": "sidecarStatus in root data; admin shows EpicMeApp listed",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C7",
+      "observed": "/processes JSON: {\"processes\":{},\"testProcesses\":{}}; admin \"Processes\" card: see admin screenshot",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H1",
+      "observed": "admin: Admin Home Admin Diff Viewer Database Cache Management Offline Videos Version Admin Panel Manage workshop settings and monitor processes Sidecar Processes Background sidecar processes EpicMeApp PID: 8633 Status: Running View logs Commands Workshop management actions Clear local caches Clear all loca",
+      "evidence": "e2e/19-admin.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C6",
+      "observed": "admin \"View logs\" for EpicMeApp: Epic Me App starting... ✅ Epic Me App started successfully Commands Workshop management actions Clear local caches Clear all local data (including auth data) Start inspect",
+      "evidence": "e2e/20-sidecar-logs.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "C6",
+      "observed": "POST /admin intent=get-sidecar-logs -> 200 <!DOCTYPE html><html lang=\"en\" class=\"h-screen-safe antialiased light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-sc",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C6",
+      "observed": "POST /admin intent=restart-sidecar -> 200 <!DOCTYPE html><html lang=\"en\" class=\"h-screen-safe antialiased light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C8",
+      "observed": "POST /admin intent=inspect -> 200 <!DOCTYPE html><html lang=\"en\" class=\"h-screen-safe antialiased light\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/><title>👷 | Epic Workshop Tutori",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C8",
+      "observed": "inspector :9229/json/version -> {\n  \"Browser\": \"node.js/v24.22.3\",\n  \"Protocol-Version\": \"1.1\"\n} ",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C8",
+      "observed": "POST /admin intent=stop-inspect -> 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H1",
+      "observed": "POST /admin intent=clear-caches -> 200 <!DOCTYPE html><html lang=\"en\" class=\"h-screen-safe antialiased light\"><head><meta charSet=\"utf-8\"/>",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "C9",
+      "observed": "stackBlitzUrl in loader data: https://stackblitz.com/github/epicweb-dev/epicshop/tree/main/exercises/01.exercise-navigation/01.solution.first-step?title=First+Exercise+Step+%28solution%29; StackBlitz link visible locally: 0",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "D1",
+      "observed": "diff tab: Access Denied You must login or register for the workshop to view the diff.",
+      "evidence": "e2e/21-diff-gated.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "D1",
+      "observed": "/diff full page: Warning: Changes detected in exercises directory You should typically work in the playground directory, not the exercises directory. Learn more Access Denied You must login or register for the workshop to view the diff. ",
+      "evidence": "e2e/22-diff-page-gated.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "D2",
+      "observed": "redirect chain: /diff/01.01 302 -> /diff/1.01 302 -> /diff?app1=01.01.problem&app2=01.01.solution 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "D2",
+      "observed": "redirect chain: /diff/1.1 302 -> /diff?app1=01.01.problem&app2=01.01.solution 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "D2",
+      "observed": "redirect chain: /diff/01.02 302 -> /diff/1.02 302 -> /diff?app1=01.02.problem&app2=01.02.solution 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "D2",
+      "observed": "redirect chain: /diff/99.01 302 -> /diff 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E1",
+      "observed": "/account without login -> 302 /login?redirectTo=%2Faccount",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E2",
+      "observed": "GET /progress -> 400 {\"message\":\"Unexpected Server Error\"}; POST /progress complete -> 302 ",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E4",
+      "observed": "presence: root data has presence users with only the local user; presence requests seen: http://localhost:5639/assets/presence-Dxus4sSX.js",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E5",
+      "observed": "chat tab: tton below (the arrow icons at the bottom of the page do the same thing). 🐨 Click the \"Next\" button below (or the right arrow icon). ← Previous Next → Edit PLAYGROUND PROBLEM SOLUTION DIFF CHAT Login to get access to the exclusive discord channel. Create Post",
+      "evidence": "e2e/24-chat-tab.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "E6",
+      "observed": "onboarding indicator elements 0; POST /mark-onboarding-complete -> 200 {\"success\":true}",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E7",
+      "observed": "confetti only fires on a completed-progress toast (needs login); not triggerable",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "F1",
+      "observed": "video area: mux/video elements 0, epicweb embed iframes 1; text \"Login for transcripts\"",
+      "evidence": "e2e/25-video.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "F1",
+      "observed": "GET /video-player -> 400",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "F2",
+      "observed": "/resources/offline-videos -> {\"offlineVideos\":{\"totalVideos\":0,\"downloadedVideos\":0,\"unavailableVideos\":13,\"notDownloadableVideos\":0,\"remainingDownloadBytes\":0,\"totalBytes\":0,\"downloadState; admin page: Admin Home Admin Diff Viewer Database Cache Management Offline Videos Version No offline videos are downloaded yet.",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G1",
+      "observed": "Ctrl+Shift+P palette (empty query): Command Palette Enter to run • Backspace to close • Esc to close Command Palette Enter to run • Backspace to close • Esc to close Esc Navigation Go to… Search destinations (pages, exercises, steps, extras) Playground Set playground to current exercise s p Help Toggle keyboard shortcuts Show the built-in keyboard shortcut reference ?",
+      "evidence": "e2e/26-command-palette.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "G1",
+      "observed": "palette query \"Multi\": Command Palette Enter to run • Backspace to close • Esc to close Command Palette Enter to run • Backspace to close • Esc to close Esc No results.",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G2",
+      "observed": "\"?\" dialog: Keyboard Shortcuts Use these keyboard shortcuts to navigate and control the video player. Press ? or select the question mark icon in the navigation to open this list. Command Palette Open command palette Cmd/Ctrl + Shift + P Navigation Go to home g + h Go to ",
+      "evidence": "e2e/27-shortcuts-dialog.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "G2",
+      "observed": "\"g n\" navigates /exercise/01/01/problem -> /exercise/01/01/solution",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G3",
+      "observed": "theme switch cycles <html class> \"h-screen-safe antialiased light\" -> \"h-screen-safe antialiased light\" -> \"h-screen-safe antialiased dark\"; cookies EpicShop_CH-prefers-color-scheme,EpicShop_CH-time-zone,EpicShop_CH-reduced-motion,es_menu_open,EpicShop_theme",
+      "evidence": "e2e/28-theme-dark.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "G4",
+      "observed": "/preferences: Preferences Video Player Preferences Minimum Resolution: Auto 480p 720p 1080p 1440p 2160p (4K) Maximum Resolution: Auto 720p 1080p 1440p 2160p (4K) Offline Video Downloads Download Resolution: Best available High Medium Low Defaults to the best available resolution. Font Size Preference Font Size Presence Preference Opt out of presence features Persist Playground Enable saving playground Exercise ",
+      "evidence": "e2e/29-preferences.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "G5",
+      "observed": "GET /resources/connection-status -> 200 {\"ok\":true}; UI: no offline text; healthcheck 🐨 All good here",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G6",
+      "observed": "warning banner: Warning: Changes detected in exercises directory You should typically work in the playground directory, not the exercises directory.; playground-mismatch indicator: 5 elements",
+      "evidence": "e2e/30-warning-banner.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "G7",
+      "observed": "/og/?title=Probe -> 500 text/plain;charset=UTF-8 \"fetch failed\"; /sitemap.xml 200 35 URLs (first contains \"/*\"=true); /robots.txt 200 \"User-agent: * | Allow: / | Sitemap: http://localhost:5639/sitemap.xml | \"",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G7",
+      "observed": "page OG meta: twitter:card=summary_large_image ; twitter:creator=kentcdodds",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "G8",
+      "observed": "scroll restoration: not separately asserted (library behaviour)",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H2",
+      "observed": "/admin/cache: Admin Home Admin Diff Viewer Database Cache Management Offline Videos Version Cache Management Current Workshop: Epic Workshop Tutorial 🔭 Instance ID: f67699e...21e0e9 Workshop Filter Epic Workshop Tutorial 🔭 example • f67699e...21e0e9 (current) Search Cache Entries Epic Workshop Tutorial 🔭 Curre",
+      "evidence": "e2e/31-admin-cache.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "H3",
+      "observed": "/admin/version: Admin Home Admin Diff Viewer Database Cache Management Offline Videos Version Workshop Version Information Workshop Instance ID: f67699e55224bb78f7a43ee4da21e0e9 Workshop Context CWD: /home/claude/epicshop/example Worksh",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H3",
+      "observed": "/admin/db: Admin Home Admin Diff Viewer Database Cache Management Offline Videos Version Database Warning: Editing the database directly can corrupt your data. Be very careful! /root/.local/state/epicshop/data.json { \"preferences\":",
+      "evidence": "e2e/32-admin-db.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "H3",
+      "observed": "/admin/version.json: {\"workshopInstanceId\":\"f67699e55224bb78f7a43ee4da21e0e9\",\"workshopContextCwd\":\"/home/claude/epicshop/example\",\"workshopCommit\":{\"hash\":\"12089440399689c914f3e0f69b3ec52c07b9a3a8\",\"message\":\"fix: return",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H8",
+      "observed": "Server-Timing header: exerciseStepTypeIndexLoader;dur=48.8, exerciseStepTypeLayoutLoader;dur=78.9, appLayoutLoader;dur=77.4,cache_async-search;desc=async-search cache retrieval;dur=1.9,cache_01.exercise-navigation_01.solut",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E1",
+      "observed": "/login: Login to EpicWeb.dev If you have access to this workshop on EpicWeb.dev, you'll be able to watch videos, track progress, run tests, view the diffs, and more! First you need to authenticate your device",
+      "evidence": "e2e/23-login.jpg"
+    },
+    {
+      "phase": "gated",
+      "id": "E1",
+      "observed": "clicked login button: requests POST /login.data, GET /login.data; page: Login to EpicWeb.dev If you have access to this workshop on EpicWeb.dev, you'll be able to watch videos, track progress, run tests, view the diffs, and more! First you need to authenticate your device",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "E1",
+      "observed": "workshop healthcheck after the failed login attempt: 200",
+      "evidence": ""
+    },
+    {
+      "phase": "gated",
+      "id": "H5",
+      "observed": "browser requests to /resources/lookout (Sentry tunnel): 0; external hosts contacted by the browser: www.epicweb.dev, www.youtube.com, docs.google.com",
+      "evidence": ""
+    }
+  ],
+  "console": [
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=ce92038b-e82b-450e-92fc-69875cee91ce' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=d0db7df4-3550-4f9c-acd8-36c8e4d13b0c' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=5e98e465-c80e-464c-b14b-62a6d5c56483' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=43f8e799-e99f-4f50-9a11-260063ba04e3' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=db1a1401-2026-4dee-ab59-b3e12c0467c1' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=db1a1401-2026-4dee-ab59-b3e12c0467c1' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=52c943d3-88ea-4d9d-b192-be98149a65b9' failed: Establishing a tunnel via proxy server failed.",
+    "error: Error: <path> attribute d: Expected moveto path command ('M' or 'm'), \"undefined\".",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=52c943d3-88ea-4d9d-b192-be98149a65b9' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=8a30fc10-b713-4a39-bf3d-254a7819c755' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0ae25d0a-0a28-4e8c-86ce-c8be6589670a' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=exercises%2F01.exercise-navigation%2F01.problem.first-step%2FREADME.mdx&watch=%2Fhome%2Fclaude%2Fepicshop%2Fexample%2Fexercises%2F02.app-varieties%2F02.problem.simple' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=238bd331-bcfc-4bf0-a2f3-a00def62a17e' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=b733a003-47ca-4ee2-a314-28d8c5af3d0d' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=356673bf-9484-4cbd-8541-84d321e6aaa1' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=c86fbb04-b77a-4d2f-8cb9-0ed3d77d1601' failed: Establishing a tunnel via proxy server failed.",
+    "warning: WebSocket connection to 'ws://localhost:5639/__ws?watch=.%2Fexercises%2FREADME.mdx&watch=.%2Fextra&watch=.%2Fexample&watch=.%2Fexamples' failed: WebSocket is closed before the connection is established.",
+    "error: 🐨 EpicShop WebSocket error: Event",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed.",
+    "error: WebSocket connection to 'wss://epic-web-presence.kentcdodds.workers.dev/parties/main/epic-web-presence?_pk=0052ef99-216c-4886-b8e9-2ef96924b539' failed: Establishing a tunnel via proxy server failed."
+  ]
+}

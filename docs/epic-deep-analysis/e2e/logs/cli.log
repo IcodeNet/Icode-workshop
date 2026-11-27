@@ -1,0 +1,447 @@
+===== epicshop   help
+epicshop <command> [options]
+Commands:
+  epicshop start [workshop]                 Start a workshop (auto-detects if
+                                            inside a workshop directory)
+  epicshop init                             Initialize epicshop and start the
+                                            tutorial (first-time setup)
+  epicshop setup                            Install workshop dependencies (uses
+                                            configured package manager)
+  epicshop add [repo-name] [destination]    Add a workshop by cloning from
+                                            epicweb-dev GitHub org
+  epicshop list                             List all added workshops
+  epicshop remove [workshop]                Remove a workshop (deletes the
+                                            directory)
+  epicshop open [workshop]                  Open a workshop in your editor
+  epicshop config [subcommand]              View or update workshop
+                                            configuration
+  epicshop update                           Update the current workshop or
+                                            select one to update
+                                                              [aliases: upgrade]
+  epicshop warm                             Warm up the workshop application
+                                            caches (apps, diffs)
+  epicshop cleanup                          Clean up local epicshop data
+  epicshop migrate                          Run any necessary migrations for
+                                            workshop data
+  epicshop auth [subcommand] [domain]       Manage authentication for Epic
+                                            domains (epicweb.dev, epicreact.dev,
+                                            epicai.pro)
+  epicshop playground [subcommand]          Manage the playground environment
+  [target]                                  (context-aware)
+  epicshop progress [subcommand]            View and manage your progress
+  [lesson-slug]                             (context-aware)
+  epicshop diff [app1] [app2]               Show differences between apps or
+                                            playground vs solution
+                                            (context-aware)
+  epicshop exercises [exercise] [step]      List exercises or show exercise
+                                            details (context-aware)
+Options:
+  -h, --help  Show help                                                [boolean]
+For more information, visit: https://github.com/epicweb-dev/epicshop
+===== epicshop   version
+epicshop <command> [options]
+Commands:
+  epicshop start [workshop]                 Start a workshop (auto-detects if
+                                            inside a workshop directory)
+  epicshop init                             Initialize epicshop and start the
+                                            tutorial (first-time setup)
+  epicshop setup                            Install workshop dependencies (uses
+                                            configured package manager)
+  epicshop add [repo-name] [destination]    Add a workshop by cloning from
+                                            epicweb-dev GitHub org
+  epicshop list                             List all added workshops
+  epicshop remove [workshop]                Remove a workshop (deletes the
+                                            directory)
+  epicshop open [workshop]                  Open a workshop in your editor
+  epicshop config [subcommand]              View or update workshop
+                                            configuration
+  epicshop update                           Update the current workshop or
+                                            select one to update
+                                                              [aliases: upgrade]
+  epicshop warm                             Warm up the workshop application
+                                            caches (apps, diffs)
+  epicshop cleanup                          Clean up local epicshop data
+  epicshop migrate                          Run any necessary migrations for
+                                            workshop data
+  epicshop auth [subcommand] [domain]       Manage authentication for Epic
+                                            domains (epicweb.dev, epicreact.dev,
+                                            epicai.pro)
+  epicshop playground [subcommand]          Manage the playground environment
+  [target]                                  (context-aware)
+  epicshop progress [subcommand]            View and manage your progress
+  [lesson-slug]                             (context-aware)
+  epicshop diff [app1] [app2]               Show differences between apps or
+                                            playground vs solution
+                                            (context-aware)
+  epicshop exercises [exercise] [step]      List exercises or show exercise
+                                            details (context-aware)
+Options:
+  -h, --help  Show help                                                [boolean]
+For more information, visit: https://github.com/epicweb-dev/epicshop
+Unknown argument: version
+===== epicshop add   help
+epicshop add [repo-name] [destination]
+Add a workshop by cloning from epicweb-dev GitHub org
+Positionals:
+  repo-name    Repository name from epicweb-dev org (optional, shows list if
+               omitted). Use <repo>#<tag|branch|commit> to pin a ref.   [string]
+  destination  Optional directory to clone into (full path). If provided, this
+               bypasses the configured repos directory.                 [string]
+Options:
+  -d, --directory  Directory to clone into (defaults to configured repos
+                   directory)                                           [string]
+  -s, --silent     Run without output logs            [boolean] [default: false]
+  -h, --help       Show help                                           [boolean]
+Examples:
+  epicshop add                              Show available workshops to add
+  epicshop add full-stack-foundations       Clone and set up the
+                                            full-stack-foundations workshop
+  epicshop add web-forms --directory        Clone workshop to a custom directory
+  ~/my-workshops
+  epicshop add react-fundamentals           Clone workshop to a specific
+  ~/Desktop/react-fundamentals              destination directory
+  epicshop add react-fundamentals#v1.2.0    Clone a workshop at a specific tag,
+                                            branch, or commit
+===== epicshop admin   help
+epicshop admin <subcommand>
+Positionals:
+  subcommand  Admin subcommand
+                 [string] [required] [choices: "launch-readiness", "set-videos"]
+Options:
+  -w, --workshop-dir  Path to a workshop directory to use as context (instead of
+                      the current working directory)                    [string]
+  -s, --silent        Run without output logs         [boolean] [default: false]
+      --skip-remote   Skip the remote "product lessons" check (only run local
+                      checks)                         [boolean] [default: false]
+      --skip-head     Skip checking that EpicVideo urls return 200 to HEAD
+                      (network required)              [boolean] [default: false]
+      --dry-run       Preview set-videos changes without writing files
+                      (set-videos only)               [boolean] [default: false]
+  -h, --help          Show help                                        [boolean]
+Examples:
+  epicshop admin launch-readiness      Check workshop launch readiness (hidden
+                                       command)
+  epicshop admin set-videos            Set top EpicVideo embeds from product
+                                       lesson order (hidden command)
+  epicshop admin set-videos --dry-run  Preview top EpicVideo changes without
+                                       writing files
+===== epicshop admin launch readiness   skip remote   skip head
+🛠️  Admin: Launch readiness
+❌ Result: FAIL
+(9 errors, 0 warnings)
+❌ Missing `epicshop.product.slug` in package.json (required for launch readiness) (package.json)
+❌ Step solution files must use a /solution video URL suffix: https://www.epicweb.dev/tips/your-first-exercise-step-solution-lypql (exercises/01.exercise-navigation/01.solution.first-step/README.mdx)
+❌ Step solution files must use a /solution video URL suffix: https://www.epicweb.dev/tips/working-with-multi-step-exercises-solution-523p8 (exercises/01.exercise-navigation/02.solution.multi-step/README.mdx)
+❌ Step solution files must use a /solution video URL suffix: https://www.epicweb.dev/tips/apps-without-preview-solution-qlhbc (exercises/02.app-varieties/01.solution.no-preview/README.mdx)
+❌ No <EpicVideo url="..."> embed found (required for launch readiness) (exercises/02.app-varieties/02.solution.simple/README.mdx)
+❌ No <EpicVideo url="..."> embed found (required for launch readiness) (exercises/03.export-app/README.mdx)
+❌ No <EpicVideo url="..."> embed found (required for launch readiness) (exercises/03.export-app/FINISHED.mdx)
+❌ No <EpicVideo url="..."> embed found (required for launch readiness) (exercises/03.export-app/01.problem.export/README.mdx)
+❌ No <EpicVideo url="..."> embed found (required for launch readiness) (exercises/03.export-app/01.solution.export/README.mdx)
+Docs: https://github.com/epicweb-dev/epicshop/blob/main/docs/launch.md
+===== epicshop auth   help
+epicshop auth [subcommand] [domain]
+Manage authentication for Epic domains (epicweb.dev, epicreact.dev, epicai.pro)
+Positionals:
+  subcommand  Auth subcommand (status, login, logout)
+                                 [string] [choices: "status", "login", "logout"]
+  domain      Domain to authenticate with (e.g., epicweb.dev, epicreact, epicai)
+                                                                        [string]
+Options:
+  -s, --silent  Run without output logs               [boolean] [default: false]
+  -h, --help    Show help                                              [boolean]
+Examples:
+  epicshop auth                    Show auth subcommand menu
+  epicshop auth status             Show login status for all domains
+  epicshop auth login              Login to a domain (interactive)
+  epicshop auth login epicweb.dev  Login to EpicWeb.dev
+  epicshop auth logout epicreact   Logout from EpicReact.dev
+===== epicshop auth status
+🔐 Authentication Status
+  ○ EpicWeb.dev: Not logged in
+  ○ EpicReact.dev: Not logged in
+  ○ EpicAI.pro: Not logged in
+===== epicshop cleanup   help
+epicshop cleanup
+Clean up local epicshop data
+Options:
+  -t, --targets           Cleanup targets (repeatable): caches, offline-videos,
+                          preferences, auth, config
+  [array] [choices: "caches", "offline-videos", "preferences", "auth", "config"]
+      --workshops         Workshops to clean (repeatable, by repo name or path)
+                                                                         [array]
+      --workshop-actions  Cleanup actions for selected workshops (repeatable)
+                          [array] [choices: "files", "caches", "offline-videos"]
+  -s, --silent            Run without output logs     [boolean] [default: false]
+  -f, --force             Skip the confirmation prompt[boolean] [default: false]
+  -h, --help              Show help                                    [boolean]
+Examples:
+  epicshop cleanup                          Pick cleanup targets interactively
+                                            (multi-select)
+  epicshop cleanup --targets caches         Clean selected targets without
+  --targets preferences --force             prompting
+  epicshop cleanup --workshops              Clean caches for a specific workshop
+  full-stack-foundations
+  --workshop-actions caches --force
+===== epicshop config
+❌ ❌ Non-interactive environment: no TTY detected.
+This command needs to prompt to select a configuration option, but stdin/stdout are not a TTY.
+To run non-interactively, provide the required input:
+- Set repos dir directly: npx epicshop config --repos-dir <path>
+- Set preferred editor: npx epicshop config --editor <command>
+- Delete config non-interactively: npx epicshop config reset --silent
+===== epicshop diff
+❌ Failed to generate diff: ❌ Non-interactive environment: no TTY detected.
+This command needs to prompt to select apps to diff, but stdin/stdout are not a TTY.
+To run non-interactively, provide the required input:
+- Provide the apps directly: npx epicshop diff 01.02.problem 01.02.solution
+===== epicshop diff 01 01 problem 01 01 solution
+📋 Diff: 01.01.problem vs 01.01.solution
+Lines starting with - are in 01.01.problem but not 01.01.solution
+Lines starting with + are in 01.01.solution but not 01.01.problem
+diff --git ./index.js ./index.js
+index 2067011..877b7b5 100644
+--- ./index.js
++++ ./index.js
+@@ -2,8 +2,7 @@ import { createServer } from 'http'
+ 
+ export const server = createServer((req, res) => {
+ 	res.writeHead(200, { 'Content-Type': 'text/plain' })
+-	// 🐨 change this to say "goodbye world"
+-	res.end('hello world')
++	res.end('goodbye world')
+ })
+ 
+ server.listen(process.env.PORT)
+===== epicshop diff   help
+epicshop diff [app1] [app2]
+Show differences between apps or playground vs solution (context-aware)
+Positionals:
+  app1  First app identifier (e.g., 01.02.problem). If omitted, prompts with
+        playground vs solution as the default.                          [string]
+  app2  Second app identifier (e.g., 01.02.solution)                    [string]
+Options:
+  -s, --silent        Run without output logs         [boolean] [default: false]
+  -w, --workshop-dir  Path to a workshop directory to use as context (instead of
+                      the current working directory)                    [string]
+  -h, --help          Show help                                        [boolean]
+Examples:
+  epicshop diff                             Select apps to diff (defaults to
+                                            playground vs solution)
+  epicshop diff 01.02.problem               Show diff between two apps
+  01.02.solution
+===== epicshop exercises
+📚 Epic Workshop Tutorial 🔭
+  Learn the foundational tools and skills of building web applications
+  ○ 01. Exercise Navigation (0/2)
+      ○ 01. First Exercise Step
+      ○ 02. Multi-Step Exercise
+  ○ 02. App Varieties (0/2) ← current
+      ○ 01. No Preview
+      ○ 02. Simple Apps ← current
+  ○ 03. Export App (0/1)
+      ○ 01. Export App
+===== epicshop exercises 1 1   json
+{
+  "exerciseNumber": 1,
+  "title": "Exercise Navigation",
+  "fullPath": "/home/claude/epicshop/example/exercises/01.exercise-navigation",
+  "instructions": "# Exercise Navigation\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/introduction-to-exercise-navigation-hlkkd\" />\n\nFor each exercise, you'll have a page like this one that gives important context\nfor you to underst
+  "finishedInstructions": "# Exercise Navigation\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/exercise-navigation-wrap-up-l1aqo\" />\n\nAt the end of each exercise you will see the finished page like this one. This\nwill sometimes give 
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "First Exercise Step",
+      "completed": false,
+      "problem": {
+        "fullPath": "/home/claude/epicshop/example/exercises/01.exercise-navigation/01.problem.first-step",
+        "instructions": "# First Exercise Step\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/your-first-exercise-step-problem-winqy\" />\n\n👨‍💼 This is the exercise step page and this is where I (Peter the Product\nManager) will 
+      },
+      "solution": {
+        "fullPath": "/home/claude/epicshop/example/exercises/01.exercise-navigation/01.solution.first-step",
+        "instructions": "# First Exercise Step\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/your-first-exercise-step-solution-lypql\" />\n\n👨‍💼 Great job! You've made it to the solution portion of the first exercise step!\nOn th
+      }
+    },
+    {
+      "stepNumber": 2,
+      "title": "Multi-Step Exercise",
+      "completed": false,
+      "problem": {
+        "fullPath": "/home/claude/epicshop/example/exercises/01.exercise-navigation/02.problem.multi-step",
+        "instructions": "# Multi-Step Exercise\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/working-with-multi-step-exercises-problem-679x5\" />\n\n👨‍💼 Lots of exercises will have multiple steps. The only thing you need to know\
+      },
+      "solution": {
+        "fullPath": "/home/claude/epicshop/example/exercises/01.exercise-navigation/02.solution.multi-step",
+        "instructions": "# Multi-Step Exercise\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/working-with-multi-step-exercises-solution-523p8\" />\n\n👨‍💼 Great job on this exercise. There's just one more thing you need to know\na
+      }
+    }
+  ]
+===== epicshop exercises   help
+epicshop exercises [exercise] [step]
+List exercises or show exercise details (context-aware)
+Positionals:
+  exercise  Exercise number or "context" to export all workshop context [string]
+  step      Step number to show details for (e.g., 2 or 02)             [string]
+Options:
+      --json          Output as JSON                  [boolean] [default: false]
+  -s, --silent        Run without output logs         [boolean] [default: false]
+  -w, --workshop-dir  Path to a workshop directory to use as context (instead of
+                      the current working directory)                    [string]
+  -o, --output        Write context output to file (for exercises context
+                      subcommand)                                       [string]
+  -h, --help          Show help                                        [boolean]
+Examples:
+  epicshop exercises                        List all exercises with progress
+  epicshop exercises context                Export all workshop context as JSON
+  epicshop exercises context -o             Export context to file
+  context.json
+  epicshop exercises 1                      Show details for exercise 1
+  epicshop exercises 1 2                    Show details for exercise 1 step 2
+  epicshop exercises --json                 Output exercises as JSON
+===== epicshop exercises context
+{
+  "workshop": {
+    "title": "Epic Workshop Tutorial 🔭",
+    "subtitle": "Learn the foundational tools and skills of building web applications"
+  },
+  "instructions": {
+    "content": "# Epic Workshop App Tutorial 👨‍🏫\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/welcome-to-the-epic-workshop-app-tutorial-ryfkh\" />\n\n👨‍💼 Welcome to the Epic Workshop App Tutorial! My name is Peter the Pr
+  },
+  "finishedInstructions": {
+    "content": "# Epic Workshop App Tutorial 👨‍🏫\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/congratulations-on-completing-the-workshop-kn79h\" />\n\nYou've arrived at the end of the workshop! By this time, all the exercises\ns
+  },
+  "exercises": [
+    {
+      "exerciseNumber": 1,
+      "title": "Exercise Navigation",
+      "instructions": {
+        "content": "# Exercise Navigation\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/introduction-to-exercise-navigation-hlkkd\" />\n\nFor each exercise, you'll have a page like this one that gives important context\nfor you to unders
+      },
+      "finishedInstructions": {
+        "content": "# Exercise Navigation\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/exercise-navigation-wrap-up-l1aqo\" />\n\nAt the end of each exercise you will see the finished page like this one. This\nwill sometimes give you a s
+      },
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "First Exercise Step",
+          "problem": {
+            "instructions": "# First Exercise Step\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/your-first-exercise-step-problem-winqy\" />\n\n👨‍💼 This is the exercise step page and this is where I (Peter the Product\nManager) w
+            "transcripts": [
+              {
+                "embed": "https://www.epicweb.dev/tips/your-first-exercise-step-problem-winqy",
+                "status": "error",
+                "message": "No transcript found"
+              }
+            ]
+          },
+          "solution": {
+            "instructions": "# First Exercise Step\n\n<EpicVideo url=\"https://www.epicweb.dev/tips/your-first-exercise-step-solution-lypql\" />\n\n👨‍💼 Great job! You've made it to the solution portion of the first exercise step!\nO
+            "transcripts": [
+              {
+                "embed": "https://www.epicweb.dev/tips/your-first-exercise-step-solution-lypql",
+===== epicshop list
+❌ ❌ Non-interactive environment: no TTY detected.
+This command needs to prompt to set up your workshops directory, but stdin/stdout are not a TTY.
+To run non-interactively, provide the required input:
+- Set repos dir directly: npx epicshop config --repos-dir <path>
+- Or run this command in a TTY to complete onboarding.
+- If you are running in CI, set CI=true to auto-use the default location.
+===== epicshop migrate   help
+epicshop migrate
+Run any necessary migrations for workshop data
+Options:
+  -s, --silent  Run without output logs               [boolean] [default: false]
+  -h, --help    Show help                                              [boolean]
+Examples:
+  epicshop migrate           Run necessary migrations
+  epicshop migrate --silent  Run migrations silently
+===== epicshop playground
+📂 Current Playground
+  Exercise: 02 - Simple Apps
+  Step: 02
+  Type: problem
+  Path: /home/claude/epicshop/example/playground
+===== epicshop playground   help
+epicshop playground [subcommand] [target]
+Manage the playground environment (context-aware)
+Positionals:
+  subcommand  Playground subcommand (show, set, saved)
+                                      [string] [choices: "show", "set", "saved"]
+  target      Target exercise step (e.g., 1.2.problem) or saved playground id
+                                                                        [string]
+Options:
+  -e, --exercise      Exercise number                                   [number]
+      --step          Step number                                       [number]
+  -t, --type          App type (problem or solution)
+                                       [string] [choices: "problem", "solution"]
+      --list          List saved playgrounds (saved subcommand)
+                                                      [boolean] [default: false]
+      --latest        Use the most recent saved playground (saved subcommand)
+                                                      [boolean] [default: false]
+      --json          Output saved playgrounds as JSON (saved list)
+                                                      [boolean] [default: false]
+  -w, --workshop-dir  Path to a workshop directory to use as context (instead of
+                      the current working directory)                    [string]
+  -s, --silent        Run without output logs         [boolean] [default: false]
+  -h, --help          Show help                                        [boolean]
+Examples:
+  epicshop playground                       Show current playground status
+  epicshop playground show                  Show current playground status
+  epicshop playground set                   Select a playground app to set
+                                            (defaults to next step)
+  epicshop playground set 1.2.problem       Set to specific step
+  epicshop playground set --exercise 1      Set with options
+  --step 2
+  epicshop playground saved                 Interactively select a saved
+                                            playground
+  epicshop playground saved list            List saved playgrounds
+  epicshop playground saved                 Set playground from a saved copy
+  2026.01.18_11.12.00_01.01.problem
+===== epicshop playground saved
+❌ Failed to set saved playground: Playground persistence is disabled. Enable it in Preferences to use saved playgrounds.
+===== epicshop playground set 1 1 problem
+✅ Playground set to 01.01.problem
+===== epicshop progress
+⚠️  You're not logged in. Use 'epicshop auth login' to log in and track progress.
+===== epicshop update   help
+epicshop update
+Update the current workshop or select one to update
+Options:
+  -s, --silent  Run without output logs               [boolean] [default: false]
+  -h, --help    Show help                                              [boolean]
+Examples:
+  epicshop update           Update workshop to latest version
+  epicshop update --silent  Update workshop to latest version silently
+===== epicshop warm
+🔥 Warming up caches...
+📱 Loading apps...
+✅ Loaded 16 apps
+🔄 Generating diffs and diff files for problem/solution pairs...
+  ✓ 01.01.problem vs 01.01.solution
+  ✓ 01.02.problem vs 01.02.solution
+  ✓ 02.01.problem vs 02.01.solution
+  ✓ 02.02.problem vs 02.02.solution
+  ✓ 03.01.problem vs 03.01.solution
+✅ Generated 5 diffs and diff files
+🔥 Cache warming complete!
+===== epicshop warm   help
+epicshop warm
+Warm up the workshop application caches (apps, diffs)
+Options:
+  -s, --silent  Run without output logs               [boolean] [default: false]
+  -h, --help    Show help                                              [boolean]
+Examples:
+  epicshop warm           Warm up workshop caches
+  epicshop warm --silent  Warm up workshop caches silently
+Script started on 2026-11-27 22:27:28+00:00 [COMMAND="npx --prefix ./epicshop epicshop" <not executed on terminal>]
+? What would you like to do? (in Epic Workshop Tutorial 🔭) 
+↑↓ navigate • ⏎ select? What would you like to do? (in Epic Workshop Tutorial 🔭) 
+> start - Start a workshop
+  open - Open a workshop in editor
+  exercises - List exercises
+  playground - Manage playground
+  progress - View/update progress
+  diff - Show differences
+  list - List all workshops
+Start Epic Workshop Tutorial 🔭
+↑↓ navigate • ⏎ select? What would you like to do? (in Epic Workshop Tutorial 🔭) 
