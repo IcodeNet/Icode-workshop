@@ -49,4 +49,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # The sidecar portability test starts the real API server, which imports web dependencies.
+      - run: corepack enable
+      - run: corepack prepare pnpm@10.0.0 --activate
+      - run: pnpm install --frozen-lockfile
       - run: node --test packages/adapter-api/runtime.test.mjs packages/web/sidecars.portability.test.mjs

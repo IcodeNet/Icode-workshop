@@ -92,10 +92,16 @@ test(
       },
     );
     try {
-      const pid = await pidFile(root);
+      const pid = await pidFile(root).catch((e) => {
+        throw new Error(e.message + "\nserver output:\n" + output);
+      });
       assert.ok(alive(pid), output);
       await server.stop();
-      await until(() => !alive(pid));
+      await until(() => !alive(pid)).catch((e) => {
+        throw new Error(
+          e.message + " (sidecar pid " + pid + ")\nserver output:\n" + output,
+        );
+      });
     } finally {
       await server.stop();
       await rm(root, {
