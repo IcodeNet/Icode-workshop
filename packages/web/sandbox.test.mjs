@@ -226,3 +226,40 @@ test("double-encoded traversal and hidden files are refused (assets, apps and th
     assert.doesNotMatch(r.body, /hidden-file-content|workshop-private/);
   }
 });
+
+test("service workers are refused; the reset page clears the origin's storage", async (t) => {
+  const { port, server, secret } = await setup();
+  t.after(() => (server.close(), rm(secret, { force: true })));
+  for (const headers of [{ "service-worker": "script" }, { "sec-fetch-dest": "serviceworker" }]) {
+    for (const path of ["/app/01/problem/main.ts", "/app/01/problem/page.browser.js", "/__icode/nav.js", "/__icode/mermaid-frame.js", "/app/01/problem/"])
+      assert.equal((await get(port, path, { headers })).status, 403, path + " " + JSON.stringify(headers));
+  }
+  assert.equal((await get(port, "/app/01/problem/main.ts")).status, 200, "ordinary script loads still work");
+  const reset = await get(port, "/__icode/reset?generation=abc");
+  assert.equal(reset.status, 200);
+  assert.equal(reset.headers["clear-site-data"], '"storage", "cache"');
+  assert.match(reset.headers["content-security-policy"], /^default-src 'none'; frame-ancestors http:\/\/127\.0\.0\.1:5173$/);
+});
+
+test("asset paths are decoded once: a double-encoded traversal cannot reach an image outside the course", async (t) => {
+  const { root, port, server, secret } = await setup();
+  const outside = join(dirname(root), basename(root) + "-outside.png");
+  await writeFile(outside, Buffer.from("89504e470d0a1a0a6f757473696465", "hex"));
+  t.after(() => (server.close(), rm(secret, { force: true }), rm(outside, { force: true })));
+  const name = encodeURIComponent(basename(outside));
+  // Control: the same image inside the course is served.
+  await writeFile(join(root, "images", basename(outside)), Buffer.from("89504e470d0a1a0a", "hex"));
+  assert.equal((await get(port, "/asset/images/" + name)).status, 200);
+  for (const path of [
+    "/asset/%252e%252e/" + name,
+    "/asset/%252e%252e%252f" + name,
+    "/asset/images/%252e%252e/%252e%252e/" + name,
+    "/asset/%25252e%25252e/" + name,
+    "/asset/%2e%2e/" + name,
+    "/asset/..%2f" + name,
+  ]) {
+    const r = await get(port, path);
+    assert.ok([400, 404].includes(r.status), path + " → " + r.status);
+    assert.doesNotMatch(r.body, /outside/);
+  }
+});

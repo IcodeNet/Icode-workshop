@@ -1,4 +1,14 @@
 import { createServer } from "node:http";
+import { createServer as createNetServer } from "node:net";
+async function freePort() {
+  for (;;) {
+    const server = createNetServer();
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address();
+    await new Promise((r) => server.close(r));
+    if (![4317, 4318, 4403, 4404, 5173].includes(port)) return port;
+  }
+}
 import { spawnSync } from "node:child_process";
 import { mkdtemp, cp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,6 +18,9 @@ await cp("examples/exercises", join(root, "exercises"), { recursive: true });
 await cp("examples/course.json", join(root, "course.json"));
 const manifestPath = join(root, "exercises", "03", "lab.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+// A free port for the lesson 03 preview (not the fixed 4403 of examples/):
+// specs read it from the API, so a slow-to-release port never collides.
+manifest.preview = { ...manifest.preview, port: await freePort() };
 manifest.media = {
   src: "http://127.0.0.1:4404/lesson.webm",
   captions: "http://127.0.0.1:4404/lesson.vtt",
@@ -123,6 +136,7 @@ const go = new URLSearchParams(location.search).get("go");
 const index = Number(new URLSearchParams(location.search).get("i") || 0);
 if (go === "frame") location.href = targets[index];
 if (go === "spoof") location.href = "http://127.0.0.1:4404/spoof";
+if (go === "sw") navigator.serviceWorker.register("./sw.js").then(() => navigator.serviceWorker.ready).then(() => { document.getElementById("out").textContent = "registered"; }, (e) => { document.getElementById("out").textContent = "sw refused: " + e.name; });
 if (go === "popup") { let w = null; try { w = window.open(targets[index]); } catch {} document.getElementById("out").textContent = w ? "opened" : "popup blocked"; }
 </script></body></html>`;
 await mkdir(join(root, "exercises", "07", "problem"), { recursive: true });
@@ -132,6 +146,8 @@ await writeFile(join(root, "exercises", "07", "README.md"), "# Escape attempt\n"
 for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "07", variant, "index.html"), escapeApp);
   await writeFile(join(root, "exercises", "07", variant, "index.mjs"), "export const value = 1;\n");
+  // A service worker that would take over every later load of this app (SF-A).
+  await writeFile(join(root, "exercises", "07", variant, "sw.js"), "self.addEventListener('install', () => self.skipWaiting());\nself.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));\nself.addEventListener('fetch', (e) => e.respondWith(new Response('<h1>SW owned</h1>', { headers: { 'content-type': 'text/html' } })));\n");
 }
 course.modules.at(-1).steps.push("07");
 await writeFile(join(root, "course.json"), JSON.stringify(course));

@@ -122,6 +122,7 @@ function App() {
   const [diskChange, setDiskChange] = useState(null);
   const [reloadPreview, setReloadPreview] = useState(true);
   const [previewKey, setPreviewKey] = useState(0);
+  const [liveReload, setLiveReload] = useState("off");
   // Stage 3: course pages and workshop-served apps.
   const contentConfig = useContentConfig();
   const sandboxOrigin = contentConfig?.sandboxOrigin || "";
@@ -190,6 +191,9 @@ function App() {
   useEffect(() => {
     if (!selected || typeof EventSource === "undefined") return;
     const source = new EventSource("/api/events?id=" + encodeURIComponent(selected));
+    setLiveReload("connecting");
+    source.addEventListener("ready", () => setLiveReload("ready"));
+    source.addEventListener("error", () => setLiveReload("connecting"));
     let refreshTimer;
     source.addEventListener("change", async (message) => {
       const { name } = JSON.parse(message.data);
@@ -1089,7 +1093,7 @@ function App() {
                   </small>
                 </article>
                 <div className="workspace-column">
-                  <section className="workbench">
+                  <section className="workbench" data-live-reload={liveReload}>
                     <div className="workbench-head">
                       <div>
                         <h2>Code workbench</h2>

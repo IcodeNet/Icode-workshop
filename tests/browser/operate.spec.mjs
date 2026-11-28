@@ -1,11 +1,30 @@
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { connect } from "node:net";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const API = "http://127.0.0.1:4317/api";
+// The fixture gives lesson 03's preview a free port; read it, never assume 4403.
+async function previewPort(request) {
+  return (await (await request.get(API + "/exercise?id=03")).json()).preview.port;
+}
+// Resolves once nothing accepts connections on the port.
+async function portReleased(port, ms = 15000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const open = await new Promise((resolve) => {
+      const socket = connect(port, "127.0.0.1");
+      socket.once("connect", () => (socket.destroy(), resolve(true)));
+      socket.once("error", () => resolve(false));
+    });
+    if (!open) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error("Port " + port + " still in use");
+}
 
 test("course action requires typed confirmation, renders ANSI and drives the cost banner", async ({
   page,
@@ -143,7 +162,9 @@ test("action endpoints reject unknown actions and unsolicited input", async ({
 
 test("processes view lists previews and sidecars, shows sidecar logs and stops processes", async ({
   page,
+  request,
 }) => {
+  const port = await previewPort(request);
   await page.goto("/");
   await page
     .getByRole("button", { name: /03 Your first live preview/ })
@@ -155,7 +176,7 @@ test("processes view lists previews and sidecars, shows sidecar logs and stops p
   const table = page.getByRole("table", { name: "Running processes" });
   await expect(table).toContainText("Sidecar: mock-api");
   await expect(table).toContainText("Preview 03 (playground)");
-  await expect(table).toContainText("4403");
+  await expect(table).toContainText(String(port));
   await page.getByRole("button", { name: "Logs mock-api" }).click();
   const logs = page.getByRole("log", { name: "Sidecar logs" });
   await expect(logs).toContainText("[mock-api]");
@@ -166,18 +187,23 @@ test("processes view lists previews and sidecars, shows sidecar logs and stops p
     .getByRole("button", { name: "Stop Preview 03 (playground)" })
     .click();
   await expect(table).not.toContainText("Preview 03");
+  await portReleased(port);
   await page.getByRole("button", { name: "Restart mock-api" }).click();
   await expect(page.getByText(/running · pid \d+/)).toBeVisible();
 });
 
 test("a foreign process on the preview port can be freed after confirmation", async ({
   page,
+  request,
 }) => {
+  const port = await previewPort(request);
+  // Wait for an earlier preview's process tree to release the port.
+  await portReleased(port);
   const squatter = spawn(
     process.execPath,
     [
       "-e",
-      'require("node:net").createServer(s=>s.end("HTTP/1.1 200 OK\\r\\n\\r\\nsquatter")).listen(4403,"127.0.0.1",()=>console.log("up"))',
+      `require("node:net").createServer(s=>s.end("HTTP/1.1 200 OK\\r\\n\\r\\nsquatter")).listen(${port},"127.0.0.1",()=>console.log("up"))`,
     ],
     { stdio: ["ignore", "pipe", "inherit"] },
   );
@@ -192,9 +218,9 @@ test("a foreign process on the preview port can be freed after confirmation", as
     await page.getByRole("button", { name: "Start app", exact: true }).click();
     const conflict = page.getByRole("region", { name: "Port conflict" });
     await expect(conflict).toContainText(
-      "Port 4403 is used by another process.",
+      `Port ${port} is used by another process.`,
     );
-    await conflict.getByRole("button", { name: "Free port 4403…" }).click();
+    await conflict.getByRole("button", { name: `Free port ${port}…` }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(String(squatter.pid));
     await expect(dialog).toContainText("127.0.0.1");
@@ -221,8 +247,9 @@ test("live reload updates a clean editor and flags conflicting unsaved edits", a
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
   await expect(editor).not.toHaveValue("");
   const original = await editor.inputValue();
-  // An external writer (another editor, an AI assistant) changes the file.
-  await page.waitForTimeout(300);
+  // Wait until the live-reload stream is connected, then an external writer
+  // (another editor, an AI assistant) changes the file.
+  await expect(page.locator('[data-live-reload="ready"]')).toHaveCount(1);
   await page.request.put("/api/file", {
     data: { id: "01", name: "index.mjs", code: "// changed on disk 1\n" },
   });
