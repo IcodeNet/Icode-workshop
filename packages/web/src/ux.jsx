@@ -541,6 +541,10 @@ export function PreferencesPage({ prefs, resolvedTheme, onClose }) {
             ))}
           </select>
         </label>
+        <label>
+          <input type="checkbox" checked={ui.softWrap} onChange={(e) => update({ softWrap: e.target.checked })} />
+          Wrap long lines in the Playground editor
+        </label>
       </fieldset>
       <fieldset>
         <legend>Motion and scrolling</legend>

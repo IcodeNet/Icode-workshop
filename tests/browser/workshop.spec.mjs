@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { expectEditor, fillEditor } from "./editor.mjs";
 import { readFile } from "node:fs/promises";
 test("Node and Python learner journeys, multi-file CRUD, persistence, compare and reset", async ({
   page,
@@ -11,14 +12,14 @@ test("Node and Python learner journeys, multi-file CRUD, persistence, compare an
   await expect(page.getByRole("status")).toContainText("FAIL");
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
-  await editor.fill(
+  await fillEditor(page, 
     await readFile("examples/exercises/01/solution/index.mjs", "utf8"),
   );
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("PASS");
   page.once("dialog", (d) => d.accept("src/helper.mjs"));
   await page.getByRole("button", { name: "New file", exact: true }).click();
-  await editor.fill("export const helper = 42\n");
+  await fillEditor(page, "export const helper = 42\n");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   page.once("dialog", (d) => d.accept("src/value.mjs"));
   await page.getByRole("button", { name: "Rename", exact: true }).click();
@@ -32,7 +33,7 @@ test("Node and Python learner journeys, multi-file CRUD, persistence, compare an
   await page.getByText("Project file tree", { exact: true }).click();
   await page.getByRole("button", { name: "value.mjs", exact: true }).click();
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await expect(editor).toHaveValue("export const helper = 42\n");
+  await expectEditor(page).toBe("export const helper = 42\n");
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(
@@ -42,7 +43,7 @@ test("Node and Python learner journeys, multi-file CRUD, persistence, compare an
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("FAIL");
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await editor.fill(
+  await fillEditor(page, 
     await readFile("examples/exercises/02/solution/main.py", "utf8"),
   );
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
@@ -72,9 +73,7 @@ test("live preview starts, shows edited code, and stops; lesson remains visible"
     "Connect a pure function",
   );
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await page
-    .getByRole("textbox", { name: "Playground code editor" })
-    .fill("export const message = () => 'Hello, Icode Workshop!'\n");
+  await fillEditor(page, "export const message = () => 'Hello, Icode Workshop!'\n");
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("PASS");
   await page.getByRole("tab", { name: "Preview", exact: true }).click();
@@ -107,10 +106,10 @@ test("unsaved navigation can be cancelled and mobile layout stays within viewpor
   await page.getByRole("button", { name: /01 Approved/ }).click();
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
-  await editor.fill("// unsaved draft");
+  await fillEditor(page, "// unsaved draft");
   page.once("dialog", (d) => d.dismiss());
   await page.getByRole("button", { name: /02 Python/ }).click();
-  await expect(editor).toHaveValue("// unsaved draft");
+  await expectEditor(page).toBe("// unsaved draft");
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: /02 Python/ }).click();
   await expect(
@@ -204,9 +203,7 @@ test("running indicator, streamed output, cancellation and keyboard save", async
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   page.once("dialog", (d) => d.accept("slow.test.mjs"));
   await page.getByRole("button", { name: "New file", exact: true }).click();
-  await page
-    .getByLabel("Playground code editor")
-    .fill(
+  await fillEditor(page, 
       'import test from "node:test"; test("slow", async () => { console.log("streaming marker"); await new Promise(r => setTimeout(r, 10000)); });',
     );
   await page.getByLabel("Playground code editor").press("Control+s");
@@ -253,16 +250,14 @@ test("reference preview restart and backup restoration preserve the learner work
   ).toContainText("Hello, Icode Workshop!");
   await page.getByRole("button", { name: "Stop app", exact: true }).click();
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await page
-    .getByLabel("Playground code editor")
-    .fill('export const message = () => "My saved work";');
+  await fillEditor(page, 'export const message = () => "My saved work";');
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("tab", { name: "Problem", exact: true }).click();
   page.once("dialog", (d) => d.accept());
   await page
     .getByRole("button", { name: "Use problem in playground", exact: true })
     .click();
-  await expect(page.getByLabel("Playground code editor")).not.toHaveValue(
+  await expectEditor(page).not.toMatch(
     /My saved work/,
   );
   const accept = (d) =>
@@ -271,7 +266,7 @@ test("reference preview restart and backup restoration preserve the learner work
   await page
     .getByRole("button", { name: "Restore backup", exact: true })
     .click();
-  await expect(page.getByLabel("Playground code editor")).toHaveValue(
+  await expectEditor(page).toBe(
     'export const message = () => "My saved work";',
   );
   page.off("dialog", accept);

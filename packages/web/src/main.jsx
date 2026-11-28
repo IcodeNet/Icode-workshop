@@ -1,6 +1,6 @@
 import "./session.js";
 import Markdown from "react-markdown";
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import {
@@ -16,6 +16,9 @@ import {
   useIndicators,
 } from "./operations.jsx";
 import { DiffView, resolveDiffLink } from "./diff.jsx";
+import { HighlightedCode } from "./highlighted.jsx";
+// The editor and its languages load on demand, outside the first bundle.
+const CodeEditor = lazy(() => import("./code-editor.jsx"));
 import { QuestionSummary, ReviewList, questionStore, focusQuestion, useReviewItems } from "./questions.jsx";
 import { SavedPanel, TouchedFiles, UpdateBanner, UpdatePanel, operationSummary } from "./workspace.jsx";
 import {
@@ -384,13 +387,11 @@ function App() {
     setTab("playground");
     await openFile(name);
     requestAnimationFrame(() => {
-      const el = editorRef.current;
-      if (!el) return;
-      const lines = el.value.split("\n");
-      const offset = lines.slice(0, Math.max(0, line - 1)).reduce((n, l) => n + l.length + 1, 0);
-      el.focus();
-      el.setSelectionRange(offset, offset);
-      el.scrollTop = Math.max(0, (line - 3) * 18);
+      const view = editorRef.current;
+      if (!view) return;
+      const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
+      view.focus();
+      view.dispatch({ selection: { anchor: target.from }, scrollIntoView: true });
     });
   }
   async function launchAt(name, line) {
@@ -1519,17 +1520,21 @@ function App() {
                       </div>
                     )}
                     {tab === "playground" ? (
-                      <textarea
-                        ref={editorRef}
-                        disabled={busy || !file}
-                        spellCheck="false"
-                        aria-label="Playground code editor"
-                        value={draft}
-                        onChange={(e) => {
-                          setDraft(e.target.value);
-                          setDirty(true);
-                        }}
-                      />
+                      <Suspense fallback={<div className="code">Loading the editor…</div>}>
+                        <CodeEditor
+                          viewRef={editorRef}
+                          disabled={busy || !file}
+                          label="Playground code editor"
+                          fileName={file}
+                          value={draft}
+                          softWrap={prefs.ui.softWrap}
+                          dark={theme.resolved !== "light"}
+                          onChange={(code) => {
+                            setDraft(code);
+                            setDirty(true);
+                          }}
+                        />
+                      </Suspense>
                     ) : tab === "diff" ? (
                       <DiffView
                         catalog={catalog}
@@ -1548,14 +1553,17 @@ function App() {
                         }}
                         onMessage={setResult}
                       />
-                    ) : (
+                    ) : tab === "description" ? (
                       <pre className="code">
-                        {tab === "description"
-                          ? exercise.description +
-                            "\n\nSTARTING CODE\n" +
-                            exercise.problem
-                          : referenceCode || "Empty reference file."}
+                        {exercise.description + "\n\nSTARTING CODE\n" + exercise.problem}
                       </pre>
+                    ) : (
+                      <HighlightedCode
+                        side={selected + "." + tab}
+                        path={referenceFile}
+                        code={referenceCode}
+                        empty="Empty reference file."
+                      />
                     )}
                     <div className="editor-footer">
                       <span>

@@ -385,6 +385,8 @@ function contrastReplacements(hl) {
   }
   return replacements;
 }
+/** The shared highlighter, for code outside lessons (highlight.mjs). */
+export const codeHighlighter = () => highlighter();
 export async function codeColorReplacements() {
   return (await highlighter()).colorReplacements;
 }

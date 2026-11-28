@@ -1,6 +1,7 @@
 // In the browser: hooks, touched files, rich diffs (deep links,
 // shortcuts, sync), saved playgrounds and the workshop update.
 import { test, expect } from "@playwright/test";
+import { expectEditor, fillEditor } from "./editor.mjs";
 import { readFile } from "node:fs/promises";
 
 const problem01 = await readFile("examples/exercises/01/problem/index.mjs", "utf8");
@@ -35,13 +36,13 @@ test("hooks report structured output; touched files track the step and reset sin
   await expect(touched).toContainText("approved.test.mjs");
   await touched.getByRole("button", { name: "index.mjs", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
-  await expect(editor).toHaveValue(problem01);
-  await editor.fill("export const approvedOnly = () => [] // mine\n");
+  await expectEditor(page).toBe(problem01);
+  await fillEditor(page, "export const approvedOnly = () => [] // mine\n");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(indexRow).toContainText("edited");
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Reset index.mjs to problem" }).click();
-  await expect(editor).toHaveValue(problem01);
+  await expectEditor(page).toBe(problem01);
   await expect(indexRow).toContainText("not started");
   expect(errors).toEqual([]);
 });
@@ -98,7 +99,7 @@ test("rich diff: deep links, lesson links, keyboard shortcuts, whitespace and sy
   await expect(page.getByRole("region", { name: "Diff of index.mjs" })).toHaveCount(0);
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   await page.getByLabel("Project file").selectOption("index.mjs");
-  await expect(page.getByRole("textbox", { name: "Playground code editor" })).toHaveValue(solution01);
+  await expectEditor(page).toBe(solution01);
   await expect(
     page.getByRole("list", { name: "Files for this step" }).getByRole("listitem").filter({ hasText: "index.mjs" }).first(),
   ).toContainText("matches solution");
@@ -116,7 +117,7 @@ test("saved playgrounds: save, restore exactly, diff, pin and delete", async ({ 
   await resetPlayground(page);
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
   await page.getByLabel("Project file").selectOption("index.mjs");
-  await editor.fill("export const approvedOnly = (d) => d // attempt one\n");
+  await fillEditor(page, "export const approvedOnly = (d) => d // attempt one\n");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("tab", { name: "Saved", exact: true }).click();
   await page.getByLabel("Saved playground label").fill("attempt one");
@@ -125,7 +126,7 @@ test("saved playgrounds: save, restore exactly, diff, pin and delete", async ({ 
   await expect(table.getByRole("row").filter({ hasText: "attempt one" })).toContainText("manual");
 
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await editor.fill("export const approvedOnly = () => 'broken'\n");
+  await fillEditor(page, "export const approvedOnly = () => 'broken'\n");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("tab", { name: "Saved", exact: true }).click();
   page.once("dialog", (d) => d.accept());
@@ -133,7 +134,7 @@ test("saved playgrounds: save, restore exactly, diff, pin and delete", async ({ 
   await expect(page.getByLabel("Saved playground status")).toContainText("Restored.");
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   await page.getByLabel("Project file").selectOption("index.mjs");
-  await expect(editor).toHaveValue("export const approvedOnly = (d) => d // attempt one\n");
+  await expectEditor(page).toBe("export const approvedOnly = (d) => d // attempt one\n");
 
   // The broken version was saved automatically before the restore; diff it.
   await page.getByRole("tab", { name: "Saved", exact: true }).click();

@@ -1563,3 +1563,34 @@ textarea {
 .app.theme-light .check-question { --cq-code-bg: #e2e8f0; }
 .app.theme-hc .check-question { --cq-code-bg: #000000; }
 .app.theme-hc .check-question :not(pre) > code { outline: 1px solid #ffffff; }
+
+/* Code highlighting: read-only views (Shiki tokens) and the Playground editor
+   (CodeMirror classes) share one palette per theme, at AA contrast on every
+   code background. */
+.app .tok { color: var(--tl, inherit); }
+.app.dark .tok { color: var(--td, inherit); }
+.app .code-editor { padding: 0; }
+.app .code-editor .cm-editor { min-height: inherit; }
+.app .code-note { margin: 0; padding: 4px 18px; font-size: 12px; color: var(--soft); background: var(--panel); }
+.app .tok-keyword { color: #cf222e; }
+.app .tok-string { color: #0a3069; }
+.app .tok-number { color: #0550ae; }
+.app .tok-comment { color: #57606a; font-style: italic; }
+.app .tok-type { color: #953800; }
+.app .tok-function { color: #8250df; }
+.app .tok-property, .app .tok-meta { color: #0550ae; }
+.app .tok-heading { color: #0550ae; font-weight: bold; }
+.app .tok-link { color: #0a3069; text-decoration: underline; }
+.app .tok-emphasis { font-style: italic; }
+.app .tok-strong { font-weight: bold; }
+.app .tok-inserted { color: #116329; }
+.app .tok-deleted { color: #82071e; }
+.app .tok-invalid { color: #82071e; text-decoration: underline wavy; }
+.app.dark .tok-keyword { color: #ff7b72; }
+.app.dark .tok-string, .app.dark .tok-link { color: #a5d6ff; }
+.app.dark .tok-number, .app.dark .tok-property, .app.dark .tok-meta, .app.dark .tok-heading { color: #79c0ff; }
+.app.dark .tok-comment { color: #9ba5b0; }
+.app.dark .tok-type { color: #ffa657; }
+.app.dark .tok-function { color: #d2a8ff; }
+.app.dark .tok-inserted { color: #7ee787; }
+.app.dark .tok-deleted, .app.dark .tok-invalid { color: #ffa198; }

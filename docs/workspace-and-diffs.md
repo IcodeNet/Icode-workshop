@@ -106,6 +106,12 @@ Sides are parsed strictly. `validateId`, the variant allowlist and the `savedId`
 - Large, binary, deferred and too-large files show placeholders. "Load diff" fetches a deferred file.
 - **Not gated**: diffs need no login or entitlement.
 
+## Code views and the Playground editor
+
+- **Read-only views** (Problem, Solution, Diff) are highlighted by the same Shiki highlighter as lesson code, with the same themes and contrast replacements. `GET /api/highlight?side=<side>&path=<file>` returns tokens (`[text, light colour, dark colour, flags]`), never HTML, and only for files the workbench already shows. The language comes from the file extension or name. Diff lines keep their add/remove backgrounds; changed characters are marked in the plain text colour. A token line that does not spell its line's text exactly is shown plain.
+- **Playground editor:** CodeMirror 6, with line numbers, bracket matching, search (Ctrl/Cmd+F), undo/redo and soft wrap as a preference. Its accessible name is "Playground code editor" (a `textbox`); like a textarea, that element reports its whole text as a read-only `value` (`locator.evaluate((el) => el.value)`), and `locator.fill()` replaces its text. Tab indents; Escape then Tab moves focus out of the editor, so it never traps focus. The editor module and each language load on demand through `@codemirror/language-data`, outside the first UI bundle.
+- **Large files:** above 64 KiB or with a line over 5,000 characters (`src/ux/code-limits.js`), a file is shown and edited as plain text with a note saying so.
+
 ## Diff links and shortcuts
 
 - **Deep links**: `?diff=<a>..<b>&file=<path>&view=split|unified&ws=ignore`. Opening one selects the lesson of side `a` and shows the diff. The URL is updated as the learner changes the diff, so it can be copied and shared.
