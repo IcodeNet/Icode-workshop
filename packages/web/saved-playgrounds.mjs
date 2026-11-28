@@ -93,7 +93,7 @@ export async function readPreferences(root) {
   } catch {
     stored = undefined;
   }
-  // Stage 4: UI preferences (theme, fonts, motion, shortcuts...). Invalid
+  // UI preferences (theme, fonts, motion, shortcuts...). Invalid
   // stored values fall back to defaults; they are never passed through.
   return { savePlaygrounds: stored?.savePlaygrounds !== false, ui: safePreferences(stored?.ui) };
 }

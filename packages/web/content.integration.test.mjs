@@ -1,4 +1,4 @@
-// Stage 3 over HTTP: content routes, the sandbox origin started with the API,
+// Over HTTP: content routes, the sandbox origin started with the API,
 // and refusal of hostile, cross-origin and sandbox-origin requests.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -61,7 +61,7 @@ async function start(root) {
 async function course() {
   return nativeCourse({
     course: {
-      subtitle: "Stage 3",
+      subtitle: "Content",
       forms: { workshop: "https://f.test/?w={workshopTitle}", exercise: "https://f.test/?e={exerciseTitle}" },
       support: { text: "Ask <script>alert(1)</script>**here**" },
       notifications: [{ id: "n1", title: "Note", message: "Hello" }],

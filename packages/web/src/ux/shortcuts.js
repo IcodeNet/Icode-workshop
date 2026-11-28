@@ -1,4 +1,4 @@
-// Stage 4 (G2): keyboard shortcut registry, binding grammar and matcher.
+// Keyboard shortcut registry, binding grammar and matcher.
 //
 // A binding is either a chord ("mod+shift+p": mod, ctrl or alt plus one key,
 // optionally shift) or a sequence of one to three plain keys ("g n", "?").
@@ -12,7 +12,7 @@ export const COMMANDS = [
   { id: "preferences.open", label: "Open preferences", group: "General", keys: ["g ,"] },
   { id: "theme.cycle", label: "Cycle theme (system, light, dark, high contrast)", group: "General", keys: [] },
   { id: "connection.retry", label: "Check the workshop server connection now", group: "General", keys: [] },
-  // Navigation (Epic's g-sequences)
+  // Navigation (g-sequences)
   { id: "nav.home", label: "Go to course home", group: "Navigation", keys: ["g h"] },
   { id: "nav.next", label: "Go to next step", group: "Navigation", keys: ["g n"] },
   { id: "nav.prev", label: "Go to previous step", group: "Navigation", keys: ["g p"] },

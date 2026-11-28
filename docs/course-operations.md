@@ -1,6 +1,6 @@
 # Running and operating a course
 
-Stage 1 of the Epic gap analysis (C1, C3, C4, C6, C7, C10, B5, B7). Everything here is declared by the course author in `course.json` and runs **trusted** course scripts with the learner's permissions. Learners never type a command: the engine only runs scripts that already exist in the course root `package.json`.
+Course actions, indicators, sidecars, processes, live reload, editor launch and the install check. Everything here is declared by the course author in `course.json` and runs **trusted** course scripts with the learner's permissions. Learners never type a command: the engine only runs scripts that already exist in the course root `package.json`.
 
 ## Manifest
 
@@ -46,7 +46,7 @@ with, in the course root `package.json`:
 }
 ```
 
-A course that only needs operations (for example an Epic-layout course) can omit `modules`; step order then falls back to discovery.
+A course that only needs operations (for example an apps-layout course) can omit `modules`; step order then falls back to discovery.
 
 Validation (`workshop validate`, every API call): IDs and sidecar names match `[A-Za-z0-9][A-Za-z0-9_-]{0,39}`; every `script` must be a key of `package.json#scripts` and start with a letter or digit (names only, never a command line or an npm flag); `cancelGraceSeconds` is an integer from 1 to 3600 (default 30); labels ≤ 80 characters, descriptions ≤ 500; `destructive` is a boolean; indicator `level` is `info`, `warning` (default) or `danger`; indicator `path` is relative to the course root, uses `/`, and has no empty, `.` or `..` segment and no drive letter. Symlinks on an indicator path are rejected.
 
@@ -145,7 +145,7 @@ While a lesson is open, the UI subscribes to `/api/events?id=<step>` (server-sen
 | Sublime Text | `subl` | `file:line:column` |
 | vim / nvim / nano / emacs | `$VISUAL`, `$EDITOR` | `+…` cursor argument; only when the engine runs in a terminal |
 
-Terminal editors are never chosen by default (Stage 2): an inherited `EDITOR=vi` (npm exports one) would otherwise take over the workshop's terminal when a learner clicks a file, as observed in Epic. They are launched only when the learner picks them explicitly in the Editor list.
+Terminal editors are never chosen by default: an inherited `EDITOR=vi` (npm exports one) would otherwise take over the workshop's terminal when a learner clicks a file. They are launched only when the learner picks them explicitly in the Editor list.
 
 Order of preference: `ICODE_EDITOR` (an executable, or a JSON array such as `["/opt/editor/bin/ed","--reuse-window"]`), `$VISUAL`, `$EDITOR`, then the GUI editors on `PATH`. On Windows only `PATHEXT` files are considered (the extensionless `bin\code` next to `code.cmd` is a Git Bash script), only `.exe`/`.com` files are spawned directly, and batch-file launchers are mapped to the editor executable: `bin\code.cmd` → `Code.exe`, `bin\code-insiders.cmd` → `Code - Insiders.exe`, Cursor's `resources\app\bin\cursor.cmd` → `Cursor.exe`. Other batch launchers and script shims (`.js`, `.vbs`, …) are reported as unavailable. Line and column are clamped to 1…10,000,000. Only one terminal editor can be open at a time, since it shares the workshop's terminal. **Open in VS Code** (`vscode://` link) remains as a fallback.
 
@@ -153,9 +153,9 @@ Order of preference: `ICODE_EDITOR` (an executable, or a JSON array such as `["/
 
 `workshop doctor`, `workshop setup` and a banner in the UI report whether the course root dependencies are installed and match `package-lock.json` (every locked package's installed version, ignoring optional packages for other platforms and workspace links). The report includes the exact command, for example `cd "/path/to/course" && npm ci`, or `npm install` when `package-lock.json` no longer matches `package.json`.
 
-## Workspace and diffs (Stage 2)
+## Workspace and diffs
 
-Design notes: [`stage2-workspace-diffs.md`](stage2-workspace-diffs.md). Everything below is optional.
+Design notes: [`workspace-and-diffs.md`](workspace-and-diffs.md). Everything below is optional.
 
 ### Playground hooks
 
@@ -170,7 +170,7 @@ Design notes: [`stage2-workspace-diffs.md`](stage2-workspace-diffs.md). Everythi
 }
 ```
 
-Values are `package.json#scripts` names, validated like action scripts. A step's `lab.json` may override `preSetPlayground`/`postSetPlayground`. Epic-layout courses keep Epic's files instead: `epicshop/pre-set-playground.js` and `epicshop/post-set-playground.js` (the problem/solution app's own first, then the workshop root; never files inside a playground, backup or saved playground) and `package.json#epicshop.scripts.postupdate` (split into words without an implicit shell; shell operators are refused. This is not a sandbox: an author can still name a shell explicitly, for example `sh -c …`, as course code is trusted).
+Values are `package.json#scripts` names, validated like action scripts. A step's `lab.json` may override `preSetPlayground`/`postSetPlayground`. Apps-layout courses use the layout's own hook files instead: `pre-set-playground.js` and `post-set-playground.js` in the layout's hook folder (the problem/solution app's own first, then the workshop root; never files inside a playground, backup or saved playground) and the settings' `scripts.postupdate` (split into words without an implicit shell; shell operators are refused. This is not a sandbox: an author can still name a shell explicitly, for example `sh -c …`, as course code is trusted).
 
 The playground is "set" when it is created (first opening of a lesson), reset, replaced (Use problem/solution, Copy previous playground, Restore backup), migrated, or restored from a saved playground. Order: pre hook → automatic save → stop the step's preview → change → post hook → restart the preview if it was running. A pre hook that fails, times out or is stopped aborts with nothing changed; a post hook failure is reported. Hooks run in the course root as process trees (listed in Processes, stoppable, killed after `timeoutSeconds`, default 120) and receive:
 
@@ -178,7 +178,7 @@ The playground is "set" when it is created (first opening of a lesson), reset, r
 |---|---|
 | `ICODE_HOOK` | `pre-set-playground`, `post-set-playground` or `post-update` |
 | `ICODE_HOOK_CONTEXT` | JSON: `operation`, `step`, `source` (`{step, variant, savedId?}`), `srcDir`, `destDir`, `timestamp`, `wasRunning`, and for post hooks `isStillRunning`, `restartPlayground`; for `post-update`: `from`, `to`, `changedSteps` |
-| `ICODE_PLAYGROUND_*`, `EPICSHOP_PLAYGROUND_*` | `TIMESTAMP`, `SRC_DIR`, `DEST_DIR`, `WAS_RUNNING`, `IS_STILL_RUNNING`, `RESTART_PLAYGROUND` as `true`/`false` strings (Epic passed `"[object Promise]"` for `IS_STILL_RUNNING`) |
+| `ICODE_PLAYGROUND_*` (and the apps layout's own prefix) | `TIMESTAMP`, `SRC_DIR`, `DEST_DIR`, `WAS_RUNNING`, `IS_STILL_RUNNING`, `RESTART_PLAYGROUND` as `true`/`false` strings |
 | `ICODE_UPDATE_FROM`, `ICODE_UPDATE_TO` | commits, for `post-update` |
 
 Hook output (last 20,000 characters, ANSI colours kept) is shown in the Console.
@@ -195,7 +195,7 @@ The workbench lists the files the step changes (problem → solution) with the f
 
 The **Diff** tab compares any two of problem, solution, playground or a saved playground, of any lessons: side by side or unified, word highlights, ignore whitespace, 3/10 lines or whole-file context, per-file accordion. Binary files and files over 1 MB are compared by hash; very large diffs are loaded per file on demand. A side that is a playground offers **Use … version** per file (copy or, with confirmation, delete; the playground is saved first). Diffs need no login.
 
-Ignore rules: `.git/`, `.DS_Store`, `.vscode/`, `.idea/`, `node_modules` and the declared build output above (never bare directory names), `*.db`/`*.sqlite`, `README.*`, `package-lock.json`, `epicshop/`, a `package.json` whose only change is `name`, then `"diff": { "ignore": ["data/**", "!data/keep.json"] }`, the root `.gitignore` and `epicshop/.diffignore` (root and app; Epic-compatible). Patterns are gitignore-style.
+Ignore rules: `.git/`, `.DS_Store`, `.vscode/`, `.idea/`, `node_modules` and the declared build output above (never bare directory names), `*.db`/`*.sqlite`, `README.*`, `package-lock.json`, the apps-layout hook folder, a `package.json` whose only change is `name`, then `"diff": { "ignore": ["data/**", "!data/keep.json"] }`, the root `.gitignore` and, in the apps layout, the hook folder's `.diffignore` (root and app). Patterns are gitignore-style.
 
 Links: `?diff=01.problem..01.solution&file=index.mjs&view=unified&ws=ignore` opens a diff directly; `?diff=01` (problem → solution), `?diff=01.playground` (against the solution), `?diff=01..02` (solution of 01 → problem of 02). In lessons: `[diff](#diff=step)`, `#diff=next`, `#diff=prev`, `#diff=01.solution..02.problem`. Keyboard in the diff: `j`/`k` file, `n`/`p` change, `u` layout, `w` whitespace, `o` expand/collapse, `c` copy link, `?` help.
 
@@ -207,7 +207,7 @@ The **Update** tab (and `workshop update`) reports the course repository's branc
 
 `workshop diff <side> <side> [--ignore-whitespace]`, `workshop saved <id> [list|save [label]|restore <savedId>]`, `workshop update [--offline]`, `workshop update --apply --confirm update [--stash]`. `workshop validate` also checks hooks, saved-playground limits and diff ignore rules.
 
-### API (Stage 2)
+### Workspace and diffs API
 
 `GET /api/diff?a=&b=&ws=ignore&context=3|10|all`, `GET /api/diff/file?a=&b=&path=`, `GET /api/touched?id=`, `POST /api/file/sync {id, name, from, remove?}`, `GET|POST|PATCH|DELETE /api/saved-playgrounds`, `POST /api/saved-playgrounds/restore {id, savedId}`, `GET|PUT /api/preferences`, `GET /api/update`, `POST /api/update/check`, `POST /api/update/apply {confirm: "update", stash?}` (NDJSON). Operations that set a playground return `hooks`, `saved` and `previewRestarted`; a refused pre hook returns 400 with `hooks`. All keep the Host/Origin/`Sec-Fetch-Site` checks; mutations take the mutation gate, and update waits for a running course action.
 
@@ -215,12 +215,12 @@ The **Update** tab (and `workshop update`) reports the course repository's branc
 
 All endpoints keep the loopback Host/Origin checks and also refuse requests whose `Sec-Fetch-Site` is not `same-origin` or `none`, so another website cannot trigger even side-effecting GETs (for example through `<img src>`). `GET /api/operations`, `POST /api/actions/run` (starts a detached run; returns its snapshot), `GET /api/actions/run?runId=` (snapshot of the running or last run), `GET /api/actions/stream?runId=` (NDJSON: `snapshot`, `stdout`/`stderr`, `confirm`, `answered`, `status`, `result`; disconnecting never cancels), `POST /api/actions/input`, `POST /api/actions/cancel`, `GET /api/indicators`, `GET /api/processes`, `POST /api/processes/stop`, `GET /api/ports/holder?port=`, `POST /api/ports/free` (`{port, pid, confirm: true, confirmName?}`), `GET /api/sidecars`, `GET /api/sidecars/logs?name=`, `POST /api/sidecars/restart|stop`, `GET /api/events?id=` (SSE), `GET /api/editors`, `POST /api/editor/launch`, `GET /api/doctor`.
 
-## Follow-ups
+## Known limits
 
 - Reset/replace/restore backups (`<id>.backup-*`) are bounded by `"backups": { "limit": 5, "maxMegabytes": 500 }` (oldest evicted first; the newest is always kept).
-- The diff engine caps the edit distance at 2,000 per file and then shows a replacement; a linear-space Myers would remove the cap.
-- After an update, sidecars keep running the old code until restarted (Processes tab).
+- The diff engine caps the edit distance at 2,000 per file and then shows a whole-file replacement; a linear-space Myers is planned to remove the cap.
+- After an update, sidecars keep running their loaded code until restarted (Processes tab).
 
-- Graceful cancel on Windows (deliver a real console interrupt or a cancel message the script can handle).
+- Cancel on Windows ends the process tree; a graceful console interrupt is planned.
 - `POST /api/ports/free` re-scans without the 500 ms lookup limit (it is gated and same-origin only); `/api/actions/stream` followers are not capped like `/api/events`; the UI re-attaches to an action on page load, not when the stream drops while the tab stays open.
 - An action script that reads `.workshop/playgrounds` may observe a learner's concurrent save or reset (playground work is not blocked during actions).

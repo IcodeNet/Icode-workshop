@@ -1,4 +1,4 @@
-// Stage 3: lessons, apps, in-browser tests, course pages, notifications and
+// Lessons, apps, in-browser tests, course pages, notifications and
 // the hostile-content guarantees, in a real browser.
 import { test, expect } from "@playwright/test";
 import { readFile, writeFile, rm } from "node:fs/promises";
@@ -143,7 +143,7 @@ test("course home, finished page with feedback form, guide, support and notifica
   await expect(home.getByRole("region", { name: "Course outline" })).toContainText("06 · Hostile content");
   await expect(home).toContainText("Small, testable building blocks for AI applications");
   await expect(home.getByRole("link", { name: "Ada Example" })).toHaveAttribute("href", "https://example.com/ada");
-  // Epic's intro-page DiffLink crashes the page; here it is inactive text.
+  // A DiffLink on the intro page is inactive text.
   await expect(home.locator(".diff-link-inactive").first()).toHaveText("See the first diff");
   await expect(home.locator("figure.mermaid-diagram")).toHaveClass(/mermaid-rendered/, { timeout: 20000 });
   const notices = page.getByRole("region", { name: "Workshop notifications" });
@@ -174,11 +174,11 @@ test("course home, finished page with feedback form, guide, support and notifica
   expect(problems).toEqual([]);
 });
 
-// BL-1 regression: an app must not reach course HTML served on the UI origin
+// An app must not reach course HTML served on the UI origin
 // (Vite /@fs/ or root files) by navigating its frame, a popup or a new tab.
 test("a sandboxed app cannot escape to the UI origin through frame navigation, popups or a new tab", async ({ page, context, request }) => {
   // Plant course-like HTML where Vite's default fs.allow would serve it (the
-  // engine root, the UI package, examples/), as in the review's reproduction.
+  // engine root, the UI package, examples/).
   const evil = `<!doctype html><html><body><script>
 window.top.__pwned = 1;
 try { parent.document.title = "pwned"; } catch {}
@@ -260,8 +260,8 @@ test("the API requires the per-session token for browser mutations; the UI sends
   await expect(page.getByRole("button", { name: "Mark complete" })).toBeVisible();
 });
 
-// SF-A: course apps must not install a persistent service worker on the
-// sandbox origin, and workers left by older engines are cleared on start.
+// Course apps must not install a persistent service worker on the
+// sandbox origin, and workers left by an earlier engine run are cleared on start.
 test("a course app cannot register a service worker on the sandbox origin", async ({ page, request }) => {
   await request.post("http://127.0.0.1:4317/api/select", { data: { id: "07" } });
   await page.goto("/");

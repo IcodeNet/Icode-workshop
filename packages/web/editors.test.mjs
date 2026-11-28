@@ -230,7 +230,7 @@ test("Windows: Cursor and Insiders launchers map to their executables; script sh
   }
 });
 
-test("EDITOR=vi is never a fallback, even in a terminal (Epic e2e bug)", () => {
+test("EDITOR=vi is never a fallback, even in a terminal", () => {
   const editors = [
     { id: "editor", label: "$EDITOR (vi)", kind: "vi", terminal: true, available: true },
     { id: "code", label: "VS Code", kind: "code", terminal: false, available: false, reason: "not found on PATH" },

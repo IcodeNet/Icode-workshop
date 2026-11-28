@@ -19,13 +19,13 @@ async function exists(path) {
 /**
  * @param operation create | reset | replace | migrate | restore | sync
  * @param source {step, variant, savedId?} where the new content comes from
- * @param srcDir absolute directory of the source (for Epic per-app hooks)
+ * @param srcDir absolute directory of the source (for apps-layout per-app hooks)
  * @param change async () => result (performs the replacement)
  * @param options.save save the current playground first (default: true unless create)
  */
 export async function withPlaygroundHooks(root, id, { operation, source, srcDir, save = operation !== "create", hooks: runHooks = true }, change, { onSpawn } = {}) {
   const destDir = workspacePath(root, id);
-  // Per-app hook files (Epic layout) are trusted only in authored directories,
+  // Per-app hook files (apps layout) are trusted only in authored directories,
   // never in learner-controlled ones (playgrounds, backups, saved playgrounds).
   const authored = ["problem", "solution"].includes(source?.variant);
   const hooks = runHooks ? await resolveHooks(root, { stepId: id, srcDir: authored ? srcDir : undefined }) : {};

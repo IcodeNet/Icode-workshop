@@ -1,4 +1,4 @@
-// Stage 3 UI: lesson HTML (sanitised on the server), copy buttons, table of
+// UI: lesson HTML (sanitised on the server), copy buttons, table of
 // contents, sandboxed Mermaid, the in-workshop browser, in-browser tests,
 // course pages, notifications and cloud-editor links.
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -190,7 +190,7 @@ export function handleContentLink(event, handlers) {
   return false;
 }
 
-// ---------- in-workshop browser (C2) ----------
+// ---------- in-workshop browser ----------
 export function validPath(value) {
   return typeof value === "string" && /^\/(?!\/)[^\s\\]*$/.test(value) && !/^\/*[a-z][a-z0-9+.-]*:/i.test(value.slice(1)) && value.length <= 500;
 }
@@ -284,7 +284,7 @@ function join(base, path) {
   return base.replace(/\/$/, "") + (path.startsWith("/") ? path : "/" + path);
 }
 
-// ---------- in-browser tests (C5) ----------
+// ---------- in-browser tests ----------
 const TIMEOUT_MS = 30000;
 export function BrowserTests({ id, variant, tests, sandboxOrigin, onSummary }) {
   const [results, setResults] = useState({});
@@ -370,7 +370,7 @@ export function BrowserTests({ id, variant, tests, sandboxOrigin, onSummary }) {
   );
 }
 
-// ---------- cloud editors (C9) ----------
+// ---------- cloud editors ----------
 export function CloudLinks({ cloud }) {
   if (!cloud) return null;
   return (
@@ -391,7 +391,7 @@ export function CloudLinks({ cloud }) {
   );
 }
 
-// ---------- notifications (A7) ----------
+// ---------- notifications ----------
 export function Notifications({ sandboxOrigin }) {
   const [items, setItems] = useState([]);
   useEffect(() => {
@@ -426,7 +426,7 @@ export function Notifications({ sandboxOrigin }) {
   );
 }
 
-// ---------- course pages (A5, A8, A9) ----------
+// ---------- course pages ----------
 export function CoursePage({ name, stepId, config, course, ids, completed, catalog, onChoose, onClose, onLink }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
@@ -518,7 +518,7 @@ export function CoursePage({ name, stepId, config, course, ids, completed, catal
   );
 }
 
-/** Shown under the lesson of an exercise's last step (A5). */
+/** Shown under the lesson of an exercise's last step. */
 export function ExerciseComplete({ app, ids, selected, onChoose }) {
   if (!app?.exercise?.last) return null;
   const index = ids.indexOf(selected);

@@ -1,6 +1,6 @@
-// BL-1 property test: for courses whose lessons hold check questions in every
+// Property test: for courses whose lessons hold check questions in every
 // container Markdown allows, no API response, MCP tool result or tutor request
-// contains an answer or explanation before an attempt (native and Epic layout).
+// contains an answer or explanation before an attempt (native and apps layout).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { nativeCourse, epicCourse } from "../web/test-support/workspace-course.mjs";
+import { nativeCourse, appsCourse } from "../web/test-support/workspace-course.mjs";
 import { askTutor } from "../web/tutor.mjs";
 
 const SECRET = /SECRET-[A-Za-z0-9-]+|hidden reasoning words|model answer words/;
@@ -174,8 +174,8 @@ test("no API, MCP or tutor output holds an answer: native course with questions 
   assert.ok((await scan(root, ["01", "02"])) > 50);
 });
 
-test("no API, MCP or tutor output holds an answer: Epic layout, where the lesson lives inside the problem app", { timeout: 120000 }, async () => {
-  const root = await epicCourse({
+test("no API, MCP or tutor output holds an answer: apps layout, where the lesson lives inside the problem app", { timeout: 120000 }, async () => {
+  const root = await appsCourse({
     files: {
       "exercises/README.mdx": lesson("Course intro"),
       "exercises/01.basics/README.mdx": lesson("Exercise intro"),

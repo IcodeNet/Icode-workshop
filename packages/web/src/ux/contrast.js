@@ -1,4 +1,4 @@
-// Stage 4 (G3): WCAG 2.x contrast, used by the theme tests.
+// WCAG 2.x contrast, used by the theme tests.
 function channel(c) {
   const s = c / 255;
   return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;

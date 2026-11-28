@@ -1,4 +1,4 @@
-// Export apps (Epic appType "export"): show console output and the entry
+// Export apps (appType "export"): show console output and the entry
 // module's named exports. Runs on the sandbox origin; renders text only.
 const main = document.querySelector("main");
 const list = document.getElementById("console");

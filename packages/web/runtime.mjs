@@ -43,7 +43,7 @@ export async function labConfig(root, id) {
     );
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
-    config = layout.epic
+    config = layout.apps
       ? {
           runtime: "node",
           entry: "src/index.ts",
@@ -86,7 +86,7 @@ export async function labConfig(root, id) {
     media: validateMedia(config.media),
     tools: validateTools(config.tools),
     preview: validatePreview(config.preview),
-    // Stage 3 (optional): app served by the sandbox, in-browser tests,
+    // Optional: app served by the sandbox, in-browser tests,
     // cloud-editor overrides, test tab.
     app: validateApp(config.app),
     cloudEditor: validateCloudEditor(config.cloudEditor),

@@ -1,4 +1,4 @@
-// Stage 4: command palette, shortcuts, theme, preferences, warning banner,
+// Command palette, shortcuts, theme, preferences, warning banner,
 // connection status, scroll restoration and accessibility (axe), in a real
 // browser. Every test restores the default preferences it changed.
 import { test, expect } from "@playwright/test";
@@ -113,7 +113,7 @@ test("palette: keyboard-only search across lessons, commands and files, ARIA com
     expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   }
   await input.focus();
-  // Fuzzy, top-level lesson search (Epic needs "Go to…" first).
+  // Fuzzy, top-level lesson search.
   await input.fill("aprvd docs");
   const first = dialog.getByRole("option").first();
   await expect(first).toContainText("01 Approved documents only");

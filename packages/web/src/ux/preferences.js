@@ -1,4 +1,4 @@
-// Stage 4 (G4): UI preference schema, shared by the API (stored in
+// UI preference schema, shared by the API (stored in
 // .workshop/preferences.json) and the browser (localStorage mirror). Only
 // known keys, enums and bounded integers are accepted; shortcut bindings must
 // match the binding grammar and name a known command.

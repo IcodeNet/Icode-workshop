@@ -112,7 +112,7 @@ test("doctor includes the install check", async () => {
   }
 });
 
-test("independent package roots are checked too; workspace members are not (Epic B7)", async () => {
+test("independent package roots are checked too; workspace members are not", async () => {
   const root = await course({ pkg: { name: "root", workspaces: ["packages/*"] } });
   try {
     const { packageRoots, installChecks } = await import("./setup.mjs");

@@ -1,7 +1,7 @@
-// Lesson rendering (Stage 3, A4). Course content is untrusted: the MDX subset
+// Lesson rendering. Course content is untrusted: the MDX subset
 // is rewritten, never evaluated; HTML is sanitised with an explicit allowlist;
 // every URL passes an explicit policy; code is highlighted server-side with
-// Shiki from text only. See docs/stage3-content.md.
+// Shiki from text only. See docs/content.md.
 import { contrast, parseColor } from "./src/ux/contrast.js";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
@@ -15,6 +15,7 @@ import { posix } from "node:path";
 import { Worker } from "node:worker_threads";
 import { parseQuestion, assignIds, isQuestionInfo, QUESTION_LIMITS } from "./questions.mjs";
 import { randomBytes } from "node:crypto";
+import { APPS_VIDEO_TAG } from "../core/apps-layout.mjs";
 
 export const LIMITS = {
   renderMs: 5000,
@@ -36,7 +37,7 @@ const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 // ---------- 1. MDX subset → Markdown + HTML (outside code) ----------
-const COMPONENT_NAMES = "InlineFile|LinkToApp|DiffLink|NextDiffLink|PrevDiffLink|EpicVideo|VideoEmbed";
+const COMPONENT_NAMES = `InlineFile|LinkToApp|DiffLink|NextDiffLink|PrevDiffLink|${APPS_VIDEO_TAG}|VideoEmbed`;
 function rewriteProse(text) {
   return (
     text
@@ -166,7 +167,7 @@ function components(ctx) {
         if (name === "difflink" && SIDE.test(String(p.app1 ?? "")) && SIDE.test(String(p.app2 ?? ""))) target = p.app1 + ".." + p.app2;
         return replace(el("a", { href: "#diff=" + target, className: ["engine-link"] }, label));
       }
-      if (name === "epicvideo" || name === "videoembed") {
+      if (name === APPS_VIDEO_TAG.toLowerCase() || name === "videoembed") {
         const url = String(p.url ?? "");
         return replace(
           el("p", { className: ["video-card"] }, [
@@ -329,7 +330,7 @@ async function highlighter() {
   return highlighterPromise;
 }
 
-// Stage 4 (WCAG AA): code colours are checked against every background a code
+// WCAG AA: code colours are checked against every background a code
 // line can have in the UI (plain, highlighted line, diff add/remove; dark and
 // high-contrast share the dark palette). A theme colour below the target is
 // darkened (light) or lightened (dark) until it passes. Applied through

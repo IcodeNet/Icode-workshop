@@ -1,4 +1,4 @@
-// Check questions (A6) in a real browser: attempt first, check and reveal,
+// Check questions in a real browser: attempt first, check and reveal,
 // self-marking, persistence (server and local), the review list, keyboard
 // use, axe, hostile blocks and no answer before an attempt.
 import { test, expect } from "@playwright/test";

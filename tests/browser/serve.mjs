@@ -45,7 +45,7 @@ await writeFile(manifestPath, JSON.stringify(manifest));
 // Lesson 01 declares its own set-playground hook (lab.json overrides course hooks).
 const lab01 = join(root, "exercises", "01", "lab.json");
 await writeFile(lab01, JSON.stringify({ ...JSON.parse(await readFile(lab01, "utf8")), hooks: { postSetPlayground: "playground:post" } }));
-// Stage 1 operations fixture: actions, an indicator, a sidecar, an editor
+// Operations fixture: actions, an indicator, a sidecar, an editor
 // stand-in and an installed, locked dependency for the setup check.
 const course = JSON.parse(await readFile(join(root, "course.json"), "utf8"));
 course.actions = [
@@ -55,9 +55,9 @@ course.actions = [
 ];
 course.indicators = [{ path: ".icode-deployed", message: "Demo resources are running and incur cost.", level: "danger" }];
 course.sidecars = { "mock-api": { script: "mock-api" } };
-// Stage 2: playground and update hooks.
+// Playground and update hooks.
 course.hooks = { postUpdate: "postupdate", timeoutSeconds: 60 };
-// Stage 3: content settings and a hostile step (06): a lesson full of XSS
+// Content settings and a hostile step (06): a lesson full of XSS
 // attempts and an app that tries to reach the engine API and the UI.
 course.instructor = { name: "Ada Example", url: "https://example.com/ada" };
 course.forms = { workshop: "https://example.com/feedback?w={workshopTitle}", exercise: "https://example.com/exercise?e={exerciseTitle}" };
@@ -143,7 +143,7 @@ const hostileApp = `<!doctype html><html><head><title>Hostile app</title></head>
   document.getElementById("out").textContent = JSON.stringify(results);
 })();
 </script></body></html>`;
-// BL-1 regression: course-like HTML inside the engine checkout (where Vite's
+// Course-like HTML inside the engine checkout (where Vite's
 // default fs.allow would serve it on the UI origin) and an app (07) that tries
 // to reach it by navigating its frame, a popup or a top-level tab.
 const evilPaths = [join(process.cwd(), "bl1-evil.html"), join(process.cwd(), "packages", "web", "bl1-evil.html"), join(process.cwd(), "examples", "bl1-evil.html")];
@@ -165,11 +165,11 @@ await writeFile(join(root, "exercises", "07", "README.md"), "# Escape attempt\n"
 for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "07", variant, "index.html"), escapeApp);
   await writeFile(join(root, "exercises", "07", variant, "index.mjs"), "export const value = 1;\n");
-  // A service worker that would take over every later load of this app (SF-A).
+  // A service worker that would take over every later load of this app.
   await writeFile(join(root, "exercises", "07", variant, "sw.js"), "self.addEventListener('install', () => self.skipWaiting());\nself.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));\nself.addEventListener('fetch', (e) => e.respondWith(new Response('<h1>SW owned</h1>', { headers: { 'content-type': 'text/html' } })));\n");
 }
 course.modules.at(-1).steps.push("07");
-// Stage 4: crafted course, module, exercise, step and file names (08) that
+// Crafted course, module, exercise, step and file names (08) that
 // the command palette must show as text.
 await mkdir(join(root, "exercises", "08", "problem"), { recursive: true });
 await mkdir(join(root, "exercises", "08", "solution"), { recursive: true });
@@ -180,7 +180,7 @@ for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "08", variant, "<img src=x onerror=window.__xss=13>.mjs"), "export const crafted = 1;\n");
 }
 course.modules.push({ id: "crafted", title: "<script>window.__xss=11</script>Crafted module", exercises: [{ id: "crafted-ex", title: '<svg onload="window.__xss=12">Crafted exercise', steps: ["08"] }] });
-// Stage 4 (review S-1): code blocks in every language Shiki bundles, ~25 per
+// Code blocks in every language Shiki bundles, ~25 per
 // lesson (steps 09–18) so each lesson renders well inside the 5 s limit. The
 // axe checks open each of them in every theme.
 const shiki = await import(pathToFileURL(join(process.cwd(), "packages", "web", "node_modules", "shiki", "dist", "index.mjs")).href);
@@ -274,7 +274,7 @@ await writeFile(
 await writeFile(
   join(root, "ops", "post-set.mjs"),
   `const c = JSON.parse(process.env.ICODE_HOOK_CONTEXT);
-console.log("\\x1b[35mpost-set hook\\x1b[0m " + c.operation + " " + c.step + " restart=" + process.env.EPICSHOP_PLAYGROUND_RESTART_PLAYGROUND);
+console.log("\\x1b[35mpost-set hook\\x1b[0m " + c.operation + " " + c.step + " restart=" + process.env.ICODE_PLAYGROUND_RESTART_PLAYGROUND);
 `,
 );
 await writeFile(join(root, "ops", "post-update.mjs"), `console.log("post-update hook ran from " + process.env.ICODE_UPDATE_FROM.slice(0, 7));\n`);
@@ -304,7 +304,7 @@ createServer((req, res) => {
     return res.end('<h1>Spoof</h1><script>for (const m of [{ type: "icode:location", href: "/app/07/playground/spoofed" }, { type: "icode:mermaid", ok: true, height: 9999 }]) parent.postMessage(m, "*");</script>');
   res.end("<h1>Local service fixture</h1>");
 }).listen(4404, "127.0.0.1");
-// Stage 2 update fixture: the course is a clone that is one commit behind its
+// Update fixture: the course is a clone that is one commit behind its
 // upstream (a bare repository next to it), so "Update workshop" has work to do.
 const gitEnv = { ...process.env, GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.test", GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.test" };
 const runGit = (cwd, ...args) => {

@@ -5,7 +5,7 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-// The UI origin must never serve course content (Stage 3, BL-1): a sandboxed
+// The UI origin must never serve course content: a sandboxed
 // app that navigates its frame or a popup to this origin must not get HTML
 // (or anything else) from the course, examples or playgrounds.
 const web = fileURLToPath(new URL(".", import.meta.url));

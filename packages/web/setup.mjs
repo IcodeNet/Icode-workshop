@@ -4,6 +4,7 @@ import { join, dirname, delimiter, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { execute } from "../adapter-api/node.mjs";
 import { hostConfig, discoverSteps } from "../core/layout.mjs";
+import { APPS_FORMAT } from "../core/apps-layout.mjs";
 
 export function npmCLI() {
   const candidates = [
@@ -187,8 +188,8 @@ const workspacePattern = (pattern) =>
       "$",
   );
 /**
- * Independent package roots of a course (Epic's B7 also checks apps with
- * their own package.json): every directory with a package.json, except
+ * Independent package roots of a course (apps with their own
+ * package.json are checked too): every directory with a package.json, except
  * dependency, dot and .workshop directories and workspace members of a root.
  * Paths are relative, with "/"; the course root is "".
  */
@@ -266,7 +267,7 @@ export async function doctor(root) {
   } catch (e) {
     checks.push({ name: "npm", ok: false, message: e.message });
   }
-  if (config.format === "epic")
+  if (config.format === APPS_FORMAT)
     for (const dependency of [
       "vitest",
       "tsx",

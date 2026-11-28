@@ -1,4 +1,4 @@
-// Stage 4 (G1): fuzzy matching for the command palette. Returns a score and
+// Fuzzy matching for the command palette. Returns a score and
 // the matched character ranges; the UI turns ranges into <mark> elements with
 // text children, so labels are never parsed as HTML.
 

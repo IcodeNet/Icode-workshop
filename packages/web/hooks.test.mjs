@@ -12,7 +12,8 @@ import {
 import { withPlaygroundHooks } from "./playground-ops.mjs";
 import { selectWorkspace, resetWorkspace, workspacePath } from "./workspaces.mjs";
 import { listProcesses, stopProcess } from "./processes.mjs";
-import { nativeCourse, epicCourse, recorderScript, writeTree } from "./test-support/workspace-course.mjs";
+import { nativeCourse, appsCourse, recorderScript, writeTree } from "./test-support/workspace-course.mjs";
+import { APPS_SETTINGS_KEY as DIR, APPS_HOOK_ENV_PREFIX as VAR } from "../core/apps-layout.mjs";
 
 const alive = (pid) => {
   try {
@@ -48,7 +49,7 @@ test("hook declarations are validated like course actions", () => {
   assert.throws(() => validateHooks([], scripts), /must be an object/);
 });
 
-test("Epic postupdate command lines are split without a shell", () => {
+test("apps-layout postupdate command lines are split without a shell", () => {
   assert.deepEqual(splitCommand("npm run build -- --flag"), ["npm", "run", "build", "--", "--flag"]);
   assert.deepEqual(splitCommand("node scripts/my\\ file.js"), ["node", "scripts/my file.js"]);
   for (const bad of ["npm run a && rm -rf /", "node a.js | tee", "echo $HOME", "a; b", "a `b`", "", "x\ny"])
@@ -67,16 +68,16 @@ test("hook environment carries resolved booleans, never a Promise", () => {
     isStillRunning: false,
     restartPlayground: true,
   });
-  assert.equal(env.EPICSHOP_PLAYGROUND_IS_STILL_RUNNING, "false");
-  assert.equal(env.EPICSHOP_PLAYGROUND_RESTART_PLAYGROUND, "true");
+  assert.equal(env[VAR + "IS_STILL_RUNNING"], "false");
+  assert.equal(env[VAR + "RESTART_PLAYGROUND"], "true");
   assert.equal(env.ICODE_PLAYGROUND_WAS_RUNNING, "true");
   assert.equal(env.ICODE_PLAYGROUND_SOURCE_VARIANT, "problem");
   assert.ok(!Object.values(env).some((v) => String(v).includes("[object")));
   assert.equal(JSON.parse(env.ICODE_HOOK_CONTEXT).restartPlayground, true);
   // Pre hooks do not get post-only values.
   const pre = hookEnvironment("pre-set-playground", { srcDir: "/s", destDir: "/d", wasRunning: false });
-  assert.equal(pre.EPICSHOP_PLAYGROUND_WAS_RUNNING, "false");
-  assert.equal(pre.EPICSHOP_PLAYGROUND_IS_STILL_RUNNING, undefined);
+  assert.equal(pre[VAR + "WAS_RUNNING"], "false");
+  assert.equal(pre[VAR + "IS_STILL_RUNNING"], undefined);
 });
 
 test("native hooks run in order with structured context around a reset", { timeout: 60000 }, async () => {
@@ -106,7 +107,7 @@ test("native hooks run in order with structured context around a reset", { timeo
     assert.equal(context.step, "01");
     assert.equal(context.wasRunning, false);
     assert.equal(context.isStillRunning, false);
-    assert.equal(post.EPICSHOP_PLAYGROUND_IS_STILL_RUNNING, "false");
+    assert.equal(post[VAR + "IS_STILL_RUNNING"], "false");
     assert.equal(post.ICODE_HOOK, "post-set-playground");
     assert.equal(post.ICODE_PLAYGROUND_DEST_DIR, workspacePath(root, "01"));
     assert.ok(result.saved?.savedId, "previous playground saved automatically");
@@ -202,41 +203,41 @@ setInterval(() => {}, 1000);
   }
 });
 
-test("Epic layout: per-app hook files win over root ones; learner directories are never trusted", { timeout: 60000 }, async () => {
-  const root = await epicCourse({
-    pkg: { epicshop: { scripts: { postupdate: "node scripts/after.js --done" } } },
+test("apps layout: per-app hook files win over root ones; learner directories are never trusted", { timeout: 60000 }, async () => {
+  const root = await appsCourse({
+    pkg: { [DIR]: { scripts: { postupdate: "node scripts/after.js --done" } } },
     files: {
-      "epicshop/pre-set-playground.js": recorderScript("root-pre"),
-      "epicshop/post-set-playground.js": recorderScript("root-post"),
-      "exercises/01.basics/01.solution.start/epicshop/post-set-playground.js": recorderScript("app-post"),
+      [`${DIR}/pre-set-playground.js`]: recorderScript("root-pre"),
+      [`${DIR}/post-set-playground.js`]: recorderScript("root-post"),
+      [`exercises/01.basics/01.solution.start/${DIR}/post-set-playground.js`]: recorderScript("app-post"),
       "scripts/after.js": "console.log('after ' + process.argv.slice(2).join(' '));\n",
     },
   });
   try {
     const app = join(root, "exercises/01.basics/01.solution.start");
     const hooks = await resolveHooks(root, { srcDir: app });
-    assert.equal(hooks.postSetPlayground.file, join(app, "epicshop", "post-set-playground.js"));
-    assert.equal(hooks.preSetPlayground.file, join(root, "epicshop", "pre-set-playground.js"));
+    assert.equal(hooks.postSetPlayground.file, join(app, DIR, "post-set-playground.js"));
+    assert.equal(hooks.preSetPlayground.file, join(root, DIR, "pre-set-playground.js"));
     assert.deepEqual(hooks.postUpdate.argv, ["node", "scripts/after.js", "--done"]);
     const update = await runHook(root, hooks.postUpdate, { name: "post-update" });
     assert.equal(update.status, "passed");
     assert.match(update.output, /after --done/);
     // A playground that contains a hook file does not get it executed.
     await selectWorkspace(root, "01");
-    await writeTree(workspacePath(root, "01"), { "epicshop/post-set-playground.js": recorderScript("learner") });
+    await writeTree(workspacePath(root, "01"), { [`${DIR}/post-set-playground.js`]: recorderScript("learner") });
     const result = await withPlaygroundHooks(
       root,
       "01",
       { operation: "replace", source: { step: "01", variant: "playground" }, srcDir: workspacePath(root, "01") },
       async () => ({}),
     );
-    assert.deepEqual(result.hooks.map((h) => h.label), ["node epicshop/pre-set-playground.js", "node epicshop/post-set-playground.js"]);
+    assert.deepEqual(result.hooks.map((h) => h.label), [`node ${DIR}/pre-set-playground.js`, `node ${DIR}/post-set-playground.js`]);
     const order = (await readFile(join(root, "order.log"), "utf8")).trim().split("\n");
     assert.deepEqual(order, ["root-pre", "root-post"]);
     const env = await readJson(join(root, "root-post.json"));
-    assert.equal(env.EPICSHOP_PLAYGROUND_IS_STILL_RUNNING, "false");
-    assert.equal(env.EPICSHOP_PLAYGROUND_SRC_DIR, workspacePath(root, "01"));
-    await writeFile(join(root, "package.json"), JSON.stringify({ epicshop: { scripts: { postupdate: "npm run x && rm -rf ." } } }));
+    assert.equal(env[VAR + "IS_STILL_RUNNING"], "false");
+    assert.equal(env[VAR + "SRC_DIR"], workspacePath(root, "01"));
+    await writeFile(join(root, "package.json"), JSON.stringify({ [DIR]: { scripts: { postupdate: "npm run x && rm -rf ." } } }));
     await assert.rejects(resolveHooks(root), /shell syntax/);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -245,11 +246,11 @@ test("Epic layout: per-app hook files win over root ones; learner directories ar
 
 test("a symlinked hook file is refused, never run", { skip: process.platform === "win32" }, async () => {
   const { symlink } = await import("node:fs/promises");
-  const root = await epicCourse({ files: { "real/pre.js": recorderScript("linked") } });
+  const root = await appsCourse({ files: { "real/pre.js": recorderScript("linked") } });
   try {
     const { mkdir } = await import("node:fs/promises");
-    await mkdir(join(root, "epicshop"));
-    await symlink(join(root, "real/pre.js"), join(root, "epicshop/pre-set-playground.js"));
+    await mkdir(join(root, DIR));
+    await symlink(join(root, "real/pre.js"), join(root, DIR, "pre-set-playground.js"));
     await assert.rejects(resolveHooks(root), /Symlinks are not supported/);
   } finally {
     await rm(root, { recursive: true, force: true });

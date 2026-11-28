@@ -101,7 +101,7 @@ test("questions: no answer in any lesson payload; check, reveal and self-mark pe
       ["reveal", { id: "01", question: "rrf", attempt: "x".repeat(5001) }, 400],
       ["reveal", { id: "01", question: "bm25", attempt: "BM25" }, 404],
       ["mark", { id: "01", question: "rrf", mark: "review" }, 400],
-      // A client cannot record a result without answering (G6).
+      // A client cannot record a result without answering.
       ["mark", { id: "01", question: "bm25", mark: "got-it", status: "correct" }, 400],
       ["reveal", { id: "01", question: "rrf", attempt: "\u200b\u200b" }, 400],
     ]) {

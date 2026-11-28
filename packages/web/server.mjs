@@ -89,7 +89,7 @@ const root = resolve(
 const port = Number(process.env.WORKSHOP_API_PORT ?? 4317);
 const host = "127.0.0.1";
 const allowedOrigin = "http://127.0.0.1:5173";
-// Stage 3: course content (apps, browser tests, Mermaid, images) is served
+// Course content (apps, browser tests, Mermaid, images) is served
 // from this separate, read-only origin, which the API refuses.
 const sandboxOrigin = "http://127.0.0.1:" + SANDBOX_PORT;
 let sandboxServer = null;
@@ -134,7 +134,7 @@ async function load(id) {
     id,
     ...config,
     instructions,
-    // Stage 3: sanitised, highlighted HTML of the main lesson.
+    // Sanitised, highlighted HTML of the main lesson.
     lesson: main ? { path: main.path, html: main.html, toc: main.toc, warnings: main.warnings } : null,
     documents,
     topic: "AI engineering",

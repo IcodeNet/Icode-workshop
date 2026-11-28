@@ -45,7 +45,7 @@ export function ConfirmDialog({
   const input = useRef(null);
   const confirmButton = useRef(null);
   const dialog = useRef(null);
-  // Stage 4: focus stays in the dialog and returns to the opener afterwards.
+  // Focus stays in the dialog and returns to the opener afterwards.
   useFocusTrap(dialog, true, expected !== undefined ? input : confirmButton);
   const matches = expected === undefined || typed === expected;
   return (

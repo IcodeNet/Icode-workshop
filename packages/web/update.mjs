@@ -150,7 +150,7 @@ export async function incomingConflicts(root, { ignoreCase } = {}) {
   return { ignoreCase, protectedPaths: protectedPaths.slice(0, 50), overwrites: [...overwrites].sort() };
 }
 
-/** Map changed paths to step ids (native and Epic layouts). */
+/** Map changed paths to step ids (native and apps layouts). */
 export function changedSteps(root, paths) {
   let steps;
   try {
@@ -159,7 +159,7 @@ export function changedSteps(root, paths) {
     return [];
   }
   const rel = (p) => relative(resolve(root), p).split(sep).join("/");
-  const prefixes = steps.map((s) => ({ id: s.id, dirs: [rel(s.problem), rel(s.solution), s.epic ? null : rel(s.base)].filter(Boolean) }));
+  const prefixes = steps.map((s) => ({ id: s.id, dirs: [rel(s.problem), rel(s.solution), s.apps ? null : rel(s.base)].filter(Boolean) }));
   const ids = new Set();
   for (const path of paths)
     for (const step of prefixes)

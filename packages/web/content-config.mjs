@@ -1,10 +1,11 @@
-// Stage 3 content settings: workshop metadata (A1), pages (A5), forms (A8),
-// support/community (A9), repository and cloud-editor links (C9), and the
-// per-step app model (A3, A10, C5). Every field is optional; invalid values
+// Content settings: workshop metadata, pages, forms,
+// support/community, repository and cloud-editor links, and the
+// per-step app model. Every field is optional; invalid values
 // are dropped and reported as warnings, never break the course.
 import { readFile, readdir, lstat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { hostConfig, stepLayout } from "../core/layout.mjs";
+import { APPS_FORMAT, APPS_SETTINGS_KEY } from "../core/apps-layout.mjs";
 import { validateId } from "../core/index.mjs";
 import { variantRoot } from "./files.mjs";
 
@@ -40,17 +41,18 @@ function coursePath(value) {
   return typeof value === "string" && value.length <= 240 && !value.includes("\\") && value.split("/").every((p) => p && p !== "." && p !== "..") && /\.mdx?$/.test(value) ? value : undefined;
 }
 
-async function epicPackage(root) {
-  if (hostConfig(root).format !== "epic") return {};
+async function appsSettings(root) {
+  if (hostConfig(root).format !== APPS_FORMAT) return {};
   const pkg = await readJson(join(root, "package.json"));
-  return pkg?.epicshop && typeof pkg.epicshop === "object" ? pkg.epicshop : {};
+  const settings = pkg?.[APPS_SETTINGS_KEY];
+  return settings && typeof settings === "object" ? settings : {};
 }
 async function courseJson(root) {
   const course = await readJson(join(root, "course.json"));
   return course && typeof course === "object" ? course : {};
 }
 
-/** Parse "owner/repo" or a GitHub URL (Epic githubRoot/githubRepo). */
+/** Parse "owner/repo" or a GitHub URL (apps-layout githubRoot/githubRepo). */
 export function parseRepository(value) {
   if (!value) return undefined;
   let owner, repo, branch, root = "";
@@ -115,10 +117,10 @@ export function validateNotification(item) {
 export async function contentConfig(root) {
   const warnings = [];
   const course = await courseJson(root);
-  const epic = await epicPackage(root);
-  const pick = (key) => (course[key] !== undefined ? course[key] : epic[key]);
+  const apps = await appsSettings(root);
+  const pick = (key) => (course[key] !== undefined ? course[key] : apps[key]);
   const out = { warnings };
-  out.title = str(course.title) || str(epic.title) || str(hostConfig(root).title) || undefined;
+  out.title = str(course.title) || str(apps.title) || str(hostConfig(root).title) || undefined;
   out.subtitle = str(pick("subtitle"), 300);
   const instructor = pick("instructor");
   if (instructor !== undefined) {
@@ -134,7 +136,7 @@ export async function contentConfig(root) {
     const url = httpsUrl(product.url) ?? (typeof product.host === "string" && /^[\w.-]{1,200}$/.test(product.host) ? "https://" + product.host + "/" : undefined);
     if (name) out.product = { name, url, logo: imageRef(product.logo) };
   }
-  out.repository = parseRepository(course.repository) ?? parseRepository(epic.githubRoot) ?? parseRepository(epic.githubRepo);
+  out.repository = parseRepository(course.repository) ?? parseRepository(apps.githubRoot) ?? parseRepository(apps.githubRepo);
   if (course.repository !== undefined && !parseRepository(course.repository)) warnings.push("repository must be {github: \"owner/repo\", branch?, root?}");
   const forms = pick("forms");
   out.forms = {};
@@ -157,13 +159,13 @@ export async function contentConfig(root) {
     else warnings.push("community.url must be https");
   }
   const pages = course.pages ?? {};
-  const epicLayout = hostConfig(root).format === "epic";
+  const appsLayout = hostConfig(root).format === APPS_FORMAT;
   out.pages = {
-    intro: coursePath(pages.intro) ?? (epicLayout ? "exercises/README.mdx" : "exercises/README.md"),
-    finished: coursePath(pages.finished) ?? (epicLayout ? "exercises/FINISHED.mdx" : "exercises/FINISHED.md"),
+    intro: coursePath(pages.intro) ?? (appsLayout ? "exercises/README.mdx" : "exercises/README.md"),
+    finished: coursePath(pages.finished) ?? (appsLayout ? "exercises/FINISHED.mdx" : "exercises/FINISHED.md"),
   };
   for (const k of ["intro", "finished"]) if (pages[k] !== undefined && !coursePath(pages[k])) warnings.push("pages." + k + " must be a course-relative .md/.mdx path");
-  out.notifications = [...notificationList(course.notifications, warnings, "course.json"), ...notificationList(course.notifications === undefined ? epic.notifications : undefined, warnings, "package.json#epicshop")];
+  out.notifications = [...notificationList(course.notifications, warnings, "course.json"), ...notificationList(course.notifications === undefined ? apps.notifications : undefined, warnings, "package.json#" + APPS_SETTINGS_KEY)];
   out.notificationsFeed = course.notificationsFeed === undefined ? undefined : httpsUrl(course.notificationsFeed);
   if (course.notificationsFeed !== undefined && !out.notificationsFeed) warnings.push("notificationsFeed must be an https URL");
   const appType = pick("appType");
@@ -215,7 +217,7 @@ async function exists(path) {
   }
 }
 
-/** The app of a step (A3/A10/C5), resolved for one variant. */
+/** The app of a step, resolved for one variant. */
 export async function appInfo(root, id, variant = "playground", { lab } = {}) {
   validateId(id);
   const layout = stepLayout(root, id);
@@ -224,16 +226,16 @@ export async function appInfo(root, id, variant = "playground", { lab } = {}) {
   let testTab = lab?.testTab !== false;
   let stackBlitz = { problem: lab?.cloudEditor, solution: lab?.cloudEditor };
   const dir = variantRoot(root, id, variant);
-  if (!app && layout.epic) {
-    // Epic reads app settings from each app's own package.json.
+  if (!app && layout.apps) {
+    // The apps layout keeps app settings in each app's own package.json.
     const pkgOf = async (v) => (await readJson(join(layout[v], "package.json")).catch(() => undefined)) ?? {};
     const pkg = await pkgOf(variant === "solution" ? "solution" : "problem");
-    const own = pkg.epicshop ?? {};
+    const own = pkg[APPS_SETTINGS_KEY] ?? {};
     const type = own.appType === "export" || (own.appType === undefined && config.appType === "export") ? "export" : "simple";
-    if (!pkg.scripts?.dev) app = { type, initialRoute: typeof own.initialRoute === "string" ? own.initialRoute : "/", browserTests: [], epicTests: !pkg.scripts?.test };
+    if (!pkg.scripts?.dev) app = { type, initialRoute: typeof own.initialRoute === "string" ? own.initialRoute : "/", browserTests: [], testFilesByName: !pkg.scripts?.test };
     if (own.testTab?.enabled === false) testTab = false;
     for (const v of ["problem", "solution"]) {
-      const cfg = (await pkgOf(v)).epicshop?.stackBlitzConfig;
+      const cfg = (await pkgOf(v))[APPS_SETTINGS_KEY]?.stackBlitzConfig;
       if (cfg !== undefined) stackBlitz[v] = cfg === null ? false : validateCloudEditor(cfg);
     }
   }
@@ -244,7 +246,7 @@ export async function appInfo(root, id, variant = "playground", { lab } = {}) {
   const result = { type: app?.type ?? null, initialRoute: app?.initialRoute ?? "/", entry: null, browserTests: [], testTab, hasIndexHtml: files.includes("index.html") };
   if (app) {
     result.entry = app.entry ?? ENTRY_CANDIDATES.find((f) => files.includes(f)) ?? null;
-    const tests = app.epicTests ? files.filter((f) => TEST_FILE.test(f)).sort() : app.browserTests;
+    const tests = app.testFilesByName ? files.filter((f) => TEST_FILE.test(f)).sort() : app.browserTests;
     for (const t of tests) if (await exists(join(dir, t))) result.browserTests.push(t);
   }
   if (!testTab) result.browserTests = [];

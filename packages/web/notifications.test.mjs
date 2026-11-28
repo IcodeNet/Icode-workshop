@@ -1,4 +1,4 @@
-// Stage 3 (A7): notifications from the course, Epic config and a bounded feed.
+// Notifications from the course, apps-layout config and a bounded feed.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -53,7 +53,7 @@ test("the feed is optional, offline-safe, bounded, cached and can be disabled", 
   assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(new Error("no")), now: 2000 })).map((n) => n.id), ["x"]);
   assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(new Error("no")), now: 2000 + 3600_001 })).map((n) => n.id), ["x"]);
   clearFeedCache();
-  const json5 = "// Epic-style feed\n[{ id: 'j5', title: 'JSON5', message: 'ok', },]";
+  const json5 = "// JSON5 feed\n[{ id: 'j5', title: 'JSON5', message: 'ok', },]";
   assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(json5) })).map((n) => n.id), ["j5"], "JSON5 feeds are read");
   clearFeedCache();
   assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse("x".repeat(70 * 1024)) }), [], "oversized feed refused");

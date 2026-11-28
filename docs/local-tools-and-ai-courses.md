@@ -46,7 +46,7 @@ The reviewed Langfuse main-branch Next configuration contains `frame-ancestors '
 
 Microsoft documents the vNext gateway on 8081, Data Explorer on 1234 and health probes on 8080 (`/alive`, `/ready`, `/status`). Use separate health and UI URLs. For .NET/Java courses check HTTPS requirements. The emulator is a development dependency; do not teach it as a complete production Azure substitute. Pin versions and test feature/API coverage required by the lesson.
 
-## Architecture beyond Epic-style workshop basics
+## Architecture for service-backed courses
 
 Keep these contracts separate:
 
@@ -57,7 +57,7 @@ Keep these contracts separate:
 
 Implemented connection code: opt-in, server-side configuration; bounded read-only Langfuse observation and Cosmos document projections; native summary panels and sanitised error handling. Fixture/contract tests verify these boundaries, not live authenticated connectivity. See [setup](ai-and-runtime-setup.md) for configuration.
 
-Remaining integration/course work: real authenticated Langfuse/Cosmos acceptance, course-owned infrastructure lifecycle and dataset/evaluation fixtures, Cosmos embedding acceptance, and course-specific Docker setup checks. Docker runtime assessment is implemented and verified in CI; that does not provision these services.
+Planned integration and course work: real authenticated Langfuse/Cosmos acceptance, course-owned infrastructure lifecycle and dataset/evaluation fixtures, Cosmos embedding acceptance, and course-specific Docker setup checks. Docker runtime assessment is implemented and verified in CI; that does not provision these services.
 
 ## Primary sources
 
@@ -66,5 +66,3 @@ Remaining integration/course work: real authenticated Langfuse/Cosmos acceptance
 - https://github.com/langfuse/langfuse/blob/main/web/next.config.mjs
 - https://langfuse.com/self-hosting/configuration
 - https://learn.microsoft.com/en-us/azure/cosmos-db/emulator-linux
-- https://github.com/epicweb-dev/epicshop
-- https://github.com/epicweb-dev/epicshop-tutorial

@@ -6,6 +6,7 @@ import { createReadStream } from "node:fs";
 import { copyFile, lstat, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { validateId } from "../core/index.mjs";
+import { APPS_SETTINGS_KEY } from "../core/apps-layout.mjs";
 import { assertSafePath, variantRoot } from "./files.mjs";
 import { SAVED_ID, savedFilesPath } from "./saved-playgrounds.mjs";
 import { compileIgnore } from "./ignore.mjs";
@@ -35,7 +36,7 @@ export const DEFAULT_IGNORE = [
   "*.sqlite-shm",
   "README.*",
   "package-lock.json",
-  "epicshop/",
+  APPS_SETTINGS_KEY + "/",
 ];
 const VARIANTS = ["problem", "solution", "playground"];
 
@@ -135,10 +136,10 @@ export async function ignorePatterns(root, dirs, steps = []) {
     throw new Error("course.json diff.ignore must be a list of patterns");
   const patterns = [...DEFAULT_IGNORE, ...(await outputPatterns(root, steps)), ...(configured ?? [])];
   patterns.push(...(await readLines(join(root, ".gitignore"))));
-  patterns.push(...(await readLines(join(root, "epicshop", ".diffignore"))));
+  patterns.push(...(await readLines(join(root, APPS_SETTINGS_KEY, ".diffignore"))));
   for (const dir of dirs) {
     patterns.push(...(await readLines(join(dir, ".gitignore"))));
-    patterns.push(...(await readLines(join(dir, "epicshop", ".diffignore"))));
+    patterns.push(...(await readLines(join(dir, APPS_SETTINGS_KEY, ".diffignore"))));
   }
   return patterns;
 }
@@ -557,8 +558,8 @@ export async function touchedFiles(root, id) {
 // ---------------------------------------------------------------- sync
 
 /**
- * Copy one file from a side into a step's playground (Epic's diff sync
- * arrows; "reset file to problem" is `from = <id>.problem`). With `remove`,
+ * Copy one file from a side into a step's playground (per-file sync;
+ * "reset file to problem" is `from = <id>.problem`). With `remove`,
  * a file absent from the source side is deleted from the playground.
  */
 export async function syncFile(root, id, name, fromSpec, { remove = false, dryRun = false } = {}) {

@@ -20,7 +20,7 @@ The core registry contains no language-specific imports. The web composition roo
 }
 ```
 
-Legacy manifests without schemaVersion remain compatible with v1. README.md is rendered as lesson content; raw HTML is not enabled. The lab owns `problem/` and `solution/`; playground copies are per ID. Runtime and entry names, preview configuration and tool URLs are validated. The course manifest supplies module → exercise → step hierarchy; underlying step IDs remain globally unique two-digit IDs.
+Manifests without `schemaVersion` are read as v1. README.md is rendered as lesson content; raw HTML is not enabled. The lab owns `problem/` and `solution/`; playground copies are per ID. Runtime and entry names, preview configuration and tool URLs are validated. The course manifest supplies module → exercise → step hierarchy; underlying step IDs remain globally unique two-digit IDs.
 
 A manifest is trusted local course configuration. Preview commands use argv arrays and run only after a learner clicks Start app. HOST/PORT environment variables request loopback binding, but the platform cannot force an arbitrary program to honour them; isolation requires a separate container/process policy. Local Tools metadata does not start or install external services.
 
@@ -48,4 +48,4 @@ Separate runtime, service ownership, tool presentation and assessment contracts.
 
 ## Remaining dependencies
 
-Live tutor, Langfuse and Cosmos acceptance needs operator-configured endpoints and credentials; current coverage is fixture/contract based. MCP has a real stdio client test, but no external assistant is connected. The full senior AI engineer course follows platform completion. Public distribution and licence approval remain owner decisions. See the [parity audit](feature-parity-audit.md) for requirement-level evidence and the final-commit CI record in draft PR #2.
+Live tutor, Langfuse and Cosmos acceptance needs operator-configured endpoints and credentials; current coverage is fixture/contract based. MCP has a real stdio client test, but no external assistant is connected. Public distribution and licence approval are owner decisions.

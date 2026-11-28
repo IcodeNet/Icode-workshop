@@ -1,5 +1,5 @@
-// Stage 4 API routes: health (G5), exercise warnings (G6) and the offline OG
-// image (G7). Called by server.mjs after its Host, Origin, Sec-Fetch-Site and
+// API routes: health, exercise warnings and the offline OG
+// image. Called by server.mjs after its Host, Origin, Sec-Fetch-Site and
 // session checks and the mutation gate; every route here is read-only.
 import { git, parsePorcelain } from "./update.mjs";
 import { courseConfig } from "./course.mjs";

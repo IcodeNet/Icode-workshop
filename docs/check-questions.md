@@ -1,6 +1,6 @@
 # Check questions in lessons
 
-Status: Stage 5 A6, pulled forward as a minimal engine feature for the course redesign. It covers author-written check questions only. AI-generated questions, interleaving of completed material and the MCP quiz are still open (see [the gap analysis](epic-deep-analysis/README.md), row A6).
+Status: covers author-written check questions. AI-generated questions, interleaving of completed material and an MCP quiz are planned.
 
 ## Authoring
 
@@ -33,7 +33,7 @@ Other fields are errors. A block holds one YAML document. A document may hold up
 
 `workshop validate` reports every invalid block as `file:line: invalid check question: message`, and exits non-zero. It uses the renderer's own parse, so it sees exactly the blocks the lesson shows. It reports duplicate ids in a document, unclosed blocks, and text that looks like a question but is not parsed as one (for example a fence directly inside raw HTML without a blank line, or a tab-indented fence). That text would otherwise show its answer. In the lesson an invalid block is replaced by a visible **Author warning** callout that lists the problems; its YAML is not shown, because it may contain the answer.
 
-Questions are interactive in a step's documents (lesson, wrap-up and, in the Epic layout, the exercise and course documents shown with the step). On course pages (home, finished, support), which have no step, they show the prompt and options with a note that they can be answered inside a step.
+Questions are interactive in a step's documents (lesson, wrap-up and, in the apps layout, the exercise and course documents shown with the step). On course pages (home, finished, support), which have no step, they show the prompt and options with a note that they can be answered inside a step.
 
 ## Learner behaviour
 
@@ -42,7 +42,7 @@ Questions are interactive in a step's documents (lesson, wrap-up and, in the Epi
 - **Progress**: each question's status (`correct`, `incorrect` or `revealed`), the last choice and the self-mark are stored with step progress in `.workshop/progress.json` under `questions.<step>.<id>`, and mirrored in `localStorage` (one copy per course). The free-text attempt itself stays in `localStorage`; it is sent to the engine only with Reveal (to require an attempt) and is not stored there. A self-mark that cannot be sent is kept on the device and sent on the next load. No login.
 - **Summary**: the lesson shows "Check questions: 2/3 checked" for the step, and how many are to review again.
 - **Review again**: the sidebar lists, across all steps, the questions answered incorrectly (until checked correctly or marked "got it") and those marked "review again". Choosing one opens its step and focuses the question.
-- **Command palette** (Stage 4): every question to review again is a "Review" item ("Review again: <prompt>", with its step); search "review". Choosing one opens the step and focuses the question, like the sidebar list.
+- **Command palette**: every question to review again is a "Review" item ("Review again: <prompt>", with its step); search "review". Choosing one opens the step and focuses the question, like the sidebar list.
 
 ## How the answer stays hidden
 
@@ -53,17 +53,17 @@ Questions are interactive in a step's documents (lesson, wrap-up and, in the Epi
 5. **Fallback.** A document too large or too slow to render is normally shown as escaped source. If it may hold a question, only a warning is shown.
 6. **Routes.** Answers leave the engine only from `POST /api/questions/check` (with a valid choice) and `POST /api/questions/reveal` (with an attempt that contains at least one letter or digit).
 
-`packages/mcp/questions.leak.test.mjs` builds native and Epic courses with questions in every container. It then calls every API route, every MCP tool for every step and variant (with solutions allowed), and the tutor. It checks that no output contains answer or explanation text.
+`packages/mcp/questions.leak.test.mjs` builds native and apps-layout courses with questions in every container. It then calls every API route, every MCP tool for every step and variant (with solutions allowed), and the tutor. It checks that no output contains answer or explanation text.
 
 ### Answers on disk
 
-Course files are on the learner's own disk, so **anyone who opens a lesson file can read its answers**. The engine avoids spoilers; it does not keep secrets. In the Epic layout the problem lesson (`README.mdx`) lives inside the problem app. When a top-level `README.md`/`README.mdx` of an app holds a question block, the engine keeps it out of the file list and the editor (`/api/files`, `/api/file`, MCP `list_project_files` and `read_project_file`), and out of the playground copy. The course's own files are unchanged. Native courses keep their lessons outside the apps, so nothing changes for them.
+Course files are on the learner's own disk, so **anyone who opens a lesson file can read its answers**. The engine avoids spoilers; it does not keep secrets. In the apps layout the problem lesson (`README.mdx`) lives inside the problem app. When a top-level `README.md`/`README.mdx` of an app holds a question block, the engine keeps it out of the file list and the editor (`/api/files`, `/api/file`, MCP `list_project_files` and `read_project_file`), and out of the playground copy. The course's own files are unchanged. Native courses keep their lessons outside the apps, so nothing changes for them.
 
 Older engines show the block as a YAML code block, answer included. Courses that must stay compatible with older engines can keep using reveal blocks (`<details>`) until they require this engine.
 
 ## Security
 
-- **Markdown**: the prompt, every option, the explanation and the model answer go through the same pipeline as the lesson: the Stage 3 allowlist sanitiser, the URL policy, Shiki for code (text only). Question markup is added after sanitising, so authors cannot forge it: `check-question` and its data attributes are not on the allowlist. Headings inside a question get no ids or table-of-contents entries. A question inside a question is plain code.
+- **Markdown**: the prompt, every option, the explanation and the model answer go through the same pipeline as the lesson: the lesson allowlist sanitiser, the URL policy, Shiki for code (text only). Question markup is added after sanitising, so authors cannot forge it: `check-question` and its data attributes are not on the allowlist. Headings inside a question get no ids or table-of-contents entries. A question inside a question is plain code.
 - **YAML**: `yaml` with the core schema (YAML 1.2), strict, unique keys, no merge keys. Any explicit tag (`!!str`, `!custom`, `!!js/function`), anchor or alias is refused before the document is converted, so an alias bomb is never expanded. Limits: 16 KB per block, nesting depth 3, one document, the field limits above. All rendering runs in the Stage 3 worker with its 5-second limit.
 - **Routes** (`question-routes.mjs`): behind the API's Host, Origin and Fetch Metadata checks; mutating routes need the per-process session token like every browser mutation. They validate the step id, the question id (`[A-Za-z0-9][A-Za-z0-9_-]{0,79}`), the choice and the attempt (up to 5,000 characters), and return 404 for an unknown question or the wrong kind.
 - **Mutation gate**: the question routes are exempt from the request gate, so a learner can answer questions while a test run or a hook holds it. They write only `progress.json`, and every progress write (steps and questions) goes through one queue in `course.mjs`. Step completion (`PUT /api/progress`) stays gated.

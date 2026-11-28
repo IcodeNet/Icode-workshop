@@ -1,7 +1,7 @@
 // Course hooks: pre/post set-playground and post-update. Hooks are trusted
 // course code, declared by the author (native: package.json script names in
-// course.json or lab.json; Epic layout: epicshop/*.js files and
-// package.json#epicshop.scripts.postupdate). They run as managed process
+// course.json or lab.json; apps layout: per-app and root hook files and the
+// package.json settings' scripts.postupdate). They run as managed process
 // trees with a timeout, are listed in the Processes view, and receive fully
 // resolved, structured context (never an un-awaited Promise).
 import { readFile, lstat } from "node:fs/promises";
@@ -9,6 +9,7 @@ import { existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { startProcess } from "../adapter-api/node.mjs";
 import { hostConfig } from "../core/layout.mjs";
+import { APPS_FORMAT, APPS_HOOK_ENV_PREFIX, APPS_SETTINGS_KEY } from "../core/apps-layout.mjs";
 import { validateId } from "../core/index.mjs";
 import { courseEnvironment, npmCLI } from "./setup.mjs";
 import { SCRIPT_NAME } from "./operations.mjs";
@@ -66,7 +67,7 @@ export function validateHooks(hooks, scripts = {}, where = "course.json") {
   return result;
 }
 
-/** Split an Epic `scripts.postupdate` command line without a shell (like execaCommand). */
+/** Split an apps-layout `scripts.postupdate` command line into words, without a shell. */
 export function splitCommand(line) {
   if (typeof line !== "string" || !line.trim() || line.length > 1000)
     throw new Error("Invalid postupdate command");
@@ -114,7 +115,7 @@ async function courseScripts(root) {
 }
 
 /**
- * Hooks that apply to `stepId` (optional) for a source directory (Epic
+ * Hooks that apply to `stepId` (optional) for a source directory (apps-layout
  * per-app hook files take precedence over workshop-root ones). Throws on an
  * invalid declaration, so a broken hook never silently becomes "no hook".
  */
@@ -132,18 +133,18 @@ export async function resolveHooks(root, { stepId, srcDir } = {}) {
       Object.assign(resolved, local);
     }
   }
-  if (hostConfig(root).format === "epic") {
+  if (hostConfig(root).format === APPS_FORMAT) {
     for (const [key, file] of [
       ["preSetPlayground", "pre-set-playground.js"],
       ["postSetPlayground", "post-set-playground.js"],
     ]) {
       if (resolved[key]) continue;
       for (const base of [srcDir, root].filter(Boolean)) {
-        const path = join(base, "epicshop", file);
+        const path = join(base, APPS_SETTINGS_KEY, file);
         try {
           await assertSafePath(path);
           if ((await lstat(path)).isFile()) {
-            resolved[key] = { kind: "file", file: path, label: "node epicshop/" + file };
+            resolved[key] = { kind: "file", file: path, label: "node " + APPS_SETTINGS_KEY + "/" + file };
             break;
           }
         } catch (e) {
@@ -151,7 +152,7 @@ export async function resolveHooks(root, { stepId, srcDir } = {}) {
         }
       }
     }
-    const command = pkg.epicshop?.scripts?.postupdate;
+    const command = pkg[APPS_SETTINGS_KEY]?.scripts?.postupdate;
     if (!resolved.postUpdate && command !== undefined)
       resolved.postUpdate = {
         kind: "command",
@@ -189,7 +190,7 @@ export function hookEnvironment(name, context = {}) {
     }
     for (const [key, value] of Object.entries(values)) {
       env["ICODE_PLAYGROUND_" + key] = value;
-      env["EPICSHOP_PLAYGROUND_" + key] = value;
+      env[APPS_HOOK_ENV_PREFIX + key] = value;
     }
   }
   if (context.operation === "update") {

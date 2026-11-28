@@ -1,4 +1,4 @@
-// Stage 4 units: preferences schema (including hostile input), shortcut
+// Units: preferences schema (including hostile input), shortcut
 // grammar, matcher and conflicts, fuzzy search, theme contrast, OG image and
 // the palette's "no API client" rule.
 import test from "node:test";
@@ -218,10 +218,10 @@ test("theme: WCAG AA contrast for every theme's text, links, focus and borders",
   assert.ok(Math.abs(contrast("#000", "#fff") - 21) < 1e-9);
 });
 
-test("theme: Stage 3 hard-coded colours are gone outside the theme blocks", async () => {
+test("theme: colours outside the theme blocks come from tokens, not hard-coded values", async () => {
   const css = await read("./src/styles.css");
-  const stage3 = css.slice(css.indexOf("/* Icode Workshop dark visual system"), css.indexOf("/* ---------- Stage 4: theme tokens"));
-  const hex = stage3
+  const base = css.slice(css.indexOf("/* Icode Workshop dark visual system"), css.indexOf("/* ---------- theme tokens"));
+  const hex = base
     .split("\n")
     .filter((l) => !l.startsWith(".ansi-"))
     .join("\n")

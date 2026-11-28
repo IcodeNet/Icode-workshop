@@ -1,4 +1,4 @@
-// Check questions (A6): parser limits, validation, rendering, answer hiding
+// Check questions: parser limits, validation, rendering, answer hiding
 // and hostile blocks (XSS, YAML bombs, huge blocks). See docs/check-questions.md.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -91,7 +91,7 @@ test("fences: found by the Markdown parse, with source lines; ~~~, longer fences
   assert.equal(derivedQuestionId("01.problem.hello/README.mdx", 1), "01-problem-hello-readme-1");
 });
 
-// Every container a fenced block can sit in (BL-1), each followed by more
+// Every container a fenced block can sit in, each followed by more
 // questions: rendering, the plain-text copy and validate must agree.
 const secretQuestion = (tag, extra = "") => `\`\`\`question\nid: ${tag}\n${extra}prompt: Prompt ${tag}?\nanswer: |\n  Model answer ${tag} with several distinct words SECRET-${tag}-ANSWER\nexplanation: Because ${tag} has its own long reason SECRET-${tag}-EXPLANATION\n\`\`\``;
 const indent = (block, prefix, first = prefix) => block.split("\n").map((l, i) => (i ? prefix : first) + l).join("\n");
@@ -110,7 +110,7 @@ const LAYOUTS = {
   details: (q) => "<details>\n<summary>More</summary>\n\n" + q + "\n\n</details>",
   tableNeighbour: (q) => "| a | b |\n|---|---|\n| ```question | x |\n\n" + q,
 };
-test("BL-1: questions in lists, quotes, footnotes, HTML, tables, tilde and indented fences, CRLF: rendered, stripped and validated alike", async () => {
+test("questions in lists, quotes, footnotes, HTML, tables, tilde and indented fences, CRLF: rendered, stripped and validated alike", async () => {
   for (const [name, layout] of Object.entries(LAYOUTS))
     for (const mdx of [false, true])
       for (const eol of ["\n", "\r\n"]) {

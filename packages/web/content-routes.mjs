@@ -1,4 +1,4 @@
-// Stage 3 API routes: content settings, pages, apps, notifications. Called by
+// API routes: content settings, pages, apps, notifications. Called by
 // server.mjs after its Host/Origin/Sec-Fetch-Site checks and mutation gate.
 import { join } from "node:path";
 import { validateId } from "../core/index.mjs";

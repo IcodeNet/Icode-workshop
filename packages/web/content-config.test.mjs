@@ -1,11 +1,12 @@
-// Stage 3: content settings (A1, A5, A7–A9), apps (A3, A10, C5) and
-// cloud-editor links (C9), for native and Epic-layout courses.
+// Content settings, apps and
+// cloud-editor links, for native and apps-layout courses.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { contentConfig, appInfo, parseRepository, fillForm, validateApp, validateCloudEditor, imageRef, httpsUrl } from "./content-config.mjs";
 import { labConfig } from "./runtime.mjs";
 import { courseConfig } from "./course.mjs";
-import { nativeCourse, epicCourse } from "./test-support/workspace-course.mjs";
+import { nativeCourse, appsCourse } from "./test-support/workspace-course.mjs";
+import { APPS_SETTINGS_KEY as SETTINGS } from "../core/apps-layout.mjs";
 
 test("a course that declares nothing keeps working with defaults", async () => {
   const root = await nativeCourse();
@@ -59,34 +60,34 @@ test("native settings are validated; invalid values are dropped with warnings, n
   for (const key of ["forms", "notifications", "support", "repository", "instructor", "pages"]) assert.equal(outline[key], undefined);
 });
 
-test("Epic package.json#epicshop: metadata, githubRoot, forms, notifications, appType and per-app config", async () => {
-  const root = await epicCourse({
+test("apps-layout package.json settings: metadata, githubRoot, forms, notifications, appType and per-app config", async () => {
+  const root = await appsCourse({
     pkg: {
-      epicshop: {
-        title: "Epic Title",
-        subtitle: "Epic sub",
-        instructor: { name: "Kent", avatar: "/images/kent.png", xHandle: "kentcdodds" },
-        product: { host: "www.epicweb.dev", displayName: "EpicWeb.dev", logo: "/logo.svg" },
-        githubRoot: "https://github.com/epicweb-dev/react-fundamentals/tree/main",
+      [SETTINGS]: {
+        title: "Apps Title",
+        subtitle: "Apps sub",
+        instructor: { name: "Ada", avatar: "/images/ada.png", xHandle: "ada_example" },
+        product: { host: "courses.example.org", displayName: "Example Courses", logo: "/logo.svg" },
+        githubRoot: "https://github.com/example-org/react-basics/tree/main",
         forms: { workshop: "https://docs.google.com/forms/x?w={workshopTitle}", exercise: "https://docs.google.com/forms/y?e={exerciseTitle}" },
-        notifications: [{ id: "n1", title: "Epic note", message: "m", type: "info", expiresAt: null }],
+        notifications: [{ id: "n1", title: "Course note", message: "m", type: "info", expiresAt: null }],
         appType: "export",
       },
     },
     files: {
       "exercises/01.basics/01.problem.start/index.js": "export const a = 1\n",
       "exercises/01.basics/01.problem.start/index.test.js": "// browser test\n",
-      "exercises/01.basics/01.problem.start/package.json": { name: "p", epicshop: { initialRoute: "/start", stackBlitzConfig: { view: "preview", hidedevtools: "1" } } },
+      "exercises/01.basics/01.problem.start/package.json": { name: "p", [SETTINGS]: { initialRoute: "/start", stackBlitzConfig: { view: "preview", hidedevtools: "1" } } },
       "exercises/01.basics/01.solution.start/index.js": "export const a = 2\n",
     },
   });
   const c = await contentConfig(root);
-  assert.equal(c.title, "Epic Title");
-  assert.equal(c.subtitle, "Epic sub");
-  assert.equal(c.instructor.url, "https://x.com/kentcdodds");
+  assert.equal(c.title, "Apps Title");
+  assert.equal(c.subtitle, "Apps sub");
+  assert.equal(c.instructor.url, "https://x.com/ada_example");
   assert.equal(c.instructor.avatar, undefined, "absolute paths are not course images");
-  assert.equal(c.product.url, "https://www.epicweb.dev/");
-  assert.deepEqual(c.repository, { owner: "epicweb-dev", repo: "react-fundamentals", branch: "main", root: "" });
+  assert.equal(c.product.url, "https://courses.example.org/");
+  assert.deepEqual(c.repository, { owner: "example-org", repo: "react-basics", branch: "main", root: "" });
   assert.deepEqual(c.pages, { intro: "exercises/README.mdx", finished: "exercises/FINISHED.mdx" });
   assert.deepEqual(c.notifications.map((n) => n.id), ["n1"]);
   assert.equal(c.appType, "export");
@@ -95,16 +96,16 @@ test("Epic package.json#epicshop: metadata, githubRoot, forms, notifications, ap
   assert.equal(app.initialRoute, "/start");
   assert.equal(app.entry, "index.js");
   assert.deepEqual(app.browserTests, ["index.test.js"]);
-  assert.match(app.cloud.problem.stackblitz, /^https:\/\/stackblitz\.com\/github\/epicweb-dev\/react-fundamentals\/tree\/main\/exercises\/01\.basics\/01\.problem\.start\?title=[^&]+&view=preview&hidedevtools=1$/);
-  assert.match(app.cloud.solution.stackblitz, /view=editor&file=index\.js/, "simple apps open the editor on the first index file, like Epic");
-  assert.equal(app.cloud.solution.github, "https://github.com/epicweb-dev/react-fundamentals/tree/main/exercises/01.basics/01.solution.start");
+  assert.match(app.cloud.problem.stackblitz, /^https:\/\/stackblitz\.com\/github\/example-org\/react-basics\/tree\/main\/exercises\/01\.basics\/01\.problem\.start\?title=[^&]+&view=preview&hidedevtools=1$/);
+  assert.match(app.cloud.solution.stackblitz, /view=editor&file=index\.js/, "simple apps open the editor on the first index file");
+  assert.equal(app.cloud.solution.github, "https://github.com/example-org/react-basics/tree/main/exercises/01.basics/01.solution.start");
 });
 
-test("Epic stackBlitzConfig: null hides that app's cloud links; testTab.enabled false hides browser tests; dev apps are not simple", async () => {
-  const root = await epicCourse({
-    pkg: { epicshop: { githubRepo: "https://github.com/o/r" } },
+test("apps-layout stackBlitzConfig: null hides that app's cloud links; testTab.enabled false hides browser tests; dev apps are not simple", async () => {
+  const root = await appsCourse({
+    pkg: { [SETTINGS]: { githubRepo: "https://github.com/o/r" } },
     files: {
-      "exercises/01.basics/01.problem.start/package.json": { name: "p", scripts: { dev: "vite" }, epicshop: { stackBlitzConfig: null, testTab: { enabled: false } } },
+      "exercises/01.basics/01.problem.start/package.json": { name: "p", scripts: { dev: "vite" }, [SETTINGS]: { stackBlitzConfig: null, testTab: { enabled: false } } },
       "exercises/01.basics/01.problem.start/a.test.js": "",
     },
   });
