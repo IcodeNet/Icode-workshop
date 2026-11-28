@@ -75,7 +75,7 @@ export function expandShortcut(value) {
   return [formatSide(parseSide(left)), formatSide(parseSide(right))];
 }
 
-async function sideDirectory(root, side) {
+export async function sideDirectory(root, side) {
   const dir =
     side.variant === "saved"
       ? await savedFilesPath(root, side.step, side.savedId)

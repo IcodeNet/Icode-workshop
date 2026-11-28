@@ -70,6 +70,7 @@ import {
   writePreferences,
 } from "./saved-playgrounds.mjs";
 import { diffSides, diffFile, touchedFiles, syncFile, parseSide, validateRelativePath } from "./diff.mjs";
+import { highlightSideFile } from "./highlight.mjs";
 import { updateStatus, checkForUpdates, applyUpdate } from "./update.mjs";
 import { fileURLToPath } from "node:url";
 import { validateId } from "../core/index.mjs";
@@ -600,6 +601,8 @@ const server = createServer(async (req, res) => {
         200,
         await diffFile(root, url.searchParams.get("a"), url.searchParams.get("b"), url.searchParams.get("path"), diffOptions(url.searchParams)),
       );
+    if (url.pathname === "/api/highlight" && req.method === "GET")
+      return json(res, 200, await highlightSideFile(root, url.searchParams.get("side"), url.searchParams.get("path")));
     if (url.pathname === "/api/touched" && req.method === "GET")
       return json(res, 200, await touchedFiles(root, url.searchParams.get("id")));
     if (url.pathname === "/api/file/sync" && req.method === "POST") {

@@ -3496,5 +3496,423 @@
     "license": "ISC",
     "source": "https://github.com/eemeli/yaml",
     "note": "Check questions: parses the YAML inside lesson `question` blocks (core schema; tags, anchors and aliases refused). Runtime dependency of packages/web; no dependencies of its own."
+  },
+  {
+    "name": "@codemirror/autocomplete",
+    "versions": [
+      "6.20.4"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/autocomplete.git"
+  },
+  {
+    "name": "@codemirror/commands",
+    "versions": [
+      "6.11.2"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/commands.git"
+  },
+  {
+    "name": "@codemirror/lang-angular",
+    "versions": [
+      "0.1.4"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-angular.git"
+  },
+  {
+    "name": "@codemirror/lang-cpp",
+    "versions": [
+      "6.0.3"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-cpp.git"
+  },
+  {
+    "name": "@codemirror/lang-css",
+    "versions": [
+      "6.3.1"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-css.git"
+  },
+  {
+    "name": "@codemirror/lang-go",
+    "versions": [
+      "6.0.1"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-go.git"
+  },
+  {
+    "name": "@codemirror/lang-html",
+    "versions": [
+      "6.4.12"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/lang-html.git"
+  },
+  {
+    "name": "@codemirror/lang-java",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-java.git"
+  },
+  {
+    "name": "@codemirror/lang-javascript",
+    "versions": [
+      "6.2.5"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-javascript.git"
+  },
+  {
+    "name": "@codemirror/lang-jinja",
+    "versions": [
+      "6.0.1"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/lang-jinja.git"
+  },
+  {
+    "name": "@codemirror/lang-json",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-json.git"
+  },
+  {
+    "name": "@codemirror/lang-less",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-less.git"
+  },
+  {
+    "name": "@codemirror/lang-liquid",
+    "versions": [
+      "6.3.4"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/lang-liquid.git"
+  },
+  {
+    "name": "@codemirror/lang-markdown",
+    "versions": [
+      "6.5.2"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/lang-markdown.git"
+  },
+  {
+    "name": "@codemirror/lang-php",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-php.git"
+  },
+  {
+    "name": "@codemirror/lang-python",
+    "versions": [
+      "6.2.1"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-python.git"
+  },
+  {
+    "name": "@codemirror/lang-rust",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-rust.git"
+  },
+  {
+    "name": "@codemirror/lang-sass",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-sass.git"
+  },
+  {
+    "name": "@codemirror/lang-sql",
+    "versions": [
+      "6.10.0"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-sql.git"
+  },
+  {
+    "name": "@codemirror/lang-vue",
+    "versions": [
+      "0.1.3"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-vue.git"
+  },
+  {
+    "name": "@codemirror/lang-wast",
+    "versions": [
+      "6.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-wast.git"
+  },
+  {
+    "name": "@codemirror/lang-xml",
+    "versions": [
+      "6.1.0"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-xml.git"
+  },
+  {
+    "name": "@codemirror/lang-yaml",
+    "versions": [
+      "6.1.3"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/lang-yaml.git"
+  },
+  {
+    "name": "@codemirror/language",
+    "versions": [
+      "6.13.1"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/language.git"
+  },
+  {
+    "name": "@codemirror/language-data",
+    "versions": [
+      "6.5.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/codemirror/language-data.git",
+    "note": "Language descriptions for the Playground editor; each language package loads only when a file of that language opens."
+  },
+  {
+    "name": "@codemirror/legacy-modes",
+    "versions": [
+      "6.5.5"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/legacy-modes.git"
+  },
+  {
+    "name": "@codemirror/lint",
+    "versions": [
+      "6.9.8"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/lint.git"
+  },
+  {
+    "name": "@codemirror/search",
+    "versions": [
+      "6.7.3"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/search.git"
+  },
+  {
+    "name": "@codemirror/state",
+    "versions": [
+      "6.7.6"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/state.git"
+  },
+  {
+    "name": "@codemirror/streamparser",
+    "versions": [
+      "6.0.0"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/streamparser.git"
+  },
+  {
+    "name": "@codemirror/view",
+    "versions": [
+      "6.44.2"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/codemirror/view.git",
+    "note": "Playground editor (CodeMirror 6). The editor and each language load on demand, outside the first UI bundle."
+  },
+  {
+    "name": "@lezer/common",
+    "versions": [
+      "1.5.7"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/common.git"
+  },
+  {
+    "name": "@lezer/cpp",
+    "versions": [
+      "1.1.6"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/cpp.git"
+  },
+  {
+    "name": "@lezer/css",
+    "versions": [
+      "1.3.9"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/css.git"
+  },
+  {
+    "name": "@lezer/go",
+    "versions": [
+      "1.0.1"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/go.git"
+  },
+  {
+    "name": "@lezer/highlight",
+    "versions": [
+      "1.2.5"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/highlight.git"
+  },
+  {
+    "name": "@lezer/html",
+    "versions": [
+      "1.3.13"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/html.git"
+  },
+  {
+    "name": "@lezer/java",
+    "versions": [
+      "1.2.1"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/java.git"
+  },
+  {
+    "name": "@lezer/javascript",
+    "versions": [
+      "1.5.7"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/javascript.git"
+  },
+  {
+    "name": "@lezer/json",
+    "versions": [
+      "1.0.3"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/json.git"
+  },
+  {
+    "name": "@lezer/lr",
+    "versions": [
+      "1.4.13"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/lr.git"
+  },
+  {
+    "name": "@lezer/markdown",
+    "versions": [
+      "1.8.2"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/markdown.git"
+  },
+  {
+    "name": "@lezer/php",
+    "versions": [
+      "1.0.6"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/php.git"
+  },
+  {
+    "name": "@lezer/python",
+    "versions": [
+      "1.1.20"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/python.git"
+  },
+  {
+    "name": "@lezer/rust",
+    "versions": [
+      "1.0.3"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/lezer/rust.git"
+  },
+  {
+    "name": "@lezer/sass",
+    "versions": [
+      "1.1.0"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/sass.git"
+  },
+  {
+    "name": "@lezer/xml",
+    "versions": [
+      "1.0.6"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/xml.git"
+  },
+  {
+    "name": "@lezer/yaml",
+    "versions": [
+      "1.0.4"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/lezer-parser/yaml.git"
+  },
+  {
+    "name": "@marijn/find-cluster-break",
+    "versions": [
+      "1.0.4"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/marijn/find-cluster-break.git"
+  },
+  {
+    "name": "crelt",
+    "versions": [
+      "1.0.7"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/marijn/crelt.git"
+  },
+  {
+    "name": "style-mod",
+    "versions": [
+      "4.1.5"
+    ],
+    "license": "MIT",
+    "source": "https://code.haverbeke.berlin/marijn/style-mod.git"
+  },
+  {
+    "name": "w3c-keyname",
+    "versions": [
+      "2.2.8"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/marijnh/w3c-keyname.git"
   }
 ]

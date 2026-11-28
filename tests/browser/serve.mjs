@@ -209,6 +209,24 @@ for (let i = 0; i * 25 < languages.length; i++) {
   for (const variant of ["problem", "solution"]) await writeFile(join(root, "exercises", id, variant, "index.mjs"), "export const value = 1;\n");
 }
 course.modules.push({ id: "code-samples", title: "Code samples (every highlighted language)", steps: codeSteps });
+// Workbench highlighting (step 09): one file per language, a test that the
+// starter fails, and a file too large to highlight.
+const workbenchSamples = {
+  "sample.ts": "export function greet(name: string): string {\n  return `Hello ${name}`; // greet\n}\n",
+  "sample.js": "const items = [1, 2, 3];\nconsole.log(items.map((n) => n * 2));\n",
+  "sample.json": '{ "name": "demo", "count": 2, "ok": true }\n',
+  "sample.py": "def total(xs):\n    # sum the list\n    return sum(xs)\n",
+  "Sample.cs": "public class Sample\n{\n    public int Count => 2; // two\n}\n",
+  "notes.md": "# Notes\n\nSome *emphasis* and `code`.\n",
+  "config.yaml": "name: demo\ncount: 2 # two\n",
+};
+for (const variant of ["problem", "solution"]) {
+  for (const [name, code] of Object.entries(workbenchSamples))
+    await writeFile(join(root, "exercises", "09", variant, name), variant === "solution" ? code.replace("2", "3") : code);
+  await writeFile(join(root, "exercises", "09", variant, "index.test.mjs"), "import test from 'node:test'\nimport assert from 'node:assert/strict'\nimport { value } from './index.mjs'\ntest('value is 2', () => assert.equal(value, 2))\n");
+}
+await writeFile(join(root, "exercises", "09", "solution", "index.mjs"), "export const value = 2;\n");
+await writeFile(join(root, "exercises", "09", "problem", "large.ts"), "export const n = 1;\n".repeat(4000));
 await writeFile(join(tmpdir(), "icode-browser-code-steps.json"), JSON.stringify(codeSteps));
 await writeFile(join(tmpdir(), "icode-browser-root.txt"), root);
 await writeFile(join(root, "course.json"), JSON.stringify(course));

@@ -2,6 +2,7 @@
 // connection status, scroll restoration and accessibility (axe), in a real
 // browser. Every test restores the default preferences it changed.
 import { test, expect } from "@playwright/test";
+import { editorText, expectEditor } from "./editor.mjs";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -238,13 +239,14 @@ test("shortcuts dialog, g-sequences, typing guard, Diff '?' and remapping with c
   // Typing "g n" in the editor types; it does not navigate.
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
-  const original = await editor.inputValue();
+  await expectEditor(page).not.toBe("");
+  const original = await editorText(page);
   await editor.focus();
   await page.keyboard.press("Control+End");
   await page.keyboard.type("g n?");
   await expect(page.locator(".heading h1", { hasText: "Approved documents only" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(editor).toHaveValue(/g n\?$/);
+  await expectEditor(page).toMatch(/g n\?$/);
   // Ctrl+S saves from inside the editor.
   await page.keyboard.press("Control+s");
   await expect(page.getByText("Saved to the exercise-specific local playground file.")).toBeVisible();
@@ -605,7 +607,7 @@ test("error boundaries: a crashing lesson panel is contained and the rest of the
   await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
   // The workbench, output panel and sidebar still work.
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Playground code editor" })).toHaveValue(/./);
+  await expectEditor(page).toMatch(/./);
   await page.getByRole("button", { name: "Run tests", exact: true }).click();
   await expect(page.getByRole("status").first()).toContainText(/PASS|FAIL/, { timeout: 30000 });
   await page.getByRole("tab", { name: "Console" }).click();

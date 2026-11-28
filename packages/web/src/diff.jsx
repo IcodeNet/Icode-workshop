@@ -2,6 +2,7 @@
 // playground of any lesson), side-by-side or unified, with word highlights,
 // deep links, keyboard shortcuts and per-file sync into a playground.
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { TokenLine, lineTokens, useTokens } from "./highlighted.jsx";
 
 const request = async (path, options) => {
   const response = await fetch("/api" + path, {
@@ -46,7 +47,8 @@ export function wordChange(a, b) {
   while (end < a.length - start && end < b.length - start && a[a.length - 1 - end] === b[b.length - 1 - end]) end++;
   return { start, endA: a.length - end, endB: b.length - end };
 }
-function Highlighted({ text, range }) {
+function Highlighted({ text, range, tokens }) {
+  if (tokens && text) return <TokenLine tokens={tokens} range={range} />;
   if (!range || range.start >= range.end) return text || " ";
   return (
     <>
@@ -83,7 +85,13 @@ export function splitRows(lines) {
   return rows;
 }
 
-function Hunks({ file, view }) {
+function Hunks({ file, view, sideA, sideB }) {
+  // Both sides are highlighted from their files; a line whose tokens do not
+  // spell its diff text (for example with whitespace ignored) stays plain.
+  const left = useTokens(file.status === "added" ? "" : sideA, file.from ?? file.path, undefined, file).lines;
+  const right = useTokens(file.status === "deleted" ? "" : sideB, file.path, undefined, file).lines;
+  const tokensOf = (line) =>
+    line.t === "-" ? lineTokens(left, line.a, line.text) : lineTokens(right, line.b, line.text) ?? lineTokens(left, line.a, line.text);
   return file.hunks.map((hunk, index) => (
     <tbody key={index} className="diff-hunk" data-hunk="true">
       <tr className="diff-hunk-head">
@@ -96,11 +104,11 @@ function Hunks({ file, view }) {
             <tr key={i} className="diff-row">
               <td className="diff-num">{row.left?.a ?? ""}</td>
               <td className={"diff-code " + (!row.left ? "empty" : row.left.t === "-" ? "del" : "ctx")}>
-                {row.left && <Highlighted text={row.left.text} range={row.ranges?.left} />}
+                {row.left && <Highlighted text={row.left.text} range={row.ranges?.left} tokens={lineTokens(left, row.left.a, row.left.text)} />}
               </td>
               <td className="diff-num">{row.right?.b ?? ""}</td>
               <td className={"diff-code " + (!row.right ? "empty" : row.right.t === "+" ? "add" : "ctx")}>
-                {row.right && <Highlighted text={row.right.text} range={row.ranges?.right} />}
+                {row.right && <Highlighted text={row.right.text} range={row.ranges?.right} tokens={lineTokens(right, row.right.b, row.right.text)} />}
               </td>
             </tr>
           ))
@@ -110,7 +118,7 @@ function Hunks({ file, view }) {
               <td className="diff-num">{line.b ?? ""}</td>
               <td className={"diff-code " + (line.t === "-" ? "del" : line.t === "+" ? "add" : "ctx")}>
                 <span className="diff-sign" aria-hidden="true">{line.t === " " ? " " : line.t}</span>
-                {line.text || " "}
+                <Highlighted text={line.text} tokens={tokensOf(line)} />
               </td>
             </tr>
           ))}
@@ -412,7 +420,7 @@ export function DiffView({ catalog, selected, initial, dirty, busy, onOpenFile, 
                         <col key={i} className={"diff-col-" + kind} />
                       ))}
                     </colgroup>
-                    <Hunks file={file} view={view} />
+                    <Hunks file={file} view={view} sideA={sideA} sideB={sideB} />
                   </table>
                 )}
               </div>

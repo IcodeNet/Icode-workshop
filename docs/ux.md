@@ -46,7 +46,7 @@ Everything here is UI-side apart from four small API routes (`/api/preferences` 
 
 ## Preferences
 
-- **Page:** "Preferences" in the course-pages navigation, `g ,`, or the palette. Settings: theme; UI text size (87.5–150 %); editor font family (system monospace, Menlo/Monaco, Consolas, Courier, or "the UI font") and editor font size (11–24 px); motion (system, reduce, allow); restore scroll positions; save playgrounds automatically (the Stage 2 preference, now also here); dismissed warnings (reset); keyboard shortcuts.
+- **Page:** "Preferences" in the course-pages navigation, `g ,`, or the palette. Settings: theme; UI text size (87.5–150 %); editor font family (system monospace, Menlo/Monaco, Consolas, Courier, or "the UI font") and editor font size (11–24 px); soft wrap in the Playground editor; motion (system, reduce, allow); restore scroll positions; save playgrounds automatically (the Stage 2 preference, now also here); dismissed warnings (reset); keyboard shortcuts.
 - **Storage:** `.workshop/preferences.json` in the course (with the other workshop state), through `PUT /api/preferences`, plus a `localStorage` mirror so the theme applies before the API answers. Both are validated by the same `validatePreferences`:
   - only known keys; unknown keys, prototype keys (`__proto__`, `constructor`, `prototype`) and non-plain objects are refused;
   - enums and integer ranges only; no free-form strings except shortcut bindings, which must match the binding grammar and refer to a known command id;

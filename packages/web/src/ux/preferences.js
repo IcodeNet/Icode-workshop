@@ -17,6 +17,7 @@ export const DEFAULT_UI = Object.freeze({
   uiScale: 100,
   editorFont: "system-mono",
   editorFontSize: 12,
+  softWrap: false,
   motion: "system",
   restoreScroll: true,
   dismissedWarnings: [],
@@ -74,6 +75,7 @@ export function validatePreferences(input, { partial = false } = {}) {
         if (!Number.isInteger(value) || value < 11 || value > 24) fail(key);
         break;
       case "restoreScroll":
+      case "softWrap":
         if (typeof value !== "boolean") fail(key);
         break;
       case "dismissedWarnings":

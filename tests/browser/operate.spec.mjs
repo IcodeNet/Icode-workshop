@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { editorText, expectEditor, fillEditor } from "./editor.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { connect } from "node:net";
@@ -253,16 +254,16 @@ test("live reload updates a clean editor and flags conflicting unsaved edits", a
   await page.getByRole("button", { name: /01 Approved/ }).click();
   await page.getByRole("tab", { name: "Playground", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Playground code editor" });
-  await expect(editor).not.toHaveValue("");
-  const original = await editor.inputValue();
+  await expectEditor(page).not.toBe("");
+  const original = await editorText(page);
   // Wait until the live-reload stream is connected, then an external writer
   // (another editor, an AI assistant) changes the file.
   await expect(page.locator('[data-live-reload="ready"]')).toHaveCount(1);
   await page.request.put("/api/file", {
     data: { id: "01", name: "index.mjs", code: "// changed on disk 1\n" },
   });
-  await expect(editor).toHaveValue("// changed on disk 1\n");
-  await editor.fill("// my unsaved edit\n");
+  await expectEditor(page).toBe("// changed on disk 1\n");
+  await fillEditor(page, "// my unsaved edit\n");
   await page.request.put("/api/file", {
     data: { id: "01", name: "index.mjs", code: "// changed on disk 2\n" },
   });
@@ -270,13 +271,13 @@ test("live reload updates a clean editor and flags conflicting unsaved edits", a
   await expect(notice).toContainText(
     "changed on disk while you have unsaved edits",
   );
-  await expect(editor).toHaveValue("// my unsaved edit\n");
+  await expectEditor(page).toBe("// my unsaved edit\n");
   await notice.getByRole("button", { name: "Load disk version" }).click();
-  await expect(editor).toHaveValue("// changed on disk 2\n");
+  await expectEditor(page).toBe("// changed on disk 2\n");
   await page.request.put("/api/file", {
     data: { id: "01", name: "index.mjs", code: original },
   });
-  await expect(editor).toHaveValue(original);
+  await expectEditor(page).toBe(original);
 });
 
 test("launch editor spawns the configured editor and keeps the VS Code fallback", async ({
