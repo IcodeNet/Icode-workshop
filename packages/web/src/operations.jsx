@@ -2,6 +2,7 @@
 // setup banners, the Processes view (including sidecars) and ANSI output.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ansiToHtml } from "./ansi.js";
+import { useFocusTrap } from "./palette.jsx";
 
 async function request(path, options) {
   const response = await fetch("/api" + path, {
@@ -43,13 +44,14 @@ export function ConfirmDialog({
   const [typed, setTyped] = useState("");
   const input = useRef(null);
   const confirmButton = useRef(null);
-  useEffect(() => {
-    (expected !== undefined ? input : confirmButton).current?.focus();
-  }, [expected]);
+  const dialog = useRef(null);
+  // Stage 4: focus stays in the dialog and returns to the opener afterwards.
+  useFocusTrap(dialog, true, expected !== undefined ? input : confirmButton);
   const matches = expected === undefined || typed === expected;
   return (
     <div className="dialog-backdrop">
       <div
+        ref={dialog}
         className="dialog"
         role="dialog"
         aria-modal="true"

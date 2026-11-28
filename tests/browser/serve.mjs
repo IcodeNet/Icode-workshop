@@ -134,6 +134,18 @@ for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "07", variant, "index.mjs"), "export const value = 1;\n");
 }
 course.modules.at(-1).steps.push("07");
+// Stage 4: crafted course, module, exercise, step and file names (08) that
+// the command palette must show as text.
+await mkdir(join(root, "exercises", "08", "problem"), { recursive: true });
+await mkdir(join(root, "exercises", "08", "solution"), { recursive: true });
+await writeFile(join(root, "exercises", "08", "lab.json"), JSON.stringify({ schemaVersion: 1, runtime: "node", entry: "index.mjs", title: '<img src=x onerror="window.__xss=10">Crafted step' }));
+await writeFile(join(root, "exercises", "08", "README.md"), "# Crafted names\n");
+for (const variant of ["problem", "solution"]) {
+  await writeFile(join(root, "exercises", "08", variant, "index.mjs"), "export const value = 1;\n");
+  await writeFile(join(root, "exercises", "08", variant, "<img src=x onerror=window.__xss=13>.mjs"), "export const crafted = 1;\n");
+}
+course.modules.push({ id: "crafted", title: "<script>window.__xss=11</script>Crafted module", exercises: [{ id: "crafted-ex", title: '<svg onload="window.__xss=12">Crafted exercise', steps: ["08"] }] });
+await writeFile(join(tmpdir(), "icode-browser-root.txt"), root);
 await writeFile(join(root, "course.json"), JSON.stringify(course));
 for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "06", variant, "index.html"), hostileApp);

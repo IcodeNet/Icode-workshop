@@ -1,0 +1,3 @@
+# Icode Workshop is a local application; nothing here is for search engines.
+User-agent: *
+Disallow: /

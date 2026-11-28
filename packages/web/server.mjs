@@ -1,5 +1,6 @@
 import { lessonDocuments } from "./lessons.mjs";
 import { handleContent } from "./content-routes.mjs";
+import { handleUx } from "./ux-routes.mjs";
 import { createSandboxServer } from "./sandbox.mjs";
 import { SANDBOX_PORT } from "./content-config.mjs";
 import { integrationStatus, readIntegration } from "./integrations.mjs";
@@ -812,6 +813,7 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+    if (await handleUx({ req, res, url, root, json })) return;
     if (await handleContent({ req, res, url, root, json, readBody, sandboxOrigin })) return;
     return json(res, 404, { error: "Not found" });
   } catch (error) {

@@ -15,6 +15,7 @@
     "packages/*"
   ],
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.1",
     "@playwright/test": "^1.65.1",
     "prettier": "^3.10.1",
     "typescript": "^7.0.2"
