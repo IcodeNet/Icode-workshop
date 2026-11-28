@@ -20,6 +20,7 @@ These are real Chromium captures from the automated learner journeys, not design
 - Per-lab Tools tabs: embedded local services when permitted, or external links when embedding is blocked.
 - Course actions (course `package.json` scripts) with typed confirmation, cost/indicator banners, sidecar processes with retained logs, a Processes view, confirmed freeing of a configured preview port, ANSI-coloured output, live reload from disk, local editor launch at line/column and a dependency install check. See [running and operating a course](docs/course-operations.md).
 - Workspace and diffs: pre/post set-playground hooks, bounded saved playgrounds with exact restore, the files each step touches, rich side-by-side/unified diffs between any two lesson versions with deep links (`?diff=01.problem..01.solution`), lesson diff links, keyboard shortcuts and per-file sync, and a confirmed, offline-safe workshop update with a post-update hook. See [workspace and diffs](docs/course-operations.md#workspace-and-diffs-stage-2).
+- Content: lessons rendered server-side through a sanitiser and URL policy, with Shiki highlighting, Epic callouts and components, a table of contents, copy buttons and sandboxed, offline Mermaid; workshop-served simple and export apps in an in-workshop browser on a separate sandbox origin; in-browser tests with no login; course home, finished, guide and support pages; notifications; feedback forms; StackBlitz/CodeSandbox/GitHub links. See [Stage 3: content](docs/stage3-content.md).
 - Versioned adapter registry, TypeScript contract, explicit third-party module loading, author conformance helper and cancellable process/session helper.
 
 ## Run locally
@@ -64,6 +65,7 @@ Rust, .NET (VSTest), Jupyter and Docker Compose adapters are implemented. CI req
 - [Dependency licence inventory](docs/dependency-licenses.json)
 - [Course authoring and persistence](docs/course-authoring.md)
 - [Running and operating a course: actions, indicators, sidecars, processes](docs/course-operations.md)
+- [Stage 3: content (lessons, apps, in-browser tests, pages) and its security model](docs/stage3-content.md)
 - [Evidence-based parity audit](docs/feature-parity-audit.md)
 - [Runtime architecture](docs/multi-language-architecture.md)
 - [Langfuse, evaluation courses and embedded tools](docs/local-tools-and-ai-courses.md)

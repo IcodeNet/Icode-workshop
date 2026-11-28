@@ -1,3 +1,4 @@
+import "./session.js";
 import Markdown from "react-markdown";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -16,6 +17,17 @@ import {
 } from "./operations.jsx";
 import { DiffView, resolveDiffLink } from "./diff.jsx";
 import { SavedPanel, TouchedFiles, UpdateBanner, UpdatePanel, operationSummary } from "./workspace.jsx";
+import {
+  AppBrowser,
+  BrowserTests,
+  CloudLinks,
+  CoursePage,
+  ExerciseComplete,
+  LessonHtml,
+  Notifications,
+  handleContentLink,
+  useContentConfig,
+} from "./content.jsx";
 const api = async (path, options) => {
   const response = await fetch("/api" + path, {
     ...options,
@@ -110,6 +122,13 @@ function App() {
   const [diskChange, setDiskChange] = useState(null);
   const [reloadPreview, setReloadPreview] = useState(true);
   const [previewKey, setPreviewKey] = useState(0);
+  // Stage 3: course pages and workshop-served apps.
+  const contentConfig = useContentConfig();
+  const sandboxOrigin = contentConfig?.sandboxOrigin || "";
+  const [page, setPage] = useState(null);
+  const [appInfo, setAppInfo] = useState(null);
+  const [appVariant, setAppVariant] = useState("playground");
+  const [appNavigate, setAppNavigate] = useState(null);
   const [indicators, refreshIndicators] = useIndicators();
   const actions = useActions({
     onFinished: refreshIndicators,
@@ -118,7 +137,7 @@ function App() {
   const variant = ["problem", "solution"].includes(tab) ? tab : "playground";
   // Latest values for long-lived event handlers (live reload).
   const latest = useRef({});
-  latest.current = { file, draft, dirty, preview, previewVariant, reloadPreview, busy };
+  latest.current = { file, draft, dirty, preview, previewVariant, reloadPreview, busy, app: appInfo?.type && appVariant === "playground" };
   useEffect(() => {
     api("/integrations")
       .then((data) => setIntegrations(data.integrations))
@@ -181,7 +200,7 @@ function App() {
           .catch(() => {});
       }, 200);
       const now = latest.current;
-      if (now.preview && now.previewVariant === "playground" && now.reloadPreview)
+      if ((now.preview && now.previewVariant === "playground" || now.app) && now.reloadPreview)
         setPreviewKey((key) => key + 1);
       if (!name || name !== now.file) return;
       let code;
@@ -659,6 +678,12 @@ function App() {
       setTutorError("");
       setSelected(id);
       setExercise(item);
+      setPage(null);
+      setAppVariant("playground");
+      setAppNavigate(null);
+      api("/content/app?id=" + encodeURIComponent(id) + "&variant=playground")
+        .then(setAppInfo)
+        .catch(() => setAppInfo(null));
       setDraft(data.code);
       setDirty(false);
       setTab(diff ? "diff" : "description");
@@ -797,6 +822,27 @@ function App() {
       setBusy(false);
     }
   }
+  // Stage 3 engine links: #app=, #course=, #h- headings.
+  function contentClick(event) {
+    return handleContentLink(event, {
+      app: (path) => {
+        setPage(null);
+        setPanel("preview");
+        setAppNavigate({ path, key: Date.now() });
+      },
+      course: (path) => {
+        const match = path.match(/^exercises\/(\d{2})(?:\/(problem|solution)\/(.+))?/);
+        if (match && ids.includes(match[1])) {
+          setPage(null);
+          if (match[1] !== selected) choose(match[1]);
+          else if (match[3] && match[2] === "problem") {
+            setTab("playground");
+            openFile(match[3]).catch((e) => setResult(e.message));
+          }
+        } else setResult("This link points to a course file that the workshop does not open: " + path);
+      },
+    });
+  }
   useEffect(() => {
     const shortcut = (event) => {
       if (!(event.ctrlKey || event.metaKey)) return;
@@ -825,6 +871,7 @@ function App() {
         <div className="top-actions">
           <span className="mode">Local learning environment</span>
           <span className="mode">{course?.title || "AI Engineering Labs"}</span>
+
         </div>
       </header>
       <div
@@ -868,6 +915,14 @@ function App() {
             {completed.filter((id) => ids.includes(id)).length} of {ids.length}{" "}
             lessons marked complete
           </p>
+          <nav className="course-pages" aria-label="Course pages">
+            <button disabled={busy} aria-current={page === "intro" ? "page" : undefined} onClick={() => setPage("intro")}>Course home</button>
+            <button disabled={busy} aria-current={page === "guide" ? "page" : undefined} onClick={() => setPage("guide")}>Guide</button>
+            {(contentConfig?.support || contentConfig?.community) && (
+              <button disabled={busy} aria-current={page === "support" ? "page" : undefined} onClick={() => setPage("support")}>Support</button>
+            )}
+            <button disabled={busy} aria-current={page === "finished" ? "page" : undefined} onClick={() => setPage("finished")}>Finish</button>
+          </nav>
           <div className="eyebrow section-label">EXERCISES</div>
           <button
             className="next-incomplete"
@@ -924,7 +979,25 @@ function App() {
           <IndicatorBanner indicators={indicators} />
           <SetupBanner />
           <UpdateBanner onOpen={() => setPanel("update")} />
-          {exercise ? (
+          <Notifications sandboxOrigin={sandboxOrigin} />
+          {page && (
+            <CoursePage
+              name={page}
+              stepId={selected}
+              config={contentConfig}
+              course={course}
+              ids={ids}
+              completed={completed}
+              catalog={catalog}
+              onChoose={(id) => {
+                setPage(null);
+                if (id !== selected) choose(id);
+              }}
+              onClose={exercise ? () => setPage(null) : null}
+              onLink={contentClick}
+            />
+          )}
+          {page ? null : exercise ? (
             <>
               <div className="heading">
                 <span className="pill">{exercise.topic}</span>
@@ -933,6 +1006,7 @@ function App() {
               </div>
               <div className="learning-layout">
                 <article className="lesson-panel" onClick={(event) => {
+                  if (contentClick(event)) return;
                   const href = event.target.closest("a")?.getAttribute("href");
                   if (href?.startsWith("#file=")) {
                     event.preventDefault();
@@ -948,10 +1022,15 @@ function App() {
                   }
                 }}>
                   <div className="eyebrow">LESSON · {selected}</div>
-                  <Markdown>{exercise.instructions}</Markdown>
-                  {exercise.documents?.filter(doc => doc.title !== "Problem lesson" && doc.title !== "Lesson").map(doc => (
-                    <details key={doc.path}><summary>{doc.title}</summary><Markdown>{doc.content}</Markdown></details>
+                  {exercise.lesson?.html !== undefined ? (
+                    <LessonHtml html={exercise.lesson.html} toc={exercise.lesson.toc} sandboxOrigin={sandboxOrigin} label={exercise.title} />
+                  ) : (
+                    <Markdown>{exercise.instructions}</Markdown>
+                  )}
+                  {exercise.documents?.filter(doc => doc.path !== exercise.lesson?.path).map(doc => (
+                    <details key={doc.path}><summary>{doc.title}</summary>{doc.html !== undefined ? <LessonHtml html={doc.html} toc={[]} sandboxOrigin={sandboxOrigin} /> : <Markdown>{doc.content}</Markdown>}</details>
                   ))}
+                  <ExerciseComplete app={appInfo} ids={ids} selected={selected} onChoose={(id) => choose(id)} />
                   {exercise.media && (
                     <section className="lesson-media">
                       {exercise.media.src && (
@@ -1014,6 +1093,7 @@ function App() {
                     <div className="workbench-head">
                       <div>
                         <h2>Code workbench</h2>
+                        <CloudLinks cloud={appInfo?.cloud} />
                         <p>
                           Write code, save it locally, then run the exercise
                           tests.
@@ -1410,6 +1490,50 @@ function App() {
                         )}
                         {tutorError && <p role="alert">{tutorError}</p>}
                       </div>
+                    ) : panel === "preview" && appInfo?.type ? (
+                      <div className="tools-panel app-panel">
+                        <div className="app-panel-head">
+                          <span>{appInfo.type === "export" ? "Export app: console output and exported values" : "Workshop-served app"}</span>
+                          <label>
+                            Variant{" "}
+                            <select
+                              aria-label="App variant"
+                              value={appVariant}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setAppVariant(v);
+                                api("/content/app?id=" + encodeURIComponent(selected) + "&variant=" + v).then(setAppInfo).catch(() => {});
+                              }}
+                            >
+                              <option value="playground">playground</option>
+                              <option value="problem">problem</option>
+                              <option value="solution">solution</option>
+                            </select>
+                          </label>
+                          <label>
+                            <input type="checkbox" checked={reloadPreview} onChange={(e) => setReloadPreview(e.target.checked)} /> Reload when playground files change
+                          </label>
+                        </div>
+                        {sandboxOrigin && appInfo.url && (
+                          <AppBrowser
+                            base={appInfo.url}
+                            initialRoute={appInfo.type === "export" ? "/" : appInfo.initialRoute}
+                            kind="sandbox"
+                            sandboxOrigin={sandboxOrigin}
+                            title={"App preview " + selected}
+                            reloadKey={previewKey}
+                            navigate={appNavigate}
+                          />
+                        )}
+                        <BrowserTests
+                          key={selected + appVariant}
+                          id={selected}
+                          variant={appVariant}
+                          tests={appInfo.browserTests}
+                          sandboxOrigin={sandboxOrigin}
+                          onSummary={(status) => setActivity("Browser tests " + status)}
+                        />
+                      </div>
                     ) : panel === "preview" && exercise.preview ? (
                       <div className="tools-panel">
                         <button
@@ -1456,11 +1580,12 @@ function App() {
                               {" "}
                               Open preview externally
                             </a>
-                            <iframe
-                              key={previewKey}
+                            <AppBrowser
+                              base={preview}
+                              kind="preview"
                               title="Live preview"
-                              src={preview}
-                              sandbox="allow-scripts allow-forms allow-same-origin"
+                              reloadKey={previewKey}
+                              navigate={appNavigate}
                             />
                           </>
                         )}
@@ -1589,11 +1714,25 @@ function App() {
               </section>
             </>
           ) : (
-            <div className="heading">
-              <span className="pill">Get started</span>
-              <h1>Choose a lab</h1>
-              <p>Select a lab on the left to create an editable playground.</p>
-            </div>
+            <>
+              <div className="heading">
+                <span className="pill">Get started</span>
+                <h1>Choose a lab</h1>
+                <p>Select a lab on the left to create an editable playground.</p>
+              </div>
+              {ids.length > 0 && (
+                <CoursePage
+                  name="intro"
+                  config={contentConfig}
+                  course={course}
+                  ids={ids}
+                  completed={completed}
+                  catalog={catalog}
+                  onChoose={(id) => choose(id)}
+                  onLink={contentClick}
+                />
+              )}
+            </>
           )}
           {!exercise && result && (
             <pre className="notice" role="status">

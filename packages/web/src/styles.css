@@ -1159,3 +1159,85 @@ textarea {
   gap: 4px;
   flex-wrap: wrap;
 }
+
+/* ---------- Stage 3: lesson content ---------- */
+.lesson-html img { max-width: 100%; height: auto; }
+.lesson-html table { border-collapse: collapse; margin: 12px 0; }
+.lesson-html th, .lesson-html td { border: 1px solid var(--line); padding: 4px 10px; }
+.lesson-html kbd { border: 1px solid #64748b; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+.lesson-html .heading-anchor { margin-left: 8px; opacity: 0; text-decoration: none; font-size: 0.8em; }
+.lesson-html :is(h1, h2, h3, h4):hover .heading-anchor, .lesson-html .heading-anchor:focus { opacity: 0.7; }
+.lesson-html [data-blocked-url] { text-decoration: line-through dotted; cursor: not-allowed; color: var(--soft); }
+.lesson-html .diff-link-inactive { border-bottom: 1px dotted var(--soft); cursor: help; }
+.lesson-html .video-card a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; }
+.callout { border-left: 4px solid #38bdf8; background: rgba(56, 189, 248, 0.08); border-radius: 6px; padding: 8px 14px; margin: 14px 0; }
+.callout > p:first-of-type { margin-top: 4px; }
+.callout-label { display: block; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.callout-success, .callout-tip { border-color: #4ade80; background: rgba(74, 222, 128, 0.08); }
+.callout-warning, .callout-important { border-color: #facc15; background: rgba(250, 204, 21, 0.08); }
+.callout-danger, .callout-caution { border-color: #f87171; background: rgba(248, 113, 113, 0.1); }
+.callout-muted { border-color: #64748b; background: rgba(100, 116, 139, 0.12); }
+.code-block { position: relative; margin: 14px 0; }
+.code-title { font: 12px ui-monospace, monospace; padding: 4px 12px; background: #0b1220; border: 1px solid var(--line); border-bottom: 0; border-radius: 6px 6px 0 0; color: var(--soft); }
+.code-block pre { margin: 0; border-radius: 6px; border: 1px solid var(--line); }
+.code-title + pre { border-radius: 0 0 6px 6px; }
+.copy-code { position: absolute; top: 6px; right: 6px; font-size: 11px !important; padding: 3px 8px !important; opacity: 0.6; background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
+.code-block:hover .copy-code, .copy-code:focus { opacity: 1; }
+/* Shiki dual theme: colours follow the UI theme class. */
+.shiki, .shiki span { color: var(--shiki-light); background-color: var(--shiki-light-bg); }
+.app.dark .shiki, .app.dark .shiki span { color: var(--shiki-dark); background-color: var(--shiki-dark-bg); }
+.app.dark .lesson-panel pre.shiki { background-color: #020617; }
+.app.dark .shiki span { background-color: transparent; }
+.lesson-panel .shiki code { color: inherit; font-size: 12.5px; }
+.shiki .line.highlighted { background: rgba(253, 186, 116, 0.14) !important; display: inline-block; width: 100%; }
+.shiki .line.diff-add { background: rgba(74, 222, 128, 0.12) !important; display: inline-block; width: 100%; }
+.shiki .line.diff-remove { background: rgba(248, 113, 113, 0.12) !important; display: inline-block; width: 100%; }
+.mermaid-diagram { margin: 14px 0; }
+.mermaid-frame { width: 100%; height: 160px; border: 0; background: transparent; display: block; }
+.mermaid-rendered .mermaid-source { display: none; }
+.lesson-toc { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; margin: 0 0 16px; font-size: 13px; }
+.lesson-toc ul { margin: 4px 0 0; padding-left: 18px; }
+.lesson-toc .toc-3 { margin-left: 14px; }
+
+/* ---------- Stage 3: course pages, notifications ---------- */
+.course-pages { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.course-pages button, .course-page button, .exercise-complete button, .notification button, .browser-tests button, .browser-bar button { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+.course-pages button[aria-current="page"] { border-color: #fdba74; }
+.course-page { margin-bottom: 20px; }
+.course-page .page-head { display: flex; justify-content: space-between; align-items: center; }
+.course-meta .subtitle { font-size: 16px; }
+.course-meta .instructor img, .course-meta .product-logo { height: 32px; vertical-align: middle; border-radius: 50%; margin-right: 8px; }
+.course-outline ol { padding-left: 18px; }
+.link-button { background: none !important; border: 0 !important; color: #fdba74 !important; padding: 0 !important; text-decoration: underline; }
+.course-page button.primary { background: #fdba74; color: #0f172a; border: 0; padding: 10px 16px; font-size: 14px; }
+.exercise-complete { border: 1px solid #4ade80; border-radius: 8px; padding: 10px 14px; margin-top: 18px; }
+.notifications { display: grid; gap: 8px; margin: 0 0 14px; }
+.notification { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; border: 1px solid #38bdf8; border-radius: 8px; padding: 8px 12px; background: rgba(56, 189, 248, 0.08); }
+.notification.warning { border-color: #facc15; }
+.notification.danger { border-color: #f87171; }
+.notification .lesson-html p { margin: 2px 0; }
+.cloud-links { font-size: 12px; margin: 4px 0; }
+.cloud-links a { color: #fdba74; }
+
+/* ---------- Stage 3: in-workshop browser and browser tests ---------- */
+.app-panel-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+.app-browser { border: 1px solid #536075; border-radius: 8px; overflow: hidden; }
+.browser-bar { display: flex; gap: 6px; align-items: center; padding: 6px; background: #0b1220; }
+.browser-bar button { margin: 0 !important; padding: 4px 8px !important; }
+.browser-bar input { flex: 1; min-width: 80px; padding: 5px 8px; background: #020617; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; font: 12px ui-monospace, monospace; }
+.browser-origin { font: 12px ui-monospace, monospace; color: var(--soft); }
+.app-browser iframe { width: 100%; height: 420px; border: 0 !important; border-radius: 0 !important; background: white; display: block; }
+.browser-tests { margin-top: 14px; }
+.browser-tests-head { display: flex; gap: 12px; align-items: center; }
+.browser-tests-head h3 { margin: 0; }
+.browser-test { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; margin: 6px 0; font-size: 13px; }
+.browser-test.passed { border-color: #4ade80; }
+.browser-test.failed, .browser-test.timeout { border-color: #f87171; }
+.browser-test ul { list-style: none; padding-left: 6px; margin: 4px 0; }
+.browser-test li.fail { color: #fca5a5; }
+.browser-test pre { white-space: pre-wrap; font-size: 12px; margin: 2px 0; }
+.browser-test .badge { font-size: 11px; text-transform: uppercase; opacity: 0.8; }
+.browser-test-frames { position: absolute; left: -10000px; top: 0; width: 1024px; height: 768px; overflow: hidden; }
+.browser-test-frames iframe { width: 1024px; height: 768px; border: 0; }
+.muted { color: var(--soft); font-size: 12px; }
+.notification a { color: #fdba74; font-size: 12px; }

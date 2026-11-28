@@ -56,3 +56,28 @@ test("unsupported nested courses never validate as zero steps; explicit compatib
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("Epic MDX lessons render with components; an exercise intro with DiffLink works (Epic fails there)", async () => {
+  const { epicCourse } = await import("./test-support/workspace-course.mjs");
+  const root = await epicCourse({
+    files: {
+      "exercises/README.mdx": "# Workshop intro\n\n<DiffLink>no step here</DiffLink>\n",
+      "exercises/01.basics/README.mdx": "import { Thing } from './thing'\n\n# Basics\n\n<callout-danger>\n\tDo **not** skip.\n</callout-danger>\n\n<DiffLink>See what changes</DiffLink> <NextDiffLink />\n\n```tsx filename=index.tsx lines=1\nexport const App = () => <div>{1}</div>\n```\n",
+      "exercises/01.basics/01.problem.start/README.mdx": "# Problem\n\n<InlineFile file=\"src/index.ts\" />\n",
+      "exercises/01.basics/FINISHED.mdx": "# Finished\n\n<PrevDiffLink>Back</PrevDiffLink>\n",
+    },
+  });
+  const docs = await lessonDocuments(root, "01", { sandboxOrigin: "http://127.0.0.1:4318" });
+  const by = Object.fromEntries(docs.map((d) => [d.title, d]));
+  assert.deepEqual(Object.keys(by), ["Course introduction", "Exercise introduction", "Problem lesson", "Exercise wrap-up"]);
+  assert.match(by["Exercise introduction"].html, /callout callout-danger[\s\S]*Do <strong>not<\/strong> skip/);
+  assert.match(by["Exercise introduction"].html, /href="#diff=step"[^>]*>See what changes/);
+  assert.match(by["Exercise introduction"].html, /href="#diff=next"/);
+  assert.match(by["Exercise introduction"].html, /<div class="code-title">index\.tsx<\/div><pre class="shiki/);
+  assert.doesNotMatch(by["Exercise introduction"].html, /import \{ Thing \}/);
+  assert.match(by["Problem lesson"].html, /href="#file=src%2Findex\.ts"/);
+  assert.match(by["Exercise wrap-up"].html, /href="#diff=prev"/);
+  assert.match(by["Course introduction"].html, /href="#diff=step"/, "inside a step, the course intro's diff link refers to that step");
+  // Markdown content (tutor, MCP) is unchanged.
+  assert.match(by["Problem lesson"].content, /\[src\/index\.ts\]\(#file=src%2Findex\.ts\)/);
+});

@@ -14,7 +14,7 @@ export function validatePreview(preview) {
     !Number.isInteger(preview.port) ||
     preview.port < 1024 ||
     preview.port > 65535 ||
-    [4317, 5173].includes(preview.port)
+    [4317, 5173, Number(process.env.WORKSHOP_SANDBOX_PORT ?? 4318)].includes(preview.port)
   )
     throw new Error("Invalid preview configuration");
   return { command: preview.command, port: preview.port };

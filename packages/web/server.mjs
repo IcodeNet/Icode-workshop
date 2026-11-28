@@ -1,4 +1,7 @@
-import { lessonText, lessonDocuments } from "./lessons.mjs";
+import { lessonDocuments } from "./lessons.mjs";
+import { handleContent } from "./content-routes.mjs";
+import { createSandboxServer } from "./sandbox.mjs";
+import { SANDBOX_PORT } from "./content-config.mjs";
 import { integrationStatus, readIntegration } from "./integrations.mjs";
 import { planMigration, migrateWorkspace } from "./migration.mjs";
 import { askTutor, tutorConfig } from "./tutor.mjs";
@@ -38,6 +41,7 @@ import { detectEditors, publicEditors, launchEditor } from "./editors.mjs";
 import { doctor } from "./setup.mjs";
 import { lstat } from "node:fs/promises";
 import { createServer } from "node:http";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import {
@@ -83,6 +87,20 @@ const root = resolve(
 const port = Number(process.env.WORKSHOP_API_PORT ?? 4317);
 const host = "127.0.0.1";
 const allowedOrigin = "http://127.0.0.1:5173";
+// Stage 3: course content (apps, browser tests, Mermaid, images) is served
+// from this separate, read-only origin, which the API refuses.
+const sandboxOrigin = "http://127.0.0.1:" + SANDBOX_PORT;
+let sandboxServer = null;
+// Per-process session token. Browser requests that mutate (they carry Origin
+// or Fetch Metadata) must echo it in x-icode-session; the UI fetches it from
+// /api/session, which only a same-origin page can read. Non-browser clients
+// (CLI, tests) send neither header and are unaffected.
+const sessionToken = randomBytes(32).toString("hex");
+function hasSessionToken(req) {
+  const given = Buffer.from(String(req.headers["x-icode-session"] ?? ""));
+  const expected = Buffer.from(sessionToken);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
 const json = (res, code, body) => {
   res.writeHead(code, {
     "content-type": "application/json; charset=utf-8",
@@ -107,12 +125,15 @@ async function load(id) {
   validateId(id);
   const base = join(root, "exercises", id);
   const config = await labConfig(root, id);
-  const instructions = await lessonText(root,id) || config.description;
-  const documents = await lessonDocuments(root,id);
+  const documents = await lessonDocuments(root, id, { sandboxOrigin });
+  const main = documents.find((d) => d.title === "Problem lesson") || documents[0];
+  const instructions = main?.content || config.description;
   return {
     id,
     ...config,
     instructions,
+    // Stage 3: sanitised, highlighted HTML of the main lesson.
+    lesson: main ? { path: main.path, html: main.html, toc: main.toc, warnings: main.warnings } : null,
     documents,
     topic: "AI engineering",
     problem: await readProjectFile(root, id, config.entry, "problem"),
@@ -194,6 +215,10 @@ function ndjson(res) {
   };
 }
 const server = createServer(async (req, res) => {
+  // The API is never a document or a frame.
+  res.setHeader("x-frame-options", "DENY");
+  res.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'; sandbox");
+  res.setHeader("x-content-type-options", "nosniff");
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(req.headers.host))
     return json(res, 403, { error: "Host denied" });
   if (req.headers.origin && req.headers.origin !== allowedOrigin)
@@ -204,11 +229,21 @@ const server = createServer(async (req, res) => {
   const site = req.headers["sec-fetch-site"];
   if (site && !["same-origin", "none"].includes(site))
     return json(res, 403, { error: "Cross-site request denied" });
+  const browser = req.headers.origin !== undefined || site !== undefined;
+  if (browser && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !hasSessionToken(req))
+    return json(res, 403, { error: "Missing or invalid workshop session" });
+  if (req.method === "GET" && req.url === "/api/session") {
+    // Only a same-origin script (the UI through its proxy) may read the token.
+    if (site !== "same-origin" || req.headers["sec-fetch-dest"] !== "empty")
+      return json(res, 403, { error: "Session token is only available to the workshop UI" });
+    res.setHeader("cache-control", "no-store");
+    return json(res, 200, { token: sessionToken });
+  }
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type",
+      "access-control-allow-headers": "content-type, x-icode-session",
     });
     return res.end();
   }
@@ -777,6 +812,7 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+    if (await handleContent({ req, res, url, root, json, readBody, sandboxOrigin })) return;
     return json(res, 404, { error: "Not found" });
   } catch (error) {
     if (res.headersSent) {
@@ -805,6 +841,10 @@ server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
   );
+  if (process.env.ICODE_SANDBOX !== "0") {
+    sandboxServer = createSandboxServer({ root, port: SANDBOX_PORT, uiOrigin: allowedOrigin });
+    sandboxServer.on("error", (error) => console.error("Sandbox origin not started: " + error.message));
+  }
   if (process.env.ICODE_UPDATE_CHECK !== "0")
     startupCheck = checkForUpdates(root).catch(() => {});
   if (process.env.ICODE_SIDECARS !== "0")
@@ -832,6 +872,7 @@ for (const signal of ["SIGTERM", "SIGINT", "SIGHUP", ...(process.platform === "w
       timeout,
     ]);
     server.close();
+    sandboxServer?.close();
     process.exit(0);
   });
 process.on("exit", () => {

@@ -11,6 +11,7 @@ import {
 import { validateMedia } from "./course.mjs";
 import { validatePreview } from "./previews.mjs";
 import { validateTools } from "./tools.mjs";
+import { validateApp, validateCloudEditor } from "./content-config.mjs";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createAdapterRegistry, loadAdapters } from "../adapter-api/index.mjs";
@@ -85,6 +86,11 @@ export async function labConfig(root, id) {
     media: validateMedia(config.media),
     tools: validateTools(config.tools),
     preview: validatePreview(config.preview),
+    // Stage 3 (optional): app served by the sandbox, in-browser tests,
+    // cloud-editor overrides, test tab.
+    app: validateApp(config.app),
+    cloudEditor: validateCloudEditor(config.cloudEditor),
+    testTab: config.testTab === undefined ? undefined : config.testTab === false ? false : (() => { throw new Error("testTab must be false or omitted"); })(),
     runtime: config.runtime,
     entry: config.entry || entry,
     title: config.title ?? "Exercise " + id,

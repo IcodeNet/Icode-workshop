@@ -28,7 +28,7 @@ async function fixture(t) {
 }
 test("course ordering is validated; progress persists across reads and concurrent changes", async (t) => {
   const root = await fixture(t);
-  assert.deepEqual((await courseConfig(root)).ids, ["01", "02", "03"]);
+  assert.deepEqual((await courseConfig(root)).ids, ["01", "02", "03", "04", "05"]);
   await Promise.all([
     updateProgress(root, "01", true),
     updateProgress(root, "02", true),

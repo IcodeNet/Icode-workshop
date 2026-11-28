@@ -17,7 +17,7 @@ export function validateTools(tools = []) {
       !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
       url.username ||
       url.password ||
-      ["4317", "5173"].includes(url.port)
+      ["4317", "5173", String(process.env.WORKSHOP_SANDBOX_PORT ?? 4318)].includes(url.port)
     )
       throw new Error("Tools require a separate loopback HTTP service");
     if (!["embed", "external"].includes(tool.mode))

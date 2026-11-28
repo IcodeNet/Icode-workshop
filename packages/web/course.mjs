@@ -85,7 +85,9 @@ export async function courseConfig(root) {
   }
   if (seen.size !== ids.length)
     throw new Error("Every exercise must belong to a course module");
-  const { actions, indicators, sidecars, hooks, savedPlaygrounds, diff, backups, buildOutput, ...rest } = course;
+  // Operations (Stage 1/2) and content settings (Stage 3, served validated by
+  // /api/content/*) are not part of the course outline.
+  const { actions, indicators, sidecars, hooks, savedPlaygrounds, diff, backups, buildOutput, pages, notifications, notificationsFeed, forms, support, community, repository, instructor, product, appType, ...rest } = course;
   return { ...rest, ids: [...seen] };
 }
 export function validateMedia(media) {
