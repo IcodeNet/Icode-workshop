@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { DEFAULT_UI, EDITOR_FONTS, MOTION, THEMES, UI_SCALES, safePreferences, validatePreferences } from "./ux/preferences.js";
 import { COMMANDS, checkBinding, createMatcher, eventToBinding, normalizeBinding, resolveBindings } from "./ux/shortcuts.js";
 import { Keys } from "./palette.jsx";
+import { Select } from "./controls.jsx";
 
 const STORAGE_KEY = "icode:preferences";
 async function request(path, options) {
@@ -206,41 +207,86 @@ function readScroll() {
     return {};
   }
 }
+/**
+ * Each pane scrolls on its own, so positions are kept per view and per pane:
+ * elements marked data-scroll-pane="<name>", plus the page itself, which
+ * scrolls only in the narrow one-column layout. The course sidebar keeps its
+ * position across views and is not a restored pane.
+ */
+const scrollTargets = () => [["page", window], ...[...document.querySelectorAll("[data-scroll-pane]")].map((el) => [el.dataset.scrollPane, el])];
+const scrollOf = (target) => (target === window ? window.scrollY : target.scrollTop);
+const scrollSet = (target, y) => (target === window ? window.scrollTo(0, y) : void (target.scrollTop = y));
 export function useScrollRestore(key, enabled) {
-  const current = useRef(null);
   useEffect(() => {
     if (!key) return;
     // A new view starts at the top unless a position is restored.
-    if (!enabled) return void window.scrollTo(0, 0);
-    current.current = key;
+    if (!enabled) {
+      for (const [, target] of scrollTargets()) scrollSet(target, 0);
+      return;
+    }
     const positions = readScroll();
-    const y = Number(positions[key]);
-    // A heading fragment or deep link wins over the stored position.
-    if (Number.isFinite(y) && y > 0 && !location.hash) {
-      let frames = 0;
-      const restore = () => {
-        window.scrollTo(0, y);
-        if (Math.abs(window.scrollY - y) > 2 && frames++ < 20) requestAnimationFrame(restore);
-      };
-      requestAnimationFrame(restore);
-    } else window.scrollTo(0, 0);
+    const wanted = (name) => {
+      const y = Number(positions[key + "#" + name]);
+      // A heading fragment or deep link wins over the stored position.
+      return Number.isFinite(y) && y > 0 && !location.hash ? y : 0;
+    };
+    // Content can arrive a little after the view changes: keep trying for a
+    // short while, and stop as soon as the learner scrolls by hand.
+    const started = performance.now();
+    let byHand = false;
+    const hand = () => (byHand = true);
+    for (const type of ["wheel", "touchmove", "keydown", "pointerdown"]) window.addEventListener(type, hand, { passive: true, capture: true });
+    let frame;
+    let restoring = true;
+    let heldSince = null;
+    const restore = () => {
+      let waiting = false;
+      let stored = false;
+      for (const [name, target] of scrollTargets()) {
+        const y = wanted(name);
+        if (y > 0) stored = true;
+        if (Math.abs(scrollOf(target) - y) <= 2) continue;
+        scrollSet(target, y);
+        // Content that is still loading cannot scroll that far yet.
+        if (Math.abs(scrollOf(target) - y) > 2) waiting = true;
+      }
+      // A restored position is held briefly, while late content settles.
+      const now = performance.now();
+      heldSince = waiting ? null : (heldSince ?? now);
+      const settling = stored && now - heldSince < 600;
+      if ((waiting || settling) && !byHand && now - started < 5000) frame = requestAnimationFrame(restore);
+      else restoring = false;
+    };
+    frame = requestAnimationFrame(restore);
     let timer;
-    const save = () => {
+    const pending = new Map();
+    const save = (event) => {
+      // Scrolling done by the restore itself is not a position to keep.
+      if (restoring && !byHand) return;
+      const name = event.target === document ? "page" : event.target?.dataset?.scrollPane;
+      if (!name) return;
+      pending.set(name, Math.round(event.target === document ? window.scrollY : event.target.scrollTop));
       clearTimeout(timer);
       timer = setTimeout(() => {
         const all = readScroll();
-        delete all[key];
-        all[key] = Math.round(window.scrollY);
+        for (const [pane, y] of pending) {
+          delete all[key + "#" + pane];
+          all[key + "#" + pane] = y;
+        }
+        pending.clear();
         const keys = Object.keys(all);
-        for (const old of keys.slice(0, Math.max(0, keys.length - 200))) delete all[old];
+        for (const old of keys.slice(0, Math.max(0, keys.length - 400))) delete all[old];
         try {
           sessionStorage.setItem(SCROLL_KEY, JSON.stringify(all));
         } catch {}
       }, 120);
     };
-    window.addEventListener("scroll", save, { passive: true });
+    // Scroll events do not bubble: capture them from every pane.
+    document.addEventListener("scroll", save, { passive: true, capture: true });
     return () => {
-      window.removeEventListener("scroll", save);
+      document.removeEventListener("scroll", save, { capture: true });
+      for (const type of ["wheel", "touchmove", "keydown", "pointerdown"]) window.removeEventListener(type, hand, { capture: true });
+      cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
   }, [key, enabled]);
@@ -291,11 +337,18 @@ export function useConnection() {
   return { state, nextCheck, retry: check };
 }
 const CONNECTION_TEXT = { online: "Connected", offline: "Offline (browser); workshop server reachable", down: "Workshop server not reachable", checking: "Checking connection" };
-export function ConnectionStatus({ state }) {
+/**
+ * A compact dot while connected, with the status as its tooltip; the status is
+ * written out beside the dot whenever something is wrong. The dot is a button:
+ * it checks the connection now.
+ */
+export function ConnectionStatus({ state, onRetry }) {
   return (
     <span className="connection-status" data-state={state} aria-live="polite">
-      <span className="dot" aria-hidden="true" />
-      {CONNECTION_TEXT[state]}
+      <button type="button" className="status-button tip-host" data-align="end" onClick={onRetry}>
+        <span className="dot" aria-hidden="true" />
+        <span className={state === "online" ? "tooltip tooltip-read" : "status-text"}>{CONNECTION_TEXT[state]}</span>
+      </button>
     </span>
   );
 }
@@ -513,33 +566,33 @@ export function PreferencesPage({ prefs, resolvedTheme, onClose }) {
         <legend>Text and editor</legend>
         <label>
           Interface size
-          <select aria-label="Interface size" value={ui.uiScale} onChange={(e) => update({ uiScale: Number(e.target.value) })}>
+          <Select aria-label="Interface size" value={ui.uiScale} onChange={(e) => update({ uiScale: Number(e.target.value) })}>
             {UI_SCALES.map((s) => (
               <option key={s} value={s}>
                 {s}%
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
           Editor font
-          <select aria-label="Editor font" value={ui.editorFont} onChange={(e) => update({ editorFont: e.target.value })}>
+          <Select aria-label="Editor font" value={ui.editorFont} onChange={(e) => update({ editorFont: e.target.value })}>
             {EDITOR_FONTS.map((f) => (
               <option key={f} value={f}>
                 {{ "system-mono": "System monospace", menlo: "Menlo / Monaco", consolas: "Consolas / Cascadia", courier: "Courier New", ui: "Interface font" }[f]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
           Editor font size
-          <select aria-label="Editor font size" value={ui.editorFontSize} onChange={(e) => update({ editorFontSize: Number(e.target.value) })}>
+          <Select aria-label="Editor font size" value={ui.editorFontSize} onChange={(e) => update({ editorFontSize: Number(e.target.value) })}>
             {Array.from({ length: 14 }, (_, i) => i + 11).map((n) => (
               <option key={n} value={n}>
                 {n} px
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </fieldset>
       <fieldset>

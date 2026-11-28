@@ -461,25 +461,50 @@ test("warning banner when course exercise files change; dismiss and don't-warn-a
   }
 });
 
-test("scroll restoration returns to the previous position in a lesson, and can be turned off", async ({ page }) => {
+test("scroll restoration returns each pane to its position in a lesson, and can be turned off", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 600 });
   await page.goto("/");
-  await openStep(page, /04 A counter/);
-  const max = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
-  expect(max).toBeGreaterThan(400);
-  await page.evaluate(() => window.scrollTo(0, 400));
+  await openStep(page, /40 Pane layout/);
+  const lesson = page.locator('[data-scroll-pane="lesson"]');
+  const workbench = page.locator('[data-scroll-pane="workbench"]');
+  const top = (pane) => pane.evaluate((n) => Math.round(n.scrollTop));
+  expect(await lesson.evaluate((n) => n.scrollHeight - n.clientHeight)).toBeGreaterThan(400);
+  expect(await workbench.evaluate((n) => n.scrollHeight - n.clientHeight)).toBeGreaterThan(150);
+  await lesson.evaluate((n) => n.scrollTo(0, 400));
+  await workbench.evaluate((n) => n.scrollTo(0, 150));
   await page.waitForTimeout(300);
-  // Navigate with the palette: clicking the sidebar would scroll first.
+  // The page itself has nothing to scroll.
+  expect(await page.evaluate(() => [scrollY, document.documentElement.scrollHeight <= innerHeight])).toEqual([0, true]);
   await runFromPalette(page, "#01", "01 Approved");
   await expect(page.locator(".heading h1", { hasText: "Approved documents only" })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(5);
-  await runFromPalette(page, "#04", "04 A counter");
-  await expect(page.locator(".heading h1", { hasText: /counter/i })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBeGreaterThan(390);
+  await expect.poll(() => top(lesson)).toBeLessThan(5);
+  await expect.poll(() => top(workbench)).toBeLessThan(5);
+  await runFromPalette(page, "#40", "40 Pane layout");
+  await expect(page.locator(".heading h1", { hasText: "Pane layout" })).toBeVisible();
+  await expect.poll(() => top(lesson)).toBeGreaterThan(390);
+  await expect.poll(() => top(workbench)).toBeGreaterThan(140);
   await page.getByRole("button", { name: "Preferences", exact: true }).click();
   await page.getByLabel("Restore scroll positions when returning to a lesson").uncheck();
   await page.getByRole("button", { name: "Back to the lesson" }).click();
-  await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBeLessThan(50);
+  await expect.poll(() => top(lesson)).toBeLessThan(50);
+  await expect.poll(() => top(workbench)).toBeLessThan(50);
+});
+
+test("scroll restoration follows the page in the narrow one-column layout", async ({ page }) => {
+  await page.setViewportSize({ width: 640, height: 700 });
+  await page.goto("/");
+  await putPreferences(page, { restoreScroll: true });
+  await page.reload();
+  await openStep(page, /40 Pane layout/);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeGreaterThan(900);
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(300);
+  await runFromPalette(page, "#01", "01 Approved");
+  await expect(page.locator(".heading h1", { hasText: "Approved documents only" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(5);
+  await runFromPalette(page, "#40", "40 Pane layout");
+  await expect(page.locator(".heading h1", { hasText: "Pane layout" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBeGreaterThan(890);
 });
 
 test("OG image works offline and robots.txt disallows indexing", async ({ page, request }) => {

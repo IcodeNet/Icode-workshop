@@ -1,8 +1,9 @@
 // UI: lesson HTML (sanitised on the server), copy buttons, table of
 // contents, sandboxed Mermaid, the in-workshop browser, in-browser tests,
 // course pages, notifications and cloud-editor links.
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useId, useRef, useState, useCallback } from "react";
 import { mountQuestions } from "./questions.jsx";
+import { ExternalLink, Icon } from "./controls.jsx";
 
 const json = async (path, options) => {
   const response = await fetch("/api" + path, { ...options, headers: { "content-type": "application/json", ...options?.headers } });
@@ -126,6 +127,128 @@ function addCopyButtons(container) {
   }
 }
 
+/** The element that scrolls `node`: its pane, or the page in the one-column layout. */
+function scrollerOf(node) {
+  for (let el = node?.parentElement; el; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && el.hasAttribute("data-scroll-pane")) return el;
+  }
+  return null;
+}
+/**
+ * Scroll a lesson heading to the top of its pane, below the sticky table of
+ * contents, and move focus to it. Only the pane that holds the heading moves.
+ */
+export function goToHeading(target) {
+  if (!target) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches || target.closest(".app")?.classList.contains("motion-reduce");
+  const behavior = reduce ? "auto" : "smooth";
+  const scroller = scrollerOf(target);
+  const bar = (scroller || document).querySelector(".lesson-toc");
+  const offset = (bar && getComputedStyle(bar).position === "sticky" ? bar.getBoundingClientRect().height : 0) + 12;
+  if (scroller) scroller.scrollTo({ top: scroller.scrollTop + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - offset, behavior });
+  else window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - offset, behavior });
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus({ preventScroll: true });
+}
+
+/**
+ * "On this page": a compact bar that stays at the top of the lesson pane and
+ * marks the section being read (aria-current). On a narrow pane it collapses
+ * to one button that names the current section and opens the list.
+ */
+function LessonToc({ toc, label, content, html }) {
+  const listId = useId();
+  const nav = useRef(null);
+  const [current, setCurrent] = useState(toc[0]?.id);
+  const [open, setOpen] = useState(false);
+  const pinned = useRef(null);
+  useEffect(() => {
+    const node = content.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const headings = toc.map((item) => document.getElementById(item.id)).filter((h) => h && node.contains(h));
+    if (!headings.length) return;
+    const root = scrollerOf(node);
+    // A section is being read once its heading is in the top third of the pane.
+    const update = () => {
+      const box = root ? root.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+      const atEnd = root ? root.scrollTop + root.clientHeight >= root.scrollHeight - 2 : window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+      const line = box.top + box.height / 3;
+      let active = headings[0];
+      for (const heading of headings) if (heading.getBoundingClientRect().top <= line) active = heading;
+      // The last sections may be too short to reach the top of the pane.
+      const below = headings.filter((h) => h.getBoundingClientRect().top > line && h.getBoundingClientRect().bottom <= box.top + box.height);
+      if (atEnd && below.length && (root ? root.scrollTop : window.scrollY) > 0) active = below.at(-1);
+      // A section chosen from the list stays marked while its heading is in view.
+      const chosen = pinned.current && headings.find((h) => h.id === pinned.current);
+      if (chosen) {
+        const r = chosen.getBoundingClientRect();
+        if (r.top >= box.top - 1 && r.bottom <= box.top + box.height + 1) active = chosen;
+      }
+      setCurrent(active.id);
+    };
+    // Scrolling by hand takes over from the chosen section.
+    const release = () => (pinned.current = null);
+    const target = root || window;
+    for (const type of ["wheel", "touchmove", "keydown"]) target.addEventListener(type, release, { passive: true });
+    const observer = new IntersectionObserver(update, { root, rootMargin: "0px 0px -66% 0px", threshold: [0, 1] });
+    for (const heading of headings) observer.observe(heading);
+    // The end of the lesson, for the short sections above it.
+    const end = new IntersectionObserver(update, { root, threshold: [0, 1] });
+    if (node.lastElementChild) end.observe(node.lastElementChild);
+    update();
+    return () => {
+      observer.disconnect();
+      end.disconnect();
+      for (const type of ["wheel", "touchmove", "keydown"]) target.removeEventListener(type, release);
+    };
+  }, [html, toc]);
+  useEffect(() => {
+    // Keep the current section's link in view inside the bar.
+    const link = nav.current?.querySelector('[aria-current="location"]');
+    const list = link?.closest("ul");
+    if (link && list && list.scrollWidth > list.clientWidth) list.scrollTo({ left: link.offsetLeft - list.clientWidth / 2 + link.offsetWidth / 2 });
+  }, [current]);
+  const currentText = toc.find((item) => item.id === current)?.text || "";
+  return (
+    <nav
+      ref={nav}
+      className={"lesson-toc" + (open ? " open" : "")}
+      aria-label={label ? "On this page: " + label : "On this page"}
+      onClick={(event) => {
+        const link = event.target.closest("a");
+        if (!link) return;
+        pinned.current = link.getAttribute("href").slice(1);
+        setCurrent(pinned.current);
+        setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.stopPropagation();
+          setOpen(false);
+          nav.current?.querySelector(".toc-toggle")?.focus();
+        }
+      }}
+    >
+      <button type="button" className="toc-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((value) => !value)}>
+        <Icon name="sections" />
+        <span className="toc-title">On this page</span>
+        <span className="toc-current">{currentText}</span>
+        <Icon name="expand" />
+      </button>
+      <ul id={listId}>
+        {toc.map((item) => (
+          <li key={item.id} className={"toc-" + item.depth}>
+            <a href={"#" + item.id} aria-current={item.id === current ? "location" : undefined}>
+              {item.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 /** Sanitised lesson HTML from the API, with TOC, copy buttons and diagrams. */
 export function LessonHtml({ html, toc = [], sandboxOrigin, label, showToc = true, stepId = null }) {
   const ref = useRef(null);
@@ -143,18 +266,7 @@ export function LessonHtml({ html, toc = [], sandboxOrigin, label, showToc = tru
   }, [html, sandboxOrigin, stepId]);
   return (
     <>
-      {showToc && toc.length > 1 && (
-        <nav className="lesson-toc" aria-label={label ? "On this page: " + label : "On this page"}>
-          <strong>On this page</strong>
-          <ul>
-            {toc.map((item) => (
-              <li key={item.id} className={"toc-" + item.depth}>
-                <a href={"#" + item.id}>{item.text}</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
+      {showToc && toc.length > 1 && <LessonToc toc={toc} label={label} content={ref} html={html} />}
       {/* Server-rendered with an allowlist sanitiser and URL policy (markdown.mjs). */}
       <div ref={ref} className="lesson-html" dangerouslySetInnerHTML={{ __html: html }} />
     </>
@@ -168,8 +280,7 @@ export function handleContentLink(event, handlers) {
   if (!href) return false;
   if (href.startsWith("#h-")) {
     event.preventDefault();
-    const target = document.getElementById(href.slice(1));
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    goToHeading(document.getElementById(href.slice(1)));
     return true;
   }
   if (href.startsWith("#app=")) {
@@ -266,7 +377,7 @@ export function AppBrowser({ base, initialRoute = "/", kind = "sandbox", sandbox
         <span className="browser-origin">{baseUrl.host}</span>
         <input aria-label="App address" value={address} spellCheck={false} onChange={(e) => setAddress(e.target.value)} />
         <button type="submit">Go</button>
-        <a href={external} target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        <ExternalLink href={external} hint={false}>Open in new tab</ExternalLink>
       </form>
       {error && <p role="alert">{error}</p>}
       <iframe
@@ -380,9 +491,9 @@ export function CloudLinks({ cloud }) {
         cloud[variant] ? (
           <p key={variant}>
             <strong>{variant}</strong>{" "}
-            <a href={cloud[variant].stackblitz} target="_blank" rel="noopener noreferrer">StackBlitz</a> ·{" "}
-            <a href={cloud[variant].codesandbox} target="_blank" rel="noopener noreferrer">CodeSandbox</a> ·{" "}
-            <a href={cloud[variant].github} target="_blank" rel="noopener noreferrer">GitHub</a>
+            <ExternalLink href={cloud[variant].stackblitz}>StackBlitz</ExternalLink> ·{" "}
+            <ExternalLink href={cloud[variant].codesandbox}>CodeSandbox</ExternalLink> ·{" "}
+            <ExternalLink href={cloud[variant].github}>GitHub</ExternalLink>
           </p>
         ) : null,
       )}
@@ -406,7 +517,7 @@ export function Notifications({ sandboxOrigin }) {
             <strong>{n.title}</strong>
             <LessonHtml html={n.html} sandboxOrigin={sandboxOrigin} showToc={false} />
             {n.link && (
-              <a href={n.link} target="_blank" rel="noopener noreferrer nofollow">Learn more</a>
+              <ExternalLink href={n.link} rel="noopener noreferrer nofollow">Learn more</ExternalLink>
             )}
           </div>
           <button
@@ -454,14 +565,14 @@ export function CoursePage({ name, stepId, config, course, ids, completed, catal
               {config.instructor.avatar && <img src={config.instructor.avatar} alt="" />}
               With{" "}
               {config.instructor.url ? (
-                <a href={config.instructor.url} target="_blank" rel="noopener noreferrer">{config.instructor.name}</a>
+                <ExternalLink href={config.instructor.url}>{config.instructor.name}</ExternalLink>
               ) : (
                 config.instructor.name
               )}
               {config.product && (
                 <>
                   {" · "}
-                  {config.product.url ? <a href={config.product.url} target="_blank" rel="noopener noreferrer">{config.product.name}</a> : config.product.name}
+                  {config.product.url ? <ExternalLink href={config.product.url}>{config.product.name}</ExternalLink> : config.product.name}
                 </>
               )}
             </p>
@@ -506,7 +617,7 @@ export function CoursePage({ name, stepId, config, course, ids, completed, catal
           </p>
           {page.form && (
             <p>
-              <a href={page.form} target="_blank" rel="noopener noreferrer">Give feedback on this workshop</a>
+              <ExternalLink href={page.form}>Give feedback on this workshop</ExternalLink>
             </p>
           )}
           {next && (
@@ -528,7 +639,7 @@ export function ExerciseComplete({ app, ids, selected, onChoose }) {
       <h3>Last step of “{app.exercise.title}”</h3>
       <p>When the tests pass, mark the step complete and move on.</p>
       {app.exerciseForm && (
-        <a href={app.exerciseForm} target="_blank" rel="noopener noreferrer">Give feedback on this exercise</a>
+        <ExternalLink href={app.exerciseForm}>Give feedback on this exercise</ExternalLink>
       )}{" "}
       {nextId && <button onClick={() => onChoose(nextId)}>Next exercise →</button>}
     </section>

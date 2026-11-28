@@ -26,7 +26,7 @@ select:focus-visible,
 summary:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid var(--focus, #2563eb);
+  outline: 2px solid var(--focus, #2563eb);
   outline-offset: 2px;
 }
 .topbar {
@@ -474,8 +474,8 @@ textarea {
 .app summary:focus-visible,
 .app textarea:focus-visible,
 .app [tabindex]:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline: var(--ring);
+  outline-offset: var(--ring-offset);
 }
 .app .primary:hover {
   background: var(--accent-ink);
@@ -536,14 +536,6 @@ textarea {
   flex-wrap: wrap;
   border-bottom: 1px solid var(--line);
 }
-.file-tools select {
-  background: var(--panel-2);
-  color: var(--control-ink);
-  border: 1px solid var(--control-border);
-  padding: 8px;
-  margin-left: 8px;
-  max-width: 350px;
-}
 .file-tools button {
   padding: 7px 12px;
 }
@@ -559,11 +551,6 @@ textarea {
 }
 .tools-panel a {
   color: var(--link);
-}
-.tools-panel select {
-  padding: 8px;
-  background: var(--panel-2);
-  color: var(--ink);
 }
 /* Persistent lesson and working area: instruction remains visible while coding. */
 .app .content {
@@ -668,9 +655,6 @@ textarea {
 .file-tools label {
   font-size: 12px;
 }
-.file-tools select {
-  max-width: 200px;
-}
 .app .code,
 .app textarea {
   font-size: var(--editor-size, 12px);
@@ -706,9 +690,6 @@ textarea {
   }
   .lesson-panel {
     padding: 16px;
-  }
-  .file-tools select {
-    max-width: 160px;
   }
 }
 .tools-panel button {
@@ -1149,8 +1130,11 @@ textarea {
 .lesson-html table { border-collapse: collapse; margin: 12px 0; }
 .lesson-html th, .lesson-html td { border: 1px solid var(--line); padding: 4px 10px; }
 .lesson-html kbd { border: 1px solid var(--control-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
-.lesson-html .heading-anchor { margin-left: 8px; opacity: 0; text-decoration: none; font-size: 0.8em; }
-.lesson-html :is(h1, h2, h3, h4):hover .heading-anchor, .lesson-html .heading-anchor:focus { opacity: 0.7; }
+/* The section link sits beside its heading, in the gutter: the heading's
+   accessible name is its own text. */
+.lesson-html .heading-row { position: relative; }
+.lesson-html .heading-anchor { position: absolute; right: 100%; top: 0; width: 20px; text-align: center; opacity: 0; text-decoration: none; font-size: 14px; line-height: 1.6; }
+.lesson-html .heading-row:hover .heading-anchor, .lesson-html .heading-anchor:focus { opacity: 0.8; }
 .lesson-html [data-blocked-url] { text-decoration: line-through dotted; cursor: not-allowed; color: var(--soft); }
 .lesson-html .diff-link-inactive { border-bottom: 1px dotted var(--soft); cursor: help; }
 .lesson-html .video-card a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; }
@@ -1179,9 +1163,6 @@ textarea {
 .mermaid-diagram { margin: 14px 0; }
 .mermaid-frame { width: 100%; height: 160px; border: 0; background: transparent; display: block; }
 .mermaid-rendered .mermaid-source { display: none; }
-.lesson-toc { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; margin: 0 0 16px; font-size: 13px; }
-.lesson-toc ul { margin: 4px 0 0; padding-left: 18px; }
-.lesson-toc .toc-3 { margin-left: 14px; }
 
 /* ---------- course pages, notifications ---------- */
 .course-pages { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
@@ -1380,8 +1361,8 @@ textarea {
 
 /* ---------- palette, dialogs, preferences, status ---------- */
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.top-actions .commands-button, .top-actions .theme-button { font-size: 12px; padding: 7px 10px; }
-.commands-button kbd, .shortcut-keys kbd, .palette-option kbd, .prefs kbd {
+.top-actions .theme-button { font-size: 12px; padding: 7px 10px; }
+.shortcut-keys kbd, .palette-option kbd, .prefs kbd, .tooltip kbd {
   font: 11px ui-monospace, Menlo, monospace;
   border: 1px solid var(--control-border);
   border-bottom-width: 2px;
@@ -1431,16 +1412,12 @@ textarea {
 .prefs fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; }
 .prefs legend { font-weight: 700; padding: 0 6px; color: var(--ink); }
 .prefs label { display: inline-flex; gap: 6px; align-items: center; margin: 4px 16px 4px 0; font-size: 13px; color: var(--soft); }
-.prefs select, .prefs input[type="text"] { background: var(--panel-2); color: var(--control-ink); border: 1px solid var(--control-border); border-radius: 6px; padding: 6px; font: inherit; font-size: 13px; }
+.prefs input[type="text"] { background: var(--panel-2); color: var(--control-ink); border: 1px solid var(--control-border); border-radius: 6px; padding: 6px; font: inherit; font-size: 13px; }
 .prefs .pref-status { font-size: 12px; color: var(--soft); }
 .prefs table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .prefs th, .prefs td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .prefs td .error, .prefs .error { color: var(--danger-ink); font-size: 12px; }
 .prefs .recording { outline: 2px dashed var(--accent); }
-.connection-status { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; color: var(--soft); }
-.connection-status .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); flex: none; }
-.connection-status[data-state="offline"] .dot, .connection-status[data-state="down"] .dot { background: var(--danger); }
-.connection-status[data-state="checking"] .dot { background: var(--warning); }
 .connection-banner, .warning-banner { border: 1px solid var(--danger); background: var(--danger-tint); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; font-size: 13px; }
 .warning-banner { border-color: var(--warning); background: var(--warning-tint); }
 .warning-banner ul { margin: 6px 0; padding-left: 20px; font: 12px ui-monospace, Menlo, monospace; }
@@ -1507,7 +1484,7 @@ textarea {
   background: var(--cq-bg);
   color: var(--cq-ink);
 }
-.check-question:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .check-question .cq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; letter-spacing: 0.04em; }
 .check-question .cq-label { text-transform: uppercase; font-weight: 700; color: var(--cq-accent); }
 .check-question .cq-source { border: 1px solid var(--cq-line); border-radius: 999px; padding: 1px 8px; color: var(--cq-soft); }
@@ -1521,7 +1498,7 @@ textarea {
 .check-question .cq-choices { display: grid; gap: 8px; margin: 8px 0 12px; }
 .check-question .cq-choice { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border: 1px solid var(--cq-line); border-radius: 6px; cursor: pointer; color: var(--cq-ink); line-height: 1.5; }
 .check-question .cq-choice input { margin-top: 5px; accent-color: var(--cq-accent); width: 16px; height: 16px; flex: none; }
-.check-question .cq-choice:focus-within { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-choice:focus-within { outline: var(--ring); outline-offset: var(--ring-offset); }
 .check-question .cq-choice.cq-selected { border-color: var(--cq-accent); }
 .check-question .cq-choice.cq-correct { border-color: var(--cq-ok); background: var(--cq-ok-bg); }
 .check-question .cq-choice.cq-incorrect { border-color: var(--cq-bad); background: var(--cq-bad-bg); }
@@ -1534,17 +1511,17 @@ textarea {
 .check-question button { border: 1px solid var(--cq-line); background: transparent; color: var(--cq-ink); padding: 6px 14px; border-radius: 6px; }
 .check-question button.cq-primary { background: var(--cq-button-bg); color: var(--cq-button-ink); border-color: var(--cq-button-bg); font-weight: 600; }
 .check-question button:disabled { opacity: 0.6; cursor: not-allowed; }
-.check-question button:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question button:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .check-question button[aria-pressed="true"] { border-color: var(--cq-accent); box-shadow: inset 0 0 0 1px var(--cq-accent); font-weight: 700; }
 .check-question .cq-hint { font-size: 13px; color: var(--cq-soft); }
 .check-question .cq-attempt-label { display: block; font-weight: 600; color: var(--cq-ink); margin-top: 6px; }
 .check-question .cq-attempt { width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--cq-line); border-radius: 6px; background: transparent; color: var(--cq-ink); font: inherit; resize: vertical; }
-.check-question .cq-attempt:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-attempt:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .check-question .cq-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .check-question .cq-error { color: var(--cq-bad); font-size: 14px; }
 .check-question .cq-feedback { border-top: 1px solid var(--cq-line); margin-top: 8px; padding-top: 8px; color: var(--cq-ink); }
 .check-question .cq-feedback:focus { outline: none; }
-.check-question .cq-feedback:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-feedback:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .check-question .cq-verdict { font-weight: 700; margin: 4px 0; }
 .check-question .cq-feedback-correct .cq-verdict { color: var(--cq-ok); }
 .check-question .cq-feedback-incorrect .cq-verdict { color: var(--cq-bad); }
@@ -1557,9 +1534,336 @@ textarea {
 .cq-summary-review { color: var(--cq-accent); }
 .review-list ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
 .review-list button { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 1px solid var(--line); background: transparent; color: inherit; padding: 8px 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
-.review-list button:focus-visible { outline: 3px solid var(--slate); outline-offset: 2px; }
+.review-list button:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .review-list .number { font-weight: 700; }
 .check-question :not(pre) > code { color: var(--cq-ink); background: var(--cq-code-bg, rgba(148, 163, 184, 0.18)); }
 .app.theme-light .check-question { --cq-code-bg: #e2e8f0; }
 .app.theme-hc .check-question { --cq-code-bg: #000000; }
 .app.theme-hc .check-question :not(pre) > code { outline: 1px solid #ffffff; }
+
+/* ---------- Learner layout: fixed header, independently scrolling panes ----------
+   The app fills the viewport and the page itself does not scroll. The header
+   (top bar, activity, banners) keeps its place; the sidebar, the lesson and
+   the workbench each scroll on their own beneath it, whatever the header's
+   height. The editor and the output scroll inside the workbench. */
+html, body { height: 100%; }
+.app {
+  --control-h: 32px;
+  /* Lengths inside a zoomed element scale with it: divide to fill the viewport exactly. */
+  height: calc(100vh / var(--ui-zoom, 1));
+  height: calc(100dvh / var(--ui-zoom, 1));
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overflow: clip;
+}
+/* Panes are the containing block of what they scroll, so hidden helper text
+   and other positioned content inside them moves with them. */
+.app, .app .sidebar, .app .content, .lesson-panel, .workspace-column, .header-banners { position: relative; }
+.app-header { flex: none; position: relative; z-index: 5; }
+.app .topbar { height: 56px; padding: 0 20px; }
+.app .hippo-logo { width: 40px; height: 40px; }
+.app .brand strong { font-size: 18px; }
+.app .activity-bar { min-height: 32px; padding: 4px 20px; }
+.header-banners {
+  display: grid;
+  gap: 6px;
+  padding: 8px 20px;
+  max-height: 34vh;
+  overflow-y: auto;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.header-banners:empty { display: none; }
+.header-banners > *, .header-banners .indicator-banners, .header-banners .notifications { margin: 0; }
+.header-banners :is(.connection-banner, .warning-banner) p { margin: 4px 0; }
+/* Compact rows: a notice says what it must in as little height as it can. */
+.header-banners { font-size: 13px; line-height: 1.4; }
+.header-banners :is(.indicator, .notification, .connection-banner, .warning-banner) { padding: 6px 12px; }
+.header-banners .notification { align-items: center; }
+.header-banners .notification > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.app .shell { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.app .sidebar { min-height: 0; overflow-y: auto; padding: 20px 16px; overscroll-behavior: contain; }
+.app .content { min-height: 0; min-width: 0; overflow-y: auto; padding: 16px 20px; overscroll-behavior: contain; }
+.app .content.lesson-view { display: flex; flex-direction: column; overflow: hidden; overflow: clip; }
+.app .step-heading { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 12px; }
+.app .step-heading h1 { font-size: 20px; letter-spacing: -0.01em; margin: 0; }
+.app .step-heading p { flex: 1 1 100%; max-width: none; margin: 0; font-size: 13px; line-height: 1.45; }
+.lesson-view .learning-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: minmax(300px, 1fr) minmax(0, 1.4fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.lesson-view .lesson-panel, .lesson-view .workspace-column { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.lesson-panel, .workspace-column { min-width: 0; }
+.lesson-view .lesson-panel { --lesson-pad: 18px; padding: var(--lesson-pad) 24px; }
+/* Space for the focus ring of controls at the pane's edge. */
+.lesson-view .workspace-column { padding: 0 4px 4px 0; }
+.app .workbench-head { padding: 12px 16px; gap: 8px 16px; }
+.app .workbench-head > div:first-child { flex: 1 1 220px; min-width: 0; }
+.app .workbench-head .top-actions { flex: none; gap: 8px; }
+.app .workbench-head h2 { font-size: 18px; }
+/* The editor and the output scroll inside the workbench pane. */
+.app .workbench textarea { height: clamp(220px, 46vh, 640px); min-height: 160px; }
+.app .workbench .code { max-height: clamp(220px, 46vh, 640px); min-height: 160px; }
+.app .workbench .diff-view { max-height: clamp(260px, 60vh, 640px); }
+.app .output-panel { margin-top: 12px; }
+.app .output-panel .notice { max-height: clamp(160px, 32vh, 360px); }
+.app .workspace-column .hint { margin-top: 12px; }
+/* Wide lesson content scrolls inside its own block, never the pane. */
+.lesson-html { overflow-wrap: break-word; }
+.lesson-html table { display: block; max-width: 100%; overflow-x: auto; }
+@media (max-width: 1150px) {
+  /* One column of lesson then workbench: the content area is the pane. */
+  .app .content.lesson-view { display: block; overflow-y: auto; }
+  .lesson-view .learning-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .lesson-view .lesson-panel, .lesson-view .workspace-column { overflow: visible; }
+  /* The bar sticks to the top of whatever scrolls the lesson. */
+  .lesson-view .lesson-panel > .lesson-toc { top: -16px; margin: 0 0 16px; border-width: 1px; border-radius: 8px; }
+}
+@media (max-width: 700px), (max-height: 480px) {
+  /* Small screens and high zoom: one page that scrolls as a whole, so a
+     fixed header never takes the space the content needs. */
+  html, body { height: auto; }
+  .app { height: auto; min-height: 100vh; display: block; overflow: visible; }
+  .app .topbar { height: auto; min-height: 56px; }
+  .header-banners { max-height: none; overflow: visible; }
+  .app .shell { grid-template-rows: none; }
+  .app .sidebar, .app .content, .app .content.lesson-view { overflow: visible; }
+  .app .content.lesson-view { display: block; }
+  .lesson-view .learning-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .lesson-view .lesson-panel, .lesson-view .workspace-column { overflow: visible; }
+  .lesson-view .lesson-panel > .lesson-toc { top: 0; }
+}
+
+/* ---------- One select component (controls.jsx) ----------
+   The same height as the buttons beside it, text and arrow inset from the
+   edges, and theme tokens for every colour. */
+.select { position: relative; display: inline-flex; align-items: center; vertical-align: middle; min-width: 0; max-width: min(260px, 100%); }
+.select select {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  height: var(--control-h);
+  flex: 1 1 auto;
+  min-width: 72px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 34px 0 12px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--control-ink);
+  background: var(--panel-2);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.select select option { color: var(--control-ink); background: var(--panel-2); }
+.select select:disabled { opacity: 0.45; cursor: default; }
+.select-arrow {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -5px;
+  border: solid var(--control-ink);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.select select:disabled + .select-arrow { opacity: 0.45; }
+.app label.field, .prefs label { display: inline-flex; align-items: center; gap: 8px; }
+/* Buttons that share a row with a dropdown have the control height. */
+.app :is(.file-tools, .app-panel-head, .lesson-nav, .tools-panel, .prefs, .diff-side) button:not(.link-button) {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.2;
+}
+.app .file-tools, .app .app-panel-head { align-items: center; }
+.app .file-tools > span { font-size: 12px; color: var(--soft); }
+
+/* ---------- Links that open a new tab ---------- */
+.app a.external-link::after {
+  content: "\2197";
+  content: "\2197" / "";
+  display: inline-block;
+  margin-left: 2px;
+  font-size: 0.8em;
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* ---------- Text wrapping ----------
+   Body text avoids a lone last word; headings and summaries balance their
+   lines. Code keeps its own white-space rules. */
+.app { text-wrap-style: pretty; }
+.app :is(h1, h2, h3, h4, h5, h6, summary, legend, figcaption, .heading p, .workbench-head p, .cq-prompt, .subtitle) { text-wrap-style: balance; }
+.app :is(pre, code, textarea, .code, .notice, .diff-table) { text-wrap-style: auto; }
+
+/* ---------- Focus ring ----------
+   One focus ring for every control, link and focused heading. */
+.app {
+  --ring: 2px solid var(--focus);
+  --ring-offset: 2px;
+  --ring-inset: -2px;
+}
+/* Text links and controls flush with a clipping edge keep the ring inside. */
+.app a:focus-visible { outline-offset: 1px; border-radius: 3px; }
+.app :is(.tab, .toc-toggle, .lesson-toc a, .exercise, .review-list button, .project-tree button, .project-tree summary):focus-visible { outline-offset: var(--ring-inset); }
+.app :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); border-radius: 3px; }
+.app :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
+/* ---------- Icons, icon buttons and tooltips ---------- */
+.icon { flex: none; display: block; width: 16px; height: 16px; }
+.tip-host { position: relative; display: inline-flex; }
+.app .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  color: var(--control-ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.app .icon-button:hover:not(:disabled) { border-color: var(--control-border); }
+.tooltip {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  min-height: 28px;
+  box-sizing: border-box;
+  font: 500 12px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  visibility: hidden;
+  opacity: 0;
+}
+.tip-host[data-align="end"] .tooltip { left: auto; right: 0; transform: none; }
+.tip-host[data-align="start"] .tooltip { left: 0; transform: none; }
+.tip-host:hover .tooltip, .tip-host:focus-within .tooltip { visibility: visible; opacity: 1; }
+.tip-host.tip-dismissed .tooltip { visibility: hidden; opacity: 0; }
+/* A status that is always read, and shown as a tooltip only on hover or focus. */
+.tooltip.tooltip-read { visibility: visible; opacity: 1; }
+.tip-host:not(:hover):not(:focus-within) .tooltip.tooltip-read { clip: rect(0 0 0 0); clip-path: inset(50%); width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; overflow: hidden; }
+
+/* ---------- Header ---------- */
+.app .topbar .top-actions { gap: 8px 12px; align-items: center; }
+.app .topbar .mode { font-size: 12px; }
+.app .brand small { font-size: 11px; }
+.app .activity-bar { font-size: 12px; gap: 12px; }
+.connection-status { display: inline-flex; align-items: center; font-size: 12px; color: var(--soft); }
+.app .top-actions .status-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: var(--control-h);
+  height: var(--control-h);
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--soft);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+.app .top-actions .status-button:hover { border-color: var(--line); }
+.connection-status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); flex: none; }
+.connection-status[data-state="offline"] .dot, .connection-status[data-state="down"] .dot { background: var(--danger); }
+.connection-status[data-state="checking"] .dot { background: var(--warning); }
+
+/* ---------- Step header ---------- */
+.app .step-heading .pill { font-size: 11px; padding: 2px 8px; }
+
+/* ---------- "On this page": sticky, compact, marks the section being read ---------- */
+.lesson-panel, .course-page { container-type: inline-size; }
+.lesson-toc {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0 0 16px;
+  padding: 0 8px;
+  font-size: 12px;
+  background: var(--toc-bg, var(--panel-2));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+/* In the lesson pane the bar spans the pane and covers what scrolls beneath it. */
+/* Sticky offsets start at the pane's content edge: step back over its padding. */
+.lesson-view .lesson-panel > .lesson-toc { top: calc(-1 * var(--lesson-pad)); margin: 0 -24px 16px; padding: 0 16px; border-width: 0 0 1px; border-radius: 0; }
+/* What is scrolled into view below the bar, by focus or a link, stays clear of
+   it. The bar itself is never scrolled for: it is always in view. */
+.lesson-panel:has(> .lesson-toc) .lesson-html :is(h1, h2, h3, h4, h5, h6, a, button, summary, input, textarea, select, [tabindex]) { scroll-margin-top: 48px; }
+.app .lesson-toc .toc-toggle { display: none; }
+.lesson-toc ul { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; margin: 0; padding: 4px 0; list-style: none; overflow-x: auto; scrollbar-width: thin; }
+.lesson-toc li { flex: none; }
+.app .lesson-toc a {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--soft);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 6px;
+  border-bottom: 2px solid transparent;
+}
+.app .lesson-toc .toc-3 a { font-size: 11px; color: var(--muted); }
+.app .lesson-toc a:hover { color: var(--ink); background: var(--raised); }
+/* The current section: accent text, a rule beneath it and a heavier weight. */
+.app .lesson-toc a[aria-current="location"] { color: var(--accent); font-weight: 700; border-bottom-color: var(--accent); border-radius: 6px 6px 0 0; }
+@container (max-width: 380px) {
+  .app .lesson-toc .toc-toggle {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 34px;
+    padding: 0 4px;
+    font: inherit;
+    color: var(--soft);
+    background: transparent;
+    border: 0;
+    text-align: left;
+  }
+  .lesson-toc .toc-title { flex: none; font-weight: 700; color: var(--ink); }
+  .lesson-toc .toc-current { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
+  .lesson-toc ul { display: none; }
+  /* The open list lies over the lesson, so the text and the current section stay where they are. */
+  .lesson-toc.open ul { position: absolute; top: 100%; left: 0; right: 0; display: grid; gap: 0; padding: 4px 8px 8px; max-height: 50vh; overflow: auto; background: var(--toc-bg, var(--panel-2)); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25); }
+  .lesson-toc.open .toc-3 { padding-left: 16px; }
+  .app .lesson-toc.open a { display: flex; white-space: normal; height: auto; min-height: 28px; border-bottom: 0; border-left: 2px solid transparent; border-radius: 0 6px 6px 0; }
+  .app .lesson-toc.open a[aria-current="location"] { border-left-color: var(--accent); }
+}
+@container (min-width: 381px) {
+  .lesson-toc .toc-toggle .icon { display: none; }
+}
+
+.app.theme-hc .tooltip { box-shadow: none; }

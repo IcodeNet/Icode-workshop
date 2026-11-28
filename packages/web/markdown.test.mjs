@@ -64,7 +64,7 @@ plain <b>text</b>
   assert.match(html, /href="#diff=01\.problem\.\.02\.solution"[^>]*>custom/);
   assert.match(html, /href="#diff=next"/);
   assert.match(html, /href="#diff=prev"[^>]*>prev/);
-  assert.match(html, /<p class="video-card"><a href="https:\/\/videos\.example\.org\/x" class="video-link" target="_blank" rel="noopener noreferrer nofollow">▶ Watch the video<\/a><\/p>/);
+  assert.match(html, /<p class="video-card"><a href="https:\/\/videos\.example\.org\/x" class="video-link external-link" target="_blank" rel="noopener noreferrer nofollow">▶ Watch the video<span class="visually-hidden new-tab-hint"> \(opens in a new tab\)<\/span><\/a><\/p>/);
   assert.deepEqual(toc, [
     { depth: 2, text: "Part one", id: "h-part-one" },
     { depth: 2, text: "Part one", id: "h-part-one-2" },
@@ -135,7 +135,7 @@ test("XSS through lesson markdown is removed: scripts, handlers, javascript: lin
   assert.doesNotMatch(html, /href="\/\/|href="\/api|srcset/);
   assert.doesNotMatch(html, /id="root"|name="x"|class="app"/);
   assert.doesNotMatch(html, /style="background/);
-  assert.match(html, /<a href="https:\/\/ok\.test\/" target="_blank" rel="noopener noreferrer nofollow">ok<\/a>/);
+  assert.match(html, /<a href="https:\/\/ok\.test\/" target="_blank" rel="noopener noreferrer nofollow" class="external-link">ok<span class="visually-hidden new-tab-hint"> \(opens in a new tab\)<\/span><\/a>/);
   // Inputs survive only as disabled checkboxes (GFM task lists).
   for (const input of html.match(/<input[^>]*>/g) ?? []) assert.match(input, /type="checkbox"/), assert.match(input, /disabled/);
 });
@@ -295,4 +295,30 @@ test("lesson documents (renderDocument/renderCached) render off the event loop w
   assert.ok(elapsed < LIMITS.renderMs + 3000, "cut off at the limit: " + elapsed);
   assert.match(doc.warnings[0], /took too long/);
   assert.ok(ticks >= (elapsed / 20) * 0.5, `event loop kept running: ${ticks} ticks in ${elapsed} ms`);
+});
+
+test("links to another origin open a new tab with a hint; in-course links and section anchors stay in the same tab", async () => {
+  const { html, toc } = await render("## Read [the docs](https://learn.microsoft.com/azure/search/) first\n\n[Docs](https://learn.microsoft.com/azure/search/) and [local app](http://localhost:3000/) and [next step](../02/README.md) and [section](#h-read-the-docs-first) and <a href=\"https://learn.microsoft.com/x\" target=\"_self\" rel=\"opener\" class=\"external-link visually-hidden\">raw</a>");
+  const links = [...html.matchAll(/<a [^>]*>/g)].map((m) => m[0]);
+  const external = links.filter((a) => /href="https?:/.test(a));
+  assert.equal(external.length, 4);
+  for (const a of external) {
+    assert.match(a, /target="_blank"/);
+    assert.match(a, /rel="noopener noreferrer nofollow"/);
+    assert.match(a, /class="(video-link )?external-link"/);
+    assert.doesNotMatch(a, /_self|"opener"|visually-hidden/);
+  }
+  assert.equal(html.split('<span class="visually-hidden new-tab-hint"> (opens in a new tab)</span></a>').length - 1, 4);
+  for (const a of links.filter((a) => /href="#/.test(a))) assert.doesNotMatch(a, /target=|rel=|external-link/);
+  assert.match(html, /<a href="#course=exercises%2F02%2FREADME\.md">next step<\/a>/);
+  // The hint never leaks into the heading id or the table of contents.
+  assert.deepEqual(toc, [{ depth: 2, text: "Read the docs first", id: "h-read-the-docs-first" }]);
+});
+
+test("a heading's accessible name is its own text: the section link sits beside the heading", async () => {
+  const { html } = await render("# Lesson\n\n## Check questions\n\n### Has `code` and *emphasis*\n");
+  assert.match(html, /<div class="heading-row"><h2 id="h-check-questions">Check questions<\/h2><a href="#h-check-questions" class="heading-anchor" aria-label="Link to section: Check questions"><span aria-hidden="true">#<\/span><\/a><\/div>/);
+  // No heading contains a link, a label or the "#" glyph.
+  for (const [, inner] of html.matchAll(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/g)) assert.doesNotMatch(inner, /<a |aria-label|#/);
+  assert.equal([...html.matchAll(/class="heading-anchor"/g)].length, 3);
 });

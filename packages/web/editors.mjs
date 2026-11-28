@@ -173,6 +173,22 @@ export function parseEditorSetting(value) {
 const splitWords = (value) =>
   value ? value.trim().split(/\s+/).filter(Boolean) : [];
 
+/**
+ * Labels are for learners: they name the editor, never the setting it comes
+ * from. The setting's name is in each entry's `source`.
+ */
+const ENVIRONMENT_LABELS = {
+  VISUAL: "Your visual editor",
+  EDITOR: "Your editor",
+};
+/** "VS Code" for a known editor, otherwise the executable's own name. */
+export function editorName(command) {
+  const kind = editorKind(command);
+  return (
+    KNOWN_EDITORS[kind]?.label ||
+    basename(command.replaceAll("\\", "/")).replace(/\.(exe|cmd|bat|sh)$/i, "")
+  );
+}
 export function detectEditors({
   env = process.env,
   platform = process.platform,
@@ -211,14 +227,14 @@ export function detectEditors({
     if (override)
       add(
         "override",
-        "ICODE_EDITOR (" + basename(override[0]) + ")",
+        "Configured editor (" + editorName(override[0]) + ")",
         override,
         "ICODE_EDITOR",
       );
   } catch (e) {
     editors.push({
       id: "override",
-      label: "ICODE_EDITOR",
+      label: "Configured editor",
       available: false,
       reason: e.message,
       extraArgs: [],
@@ -229,7 +245,7 @@ export function detectEditors({
     if (words.length)
       add(
         variable.toLowerCase(),
-        "$" + variable + " (" + basename(words[0]) + ")",
+        ENVIRONMENT_LABELS[variable] + " (" + editorName(words[0]) + ")",
         words,
         variable,
       );

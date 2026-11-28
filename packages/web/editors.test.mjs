@@ -15,6 +15,7 @@ import {
   editorKind,
   parseEditorSetting,
   detectEditors,
+  editorName,
   chooseEditor,
   launchEditor,
   findExecutable,
@@ -104,6 +105,9 @@ test(
         false,
         "PATH duplicate of $VISUAL omitted",
       );
+      assert.equal(visual.label, "Your visual editor (VS Code)");
+      assert.equal(vim.label, "Your editor (vim)");
+      assert.equal(visual.source, "VISUAL");
       assert.equal(editors.find((e) => e.id === "cursor").available, false);
       assert.equal(chooseEditor(editors).id, "visual");
       assert.throws(() => chooseEditor(editors, "cursor"), /unavailable/);
@@ -118,6 +122,7 @@ test(
         tty: false,
       });
       assert.equal(override[0].id, "override");
+      assert.equal(override[0].label, "Configured editor (Sublime Text)");
       assert.equal(override[0].available, false);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -232,11 +237,31 @@ test("Windows: Cursor and Insiders launchers map to their executables; script sh
 
 test("EDITOR=vi is never a fallback, even in a terminal", () => {
   const editors = [
-    { id: "editor", label: "$EDITOR (vi)", kind: "vi", terminal: true, available: true },
+    { id: "editor", label: "Your editor (vi)", kind: "vi", terminal: true, available: true },
     { id: "code", label: "VS Code", kind: "code", terminal: false, available: false, reason: "not found on PATH" },
   ];
   assert.throws(() => chooseEditor(editors), /Terminal editors are only used when chosen explicitly/);
   assert.equal(chooseEditor(editors, "editor").id, "editor", "an explicit choice is honoured");
   editors[1].available = true;
   assert.equal(chooseEditor(editors).id, "code", "GUI editor preferred over $EDITOR");
+});
+
+test("editor labels are for people: no variable names, placeholders or paths", () => {
+  assert.equal(editorName("code"), "VS Code");
+  assert.equal(editorName("/usr/local/bin/code"), "VS Code");
+  assert.equal(editorName("C:\\Tools\\Code.cmd"), "VS Code");
+  assert.equal(editorName("/opt/tools/my-editor.sh"), "my-editor");
+  const environments = [
+    { PATH: "", EDITOR: "code", VISUAL: "/opt/x/zed --wait", ICODE_EDITOR: "/opt/tools/my-editor" },
+    { PATH: "", EDITOR: "vi" },
+    { PATH: "", ICODE_EDITOR: "[not json" },
+    { PATH: "" },
+  ];
+  for (const env of environments)
+    for (const editor of detectEditors({ env, platform: "linux", tty: false })) {
+      assert.doesNotMatch(editor.label, /\$[A-Z_]+|\{\{|undefined|ICODE_|[\\/]/, editor.label);
+      assert.ok(editor.label.trim().length > 2);
+    }
+  const labels = detectEditors({ env: environments[0], platform: "linux", tty: false }).map((e) => e.label);
+  assert.deepEqual(labels.slice(0, 3), ["Configured editor (my-editor)", "Your visual editor (zed)", "Your editor (VS Code)"]);
 });
