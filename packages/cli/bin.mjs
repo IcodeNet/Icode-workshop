@@ -9,6 +9,11 @@ import { selectWorkspace, replaceWorkspace } from "../web/workspaces.mjs";
 import { testLab, labConfig } from "../web/runtime.mjs";
 import { listFiles, readProjectFile } from "../web/files.mjs";
 import { courseOperations } from "../web/operations.mjs";
+import { resolveHooks } from "../web/hooks.mjs";
+import { listSaved, savePlayground, restoreSaved, savedConfig, savedFilesPath } from "../web/saved-playgrounds.mjs";
+import { withPlaygroundHooks } from "../web/playground-ops.mjs";
+import { diffSides, ignorePatterns, compileIgnore } from "../web/diff.mjs";
+import { updateStatus, checkForUpdates, applyUpdate } from "../web/update.mjs";
 const args = process.argv.slice(2),
   command = args[0],
   contentFlag = args.indexOf("--content");
@@ -45,6 +50,10 @@ async function main() {
       }
     }
     const operations = await courseOperations(content);
+    // Hooks, saved-playground limits and diff ignore rules fail validation loudly.
+    for (const step of course.ids) await resolveHooks(content, { stepId: step });
+    await savedConfig(content);
+    compileIgnore(await ignorePatterns(content, []));
     return console.log(
       "Valid course: " +
         course.title +
@@ -58,6 +67,43 @@ async function main() {
         operations.sidecars.length +
         " sidecars)",
     );
+  }
+  if (command === "saved") {
+    const sub = args[2];
+    if (!sub || sub === "list") return console.log(JSON.stringify(await listSaved(content, id), null, 2));
+    if (sub === "save")
+      return console.log(JSON.stringify(await savePlayground(content, id, { label: args[3] && !args[3].startsWith("--") ? args[3] : "", source: { step: id, variant: "playground" } }), null, 2));
+    if (sub === "restore") {
+      const savedId = args[3];
+      const srcDir = await savedFilesPath(content, id, savedId);
+      const result = await withPlaygroundHooks(content, id, { operation: "restore", source: { step: id, variant: "saved", savedId }, srcDir }, async () => {
+        const restored = await restoreSaved(content, id, savedId);
+        return { ...(await selectWorkspace(content, id)), backup: restored.previous };
+      });
+      const { code, ...summary } = result;
+      return console.log(JSON.stringify(summary, null, 2));
+    }
+    throw new Error("Usage: workshop saved <id> [list|save [label]|restore <savedId>]");
+  }
+  if (command === "update") {
+    if (!args.includes("--apply")) return console.log(JSON.stringify(args.includes("--offline") ? await updateStatus(content) : await checkForUpdates(content), null, 2));
+    const confirmAt = args.indexOf("--confirm");
+    const result = await applyUpdate(content, {
+      confirm: confirmAt < 0 ? undefined : args[confirmAt + 1],
+      stash: args.includes("--stash"),
+      emit: (e) => process.stdout.write(e.text ?? ""),
+    });
+    return console.log(JSON.stringify(result, null, 2));
+  }
+  if (command === "diff" && args[2] && !args[2].startsWith("--")) {
+    const result = await diffSides(content, args[1], args[2], { whitespace: args.includes("--ignore-whitespace") });
+    for (const file of result.files) {
+      console.log("--- " + result.a + "/" + (file.from ?? file.path));
+      console.log("+++ " + result.b + "/" + file.path + (file.note ? "  (" + file.note + ")" : ""));
+      for (const hunk of file.hunks ?? [])
+        console.log("@@ -" + hunk.aStart + "," + hunk.aLines + " +" + hunk.bStart + "," + hunk.bLines + " @@\n" + hunk.lines.map((l) => l.t + l.text).join("\n"));
+    }
+    return;
   }
   if (command === "diff") {
     const names = new Set([
@@ -119,7 +165,7 @@ async function main() {
     return;
   }
   throw new Error(
-    "Usage: workshop setup|doctor|list|set <id>|reset <id>|test <id>|diff <id>|progress|validate|start --content <path>",
+    "Usage: workshop setup|doctor|list|set <id>|reset <id>|test <id>|diff <id>|diff <side> <side>|saved <id> [list|save|restore <savedId>]|update [--offline|--apply --confirm update [--stash]]|progress|validate|start --content <path>",
   );
 }
 main().catch((error) => {

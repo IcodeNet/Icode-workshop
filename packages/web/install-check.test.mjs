@@ -111,3 +111,27 @@ test("doctor includes the install check", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("independent package roots are checked too; workspace members are not (Epic B7)", async () => {
+  const root = await course({ pkg: { name: "root", workspaces: ["packages/*"] } });
+  try {
+    const { packageRoots, installChecks } = await import("./setup.mjs");
+    const write = async (dir, manifest) => {
+      await mkdir(join(root, dir), { recursive: true });
+      await writeFile(join(root, dir, "package.json"), JSON.stringify(manifest));
+    };
+    await write("packages/member", { name: "member", dependencies: { left: "1.0.0" } });
+    await write("exercises/01/problem", { name: "app", dependencies: { left: "1.0.0" } });
+    await write("node_modules/ignored", { name: "ignored" });
+    await write(".workshop/playgrounds/01", { name: "learner" });
+    assert.deepEqual(await packageRoots(root), ["", "exercises/01/problem"]);
+    const checks = await installChecks(root);
+    assert.deepEqual(checks.map((c) => [c.dir, c.ok]), [["", true], ["exercises/01/problem", false]]);
+    const report = await doctor(root);
+    const nested = report.checks.find((c) => c.name === "Course dependencies (exercises/01/problem)");
+    assert.equal(nested.ok, false);
+    assert.match(nested.fix, /npm install/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

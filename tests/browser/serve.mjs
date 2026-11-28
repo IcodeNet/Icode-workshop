@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, cp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,6 +28,9 @@ manifest.tools = [
   },
 ];
 await writeFile(manifestPath, JSON.stringify(manifest));
+// Lesson 01 declares its own set-playground hook (lab.json overrides course hooks).
+const lab01 = join(root, "exercises", "01", "lab.json");
+await writeFile(lab01, JSON.stringify({ ...JSON.parse(await readFile(lab01, "utf8")), hooks: { postSetPlayground: "playground:post" } }));
 // Stage 1 operations fixture: actions, an indicator, a sidecar, an editor
 // stand-in and an installed, locked dependency for the setup check.
 const course = JSON.parse(await readFile(join(root, "course.json"), "utf8"));
@@ -37,13 +41,15 @@ course.actions = [
 ];
 course.indicators = [{ path: ".icode-deployed", message: "Demo resources are running and incur cost.", level: "danger" }];
 course.sidecars = { "mock-api": { script: "mock-api" } };
+// Stage 2: playground and update hooks.
+course.hooks = { postUpdate: "postupdate", timeoutSeconds: 60 };
 await writeFile(join(root, "course.json"), JSON.stringify(course));
 await writeFile(
   join(root, "package.json"),
   JSON.stringify({
     name: "browser-course",
     private: true,
-    scripts: { deploy: "node ops/deploy.mjs", teardown: "node ops/teardown.mjs", "mock-api": "node ops/mock-api.mjs", "long-job": "node ops/long-job.mjs" },
+    scripts: { deploy: "node ops/deploy.mjs", teardown: "node ops/teardown.mjs", "mock-api": "node ops/mock-api.mjs", "long-job": "node ops/long-job.mjs", "playground:post": "node ops/post-set.mjs", postupdate: "node ops/post-update.mjs" },
     dependencies: { "icode-fixture-dependency": "1.0.0" },
   }),
 );
@@ -92,6 +98,13 @@ await writeFile(
   join(root, "ops", "mock-api.mjs"),
   `console.log("\\x1b[36mmock api listening\\x1b[0m"); setInterval(() => console.log("heartbeat"), 1000);\n`,
 );
+await writeFile(
+  join(root, "ops", "post-set.mjs"),
+  `const c = JSON.parse(process.env.ICODE_HOOK_CONTEXT);
+console.log("\\x1b[35mpost-set hook\\x1b[0m " + c.operation + " " + c.step + " restart=" + process.env.EPICSHOP_PLAYGROUND_RESTART_PLAYGROUND);
+`,
+);
+await writeFile(join(root, "ops", "post-update.mjs"), `console.log("post-update hook ran from " + process.env.ICODE_UPDATE_FROM.slice(0, 7));\n`);
 const editorLog = join(tmpdir(), "icode-browser-editor.json");
 await rm(editorLog, { force: true });
 await writeFile(
@@ -115,10 +128,34 @@ createServer((req, res) => {
   res.setHeader("content-type", "text/html");
   res.end("<h1>Local service fixture</h1>");
 }).listen(4404, "127.0.0.1");
+// Stage 2 update fixture: the course is a clone that is one commit behind its
+// upstream (a bare repository next to it), so "Update workshop" has work to do.
+const gitEnv = { ...process.env, GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.test", GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.test" };
+const runGit = (cwd, ...args) => {
+  const r = spawnSync("git", args, { cwd, env: gitEnv, encoding: "utf8" });
+  if (r.status !== 0) throw new Error("git " + args.join(" ") + ": " + r.stderr);
+};
+const gitBase = await mkdtemp(join(tmpdir(), "icode-browser-git-"));
+if (spawnSync("git", ["--version"]).status === 0) {
+  await writeFile(join(root, ".gitignore"), ".workshop/\n.icode-deployed\n");
+  runGit(root, "init", "-q", "-b", "main");
+  runGit(root, "add", ".");
+  runGit(root, "commit", "-q", "-m", "Fixture course");
+  runGit(gitBase, "clone", "-q", "--bare", root, "remote.git");
+  runGit(root, "remote", "add", "origin", join(gitBase, "remote.git"));
+  runGit(root, "fetch", "-q", "origin");
+  runGit(root, "branch", "-q", "--set-upstream-to=origin/main", "main");
+  runGit(gitBase, "clone", "-q", join(gitBase, "remote.git"), "author");
+  const readme = join(gitBase, "author", "exercises", "03", "README.md");
+  await writeFile(readme, (await readFile(readme, "utf8")) + "\nUpdated upstream: previews now explain ports.\n");
+  runGit(join(gitBase, "author"), "commit", "-q", "-am", "Upstream lesson fix");
+  runGit(join(gitBase, "author"), "push", "-q");
+}
 process.env.WORKSHOP_CONTENT = root;
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, async () => {
     await rm(root, { recursive: true, force: true });
+    await rm(gitBase, { recursive: true, force: true });
     process.exit(0);
   });
 await import("../../packages/web/server.mjs");

@@ -14,6 +14,8 @@ import {
   useActions,
   useIndicators,
 } from "./operations.jsx";
+import { DiffView, resolveDiffLink } from "./diff.jsx";
+import { SavedPanel, TouchedFiles, UpdatePanel, operationSummary } from "./workspace.jsx";
 const api = async (path, options) => {
   const response = await fetch("/api" + path, {
     ...options,
@@ -25,38 +27,8 @@ const api = async (path, options) => {
   return data;
 };
 
-function diffLines(before, after) {
-  const a = before.split("\n"),
-    b = after.split("\n"),
-    n = a.length,
-    m = b.length;
-  if (n * m > 150000)
-    return [
-      { kind: "note", text: "Files are too large for inline comparison." },
-    ];
-  const dp = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
-  for (let i = n - 1; i >= 0; i--)
-    for (let j = m - 1; j >= 0; j--)
-      dp[i][j] =
-        a[i] === b[j]
-          ? 1 + dp[i + 1][j + 1]
-          : Math.max(dp[i + 1][j], dp[i][j + 1]);
-  const lines = [];
-  let i = 0,
-    j = 0;
-  while (i < n || j < m) {
-    if (i < n && j < m && a[i] === b[j]) {
-      lines.push({ kind: "same", text: "  " + a[i] });
-      i++;
-      j++;
-    } else if (j < m && (i === n || dp[i][j + 1] >= dp[i + 1][j])) {
-      lines.push({ kind: "added", text: "+ " + b[j++] });
-    } else {
-      lines.push({ kind: "removed", text: "- " + a[i++] });
-    }
-  }
-  return lines;
-}
+// Captured before effects rewrite the URL.
+const initialSearch = window.location.search;
 function FileTree({ names, selected, busy, onSelect }) {
   const root = Object.create(null);
   for (const name of names) {
@@ -106,10 +78,9 @@ function App() {
   const [conversation, setConversation] = useState([]);
   const [tutorError, setTutorError] = useState("");
   const [toolId, setToolId] = useState("");
-  const [changes, setChanges] = useState([]);
-  const [compareFrom, setCompareFrom] = useState("playground");
-  const [compareTo, setCompareTo] = useState("solution");
-  const [compareTarget, setCompareTarget] = useState("");
+  const [diffInitial, setDiffInitial] = useState(null);
+  const [workspaceKey, setWorkspaceKey] = useState(0);
+  const editorRef = useRef(null);
   const [files, setFiles] = useState([]);
   const [file, setFile] = useState("");
   const [reference, setReference] = useState("");
@@ -158,7 +129,8 @@ function App() {
     api("/editors")
       .then((data) => {
         setEditors(data.editors);
-        setEditorId(data.editors.find((e) => e.available)?.id || "");
+        // A terminal editor ($EDITOR=vi) is never the default.
+        setEditorId(data.editors.find((e) => e.available && !e.terminal)?.id || "");
       })
       .catch(() => {});
     api("/progress")
@@ -169,9 +141,23 @@ function App() {
         setCourse(course);
         setIds(ids);
         setCatalog(exercises);
+        // Deep link: ?diff=<a>..<b>&file=&view=&ws=
+        const params = new URLSearchParams(initialSearch);
+        const value = params.get("diff");
+        if (value) {
+          const sides = resolveDiffLink(value, { selected: ids[0], ids });
+          const step = sides?.[0]?.slice(0, 2);
+          if (sides && ids.includes(step))
+            choose(step, { diff: { a: sides[0], b: sides[1], file: params.get("file") || undefined, view: params.get("view") || undefined, ws: params.get("ws") === "ignore" } });
+        }
       })
       .catch((e) => setResult(e.message));
   }, []);
+  useEffect(() => {
+    // Deep links describe the open diff only.
+    if (tab !== "diff" && window.location.search.includes("diff="))
+      window.history.replaceState(null, "", window.location.pathname);
+  }, [tab]);
   useEffect(() => {
     const warn = (e) => {
       if (dirty) {
@@ -324,22 +310,40 @@ function App() {
       setBusy(false);
     }
   }
-  async function compare() {
+  function openDiff(spec = {}) {
+    setDiffInitial({
+      a: spec.a ?? selected + ".playground",
+      b: spec.b ?? selected + ".solution",
+      file: spec.file,
+      view: spec.view,
+      ws: spec.ws,
+      key: Date.now(),
+    });
+    setTab("diff");
+  }
+  /** Open a playground file and move the cursor to `line`. */
+  async function openAtLine(name, line = 1) {
+    setTab("playground");
+    await openFile(name);
+    requestAnimationFrame(() => {
+      const el = editorRef.current;
+      if (!el) return;
+      const lines = el.value.split("\n");
+      const offset = lines.slice(0, Math.max(0, line - 1)).reduce((n, l) => n + l.length + 1, 0);
+      el.focus();
+      el.setSelectionRange(offset, offset);
+      el.scrollTop = Math.max(0, (line - 3) * 18);
+    });
+  }
+  async function launchAt(name, line) {
     setBusy(true);
-    setActivity("Comparing saved files");
+    setActivity("Launching editor");
     try {
-      const data = await api(
-        "/compare?id=" +
-          selected +
-          "&from=" +
-          compareFrom +
-          "&to=" +
-          compareTo +
-          "&targetId=" +
-          (compareTarget || selected),
-      );
-      setChanges(data.changes);
-      setTab("diff");
+      const data = await api("/editor/launch", {
+        method: "POST",
+        body: JSON.stringify({ id: selected, variant: "playground", name, line, column: 1, editor: editorId || undefined }),
+      });
+      setResult("Opened " + name + " at line " + line + " in " + data.label + ".");
     } catch (e) {
       setResult(e.message);
       setPanel("console");
@@ -347,6 +351,35 @@ function App() {
       setBusy(false);
     }
   }
+  /** "More than Epic": put one file back to the step's problem version. */
+  async function resetFile(name) {
+    if (!window.confirm("Reset " + name + " to the problem version? The playground is saved first.")) return;
+    setBusy(true);
+    setActivity("Resetting " + name);
+    try {
+      const data = await api("/file/sync", {
+        method: "POST",
+        body: JSON.stringify({ id: selected, name, from: selected + ".problem" }),
+      });
+      await refreshFiles();
+      if (name === file) {
+        const item = await api("/file?id=" + selected + "&name=" + encodeURIComponent(name));
+        setDraft(item.code);
+        setDirty(false);
+      }
+      setWorkspaceKey((k) => k + 1);
+      setResult("Reset " + name + " to the problem version." + (data.saved ? " Previous playground saved." : ""));
+    } catch (e) {
+      setResult(e.message);
+      setPanel("console");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const showFailure = (e) => {
+    setResult(e.message + (e.data?.hooks?.length ? "\n" + operationSummary(e.data) : ""));
+    setPanel("console");
+  };
   async function reset() {
     setActivity("Resetting playground");
     if (
@@ -365,10 +398,11 @@ function App() {
       setReference(exercise.solution);
       setDirty(false);
       setPreview(null);
-      setResult("Reset completed. Backup: " + data.backup);
+      setWorkspaceKey((k) => k + 1);
+      if (data.previewRestarted && typeof data.previewRestarted === "string") setPreview(data.previewRestarted);
+      setResult("Reset completed. Backup: " + data.backup + "\n" + operationSummary(data));
     } catch (e) {
-      setResult(e.message);
-      setPanel("console");
+      showFailure(e);
     } finally {
       setBusy(false);
     }
@@ -408,10 +442,10 @@ function App() {
       setPreview(null);
       setTab("playground");
       setPanel("console");
-      setResult("Migration completed. Previous target files are backed up.");
+      setWorkspaceKey((k) => k + 1);
+      setResult("Migration completed. Previous target files are backed up.\n" + operationSummary(data));
     } catch (e) {
-      setResult(e.message);
-      setPanel("console");
+      showFailure(e);
     } finally {
       setBusy(false);
     }
@@ -480,10 +514,11 @@ function App() {
       setPreview(null);
       setTab("playground");
       setPanel("console");
-      setResult("Playground replaced. Previous files preserved in a backup.");
+      setWorkspaceKey((k) => k + 1);
+      if (typeof data.previewRestarted === "string") setPreview(data.previewRestarted);
+      setResult("Playground replaced. Previous files preserved in a backup.\n" + operationSummary(data));
     } catch (e) {
-      setResult(e.message);
-      setPanel("console");
+      showFailure(e);
     } finally {
       setBusy(false);
     }
@@ -590,7 +625,7 @@ function App() {
       setBusy(false);
     }
   }
-  async function choose(id) {
+  async function choose(id, { diff } = {}) {
     setActivity("Opening lesson");
     if (
       dirty &&
@@ -619,9 +654,6 @@ function App() {
       setPortConflict(null);
       setDiskChange(null);
       setToolId(item.tools?.[0]?.id || "");
-      setCompareTarget(id);
-      setCompareFrom("playground");
-      setCompareTo("solution");
       setConversation([]);
       setQuestion("");
       setTutorError("");
@@ -629,13 +661,15 @@ function App() {
       setExercise(item);
       setDraft(data.code);
       setDirty(false);
-      setTab("description");
+      setTab(diff ? "diff" : "description");
+      if (diff) setDiffInitial({ ...diff, key: Date.now() });
+      setWorkspaceKey((k) => k + 1);
+      const summary = operationSummary(data);
       setResult(
-        "Your exercise workspace is ready. Previous edits are preserved.",
+        "Your exercise workspace is ready. Previous edits are preserved." + (summary ? "\n" + summary : ""),
       );
     } catch (e) {
-      setResult(e.message);
-      setPanel("console");
+      showFailure(e);
     } finally {
       setBusy(false);
     }
@@ -650,6 +684,7 @@ function App() {
       });
       setDirty(false);
       setDiskChange(null);
+      setWorkspaceKey((k) => k + 1);
       setResult("Saved to the exercise-specific local playground file.");
     } catch (e) {
       setResult(e.message);
@@ -812,7 +847,7 @@ function App() {
           </button>
         )}
         <span className="shortcut-help">
-          Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests
+          Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests &nbsp; Diff: j/k files · n/p changes · ? help
         </span>
       </div>
       {actions.confirm && (
@@ -902,7 +937,13 @@ function App() {
                     event.preventDefault();
                     if (!busy) { setTab("playground"); openFile(decodeURIComponent(href.slice(6))).catch(e=>setResult(e.message)); }
                   } else if (href === "#comparison") {
-                    event.preventDefault(); if (!busy) compare();
+                    event.preventDefault(); if (!busy) openDiff();
+                  } else if (href?.startsWith("#diff=")) {
+                    // Lesson diff links: #diff=step|next|prev|<a>..<b> (Epic DiffLink).
+                    event.preventDefault();
+                    const sides = resolveDiffLink(decodeURIComponent(href.slice(6)), { selected, ids });
+                    if (!busy && sides) openDiff({ a: sides[0], b: sides[1] });
+                    else if (!sides) setResult("This diff link does not apply to this lesson.");
                   }
                 }}>
                   <div className="eyebrow">LESSON · {selected}</div>
@@ -1009,7 +1050,7 @@ function App() {
                           className={tab === item ? "tab selected" : "tab"}
                           disabled={busy}
                           onClick={() =>
-                            item === "diff" ? compare() : setTab(item)
+                            item === "diff" ? openDiff() : setTab(item)
                           }
                         >
                           {item === "description"
@@ -1017,7 +1058,7 @@ function App() {
                             : item === "playground"
                               ? "Playground"
                               : item === "diff"
-                                ? "Compare"
+                                ? "Diff"
                                 : item[0].toUpperCase() + item.slice(1)}
                         </button>
                       ))}
@@ -1083,6 +1124,9 @@ function App() {
                         <button disabled={busy} onClick={reset}>
                           Reset playground
                         </button>
+                        <button disabled={busy || !file} onClick={() => resetFile(file)}>
+                          Reset file to problem
+                        </button>
                         <button
                           disabled={busy}
                           onClick={() => fileAction("create")}
@@ -1144,6 +1188,18 @@ function App() {
                         Migrate previous edits
                       </button>
                     </div>
+                    {tab !== "diff" && (
+                      <TouchedFiles
+                        selected={selected}
+                        refreshKey={workspaceKey}
+                        busy={busy}
+                        canLaunch={editors.some((e) => e.available && !e.terminal)}
+                        onOpen={(name, line) => openAtLine(name, line).catch((e) => setResult(e.message))}
+                        onLaunch={launchAt}
+                        onReset={resetFile}
+                        onDiff={(name) => openDiff({ a: selected + ".problem", b: selected + ".solution", file: name })}
+                      />
+                    )}
                     <FileTree
                       names={
                         ["problem", "solution"].includes(tab)
@@ -1176,7 +1232,7 @@ function App() {
                         {tab === "playground"
                           ? "Editable playground"
                           : tab === "diff"
-                            ? "Side-by-side comparison"
+                            ? "Rich diff · press ? for shortcuts"
                             : "Read-only reference"}
                       </span>
                     </div>
@@ -1199,6 +1255,7 @@ function App() {
                     )}
                     {tab === "playground" ? (
                       <textarea
+                        ref={editorRef}
                         disabled={busy || !file}
                         spellCheck="false"
                         aria-label="Playground code editor"
@@ -1209,101 +1266,23 @@ function App() {
                         }}
                       />
                     ) : tab === "diff" ? (
-                      <>
-                        <div className="file-tools">
-                          <label>
-                            From{" "}
-                            <select
-                              aria-label="Compare from"
-                              value={compareFrom}
-                              onChange={(e) => {
-                                setCompareFrom(e.target.value);
-                                setChanges(null);
-                              }}
-                            >
-                              {["playground", "problem", "solution"].map(
-                                (v) => (
-                                  <option key={v}>{v}</option>
-                                ),
-                              )}
-                            </select>
-                          </label>
-                          <label>
-                            To lesson{" "}
-                            <select
-                              aria-label="Compare target lesson"
-                              value={compareTarget || selected}
-                              onChange={(e) => {
-                                setCompareTarget(e.target.value);
-                                setChanges(null);
-                              }}
-                            >
-                              {catalog.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.id} · {item.title}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            To{" "}
-                            <select
-                              aria-label="Compare to"
-                              value={compareTo}
-                              onChange={(e) => {
-                                setCompareTo(e.target.value);
-                                setChanges(null);
-                              }}
-                            >
-                              {["solution", "problem", "playground"].map(
-                                (v) => (
-                                  <option key={v}>{v}</option>
-                                ),
-                              )}
-                            </select>
-                          </label>
-                          <button disabled={busy} onClick={compare}>
-                            Refresh comparison
-                          </button>
-                        </div>
-                        <div
-                          className="diff-lines"
-                          aria-label="Playground versus solution changes"
-                        >
-                          {dirty && (
-                            <p>
-                              Comparison uses saved files. Save your changes
-                              first.
-                            </p>
-                          )}
-                          {changes === null ? (
-                            <p>
-                              Refresh comparison to view the selected projects.
-                            </p>
-                          ) : changes.length === 0 ? (
-                            <p>Compared projects match.</p>
-                          ) : (
-                            changes.map((change) => (
-                              <section key={change.name}>
-                                <h3>
-                                  {change.name} — {change.status}
-                                </h3>
-                                {diffLines(
-                                  change.before || "",
-                                  change.after || "",
-                                ).map((line, i) => (
-                                  <div
-                                    key={i}
-                                    className={"diff-line " + line.kind}
-                                  >
-                                    {line.text || " "}
-                                  </div>
-                                ))}
-                              </section>
-                            ))
-                          )}
-                        </div>
-                      </>
+                      <DiffView
+                        catalog={catalog}
+                        selected={selected}
+                        initial={diffInitial}
+                        dirty={dirty}
+                        busy={busy}
+                        onOpenFile={(name, line) => openAtLine(name, line).catch((e) => setResult(e.message))}
+                        onSynced={(step, name) => {
+                          setWorkspaceKey((k) => k + 1);
+                          if (step === selected) refreshFiles().catch(() => {});
+                          if (step === selected && name === file)
+                            api("/file?id=" + selected + "&name=" + encodeURIComponent(name))
+                              .then((item) => { setDraft(item.code); setDirty(false); })
+                              .catch(() => {});
+                        }}
+                        onMessage={setResult}
+                      />
                     ) : (
                       <pre className="code">
                         {tab === "description"
@@ -1326,7 +1305,7 @@ function App() {
                       role="tablist"
                       aria-label="Output panels"
                     >
-                      {["preview", "tools", "console", "tests", "actions", "processes", "tutor"].map(
+                      {["preview", "tools", "console", "tests", "actions", "processes", "saved", "update", "tutor"].map(
                         (item) => (
                           <button
                             key={item}
@@ -1337,6 +1316,8 @@ function App() {
                           >
                             {item === "tests"
                               ? "Test results"
+                              : item === "saved"
+                                ? "Saved"
                               : item === "actions" && actions.running
                                 ? "Actions ●"
                                 : item[0].toUpperCase() + item.slice(1)}
@@ -1344,7 +1325,38 @@ function App() {
                         ),
                       )}
                     </div>
-                    {panel === "actions" ? (
+                    {panel === "saved" ? (
+                      <SavedPanel
+                        selected={selected}
+                        refreshKey={workspaceKey}
+                        busy={busy}
+                        setBusy={setBusy}
+                        onRestored={async (data) => {
+                          await refreshFiles();
+                          setFile(data.entry);
+                          setDraft(data.code);
+                          setDirty(false);
+                          if (typeof data.previewRestarted === "string") setPreview(data.previewRestarted);
+                          setWorkspaceKey((k) => k + 1);
+                        }}
+                        onDiff={(side) => openDiff({ a: side, b: selected + ".playground" })}
+                      />
+                    ) : panel === "update" ? (
+                      <UpdatePanel
+                        busy={busy}
+                        setBusy={setBusy}
+                        onUpdated={() =>
+                          api("/exercises")
+                            .then(({ ids, exercises, course }) => {
+                              setCourse(course);
+                              setIds(ids);
+                              setCatalog(exercises);
+                              setWorkspaceKey((k) => k + 1);
+                            })
+                            .catch(() => {})
+                        }
+                      />
+                    ) : panel === "actions" ? (
                       <ActionsPanel state={actions} />
                     ) : panel === "processes" ? (
                       <ProcessesPanel />

@@ -175,6 +175,65 @@ export async function installCheck(root) {
     message: `${entries.length} packages match package-lock.json.`,
   };
 }
+const workspacePattern = (pattern) =>
+  new RegExp(
+    "^" +
+      pattern
+        .replace(/^\.\//, "")
+        .replace(/\/+$/, "")
+        .split("/")
+        .map((part) => (part === "**" ? ".*" : part.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")))
+        .join("/") +
+      "$",
+  );
+/**
+ * Independent package roots of a course (Epic's B7 also checks apps with
+ * their own package.json): every directory with a package.json, except
+ * dependency, dot and .workshop directories and workspace members of a root.
+ * Paths are relative, with "/"; the course root is "".
+ */
+export async function packageRoots(root, { maxDepth = 6, maxRoots = 200 } = {}) {
+  root = resolve(root);
+  const { readdir } = await import("node:fs/promises");
+  const found = [];
+  async function walk(dir, rel, depth) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (entries.some((e) => e.isFile() && e.name === "package.json")) found.push(rel);
+    if (depth >= maxDepth || found.length >= maxRoots) return;
+    for (const entry of entries)
+      if (entry.isDirectory() && !entry.name.startsWith(".") && !["node_modules", "__pycache__", "target", "bin", "obj"].includes(entry.name))
+        await walk(join(dir, entry.name), rel ? rel + "/" + entry.name : entry.name, depth + 1);
+  }
+  await walk(root, "", 0);
+  const members = new Set();
+  for (const rel of found) {
+    const manifest = await readJsonFile(join(root, rel, "package.json")).catch(() => undefined);
+    const patterns = Array.isArray(manifest?.workspaces) ? manifest.workspaces : manifest?.workspaces?.packages ?? [];
+    for (const pattern of patterns.filter((p) => typeof p === "string" && !p.startsWith("!"))) {
+      const regex = workspacePattern(pattern);
+      for (const other of found) {
+        const inner = rel ? (other.startsWith(rel + "/") ? other.slice(rel.length + 1) : null) : other;
+        if (inner && regex.test(inner)) members.add(other);
+      }
+    }
+  }
+  return found.filter((rel) => !members.has(rel));
+}
+/** installCheck for every independent package root; the course root first. */
+export async function installChecks(root) {
+  const results = [];
+  for (const rel of await packageRoots(root)) {
+    const check = await installCheck(join(resolve(root), rel));
+    results.push({ ...check, dir: rel, name: rel ? "Course dependencies (" + rel + ")" : check.name });
+  }
+  if (!results.length || results[0].dir !== "") results.unshift({ ...(await installCheck(root)), dir: "" });
+  return results;
+}
 export async function doctor(root) {
   const config = hostConfig(root),
     steps = discoverSteps(root),
@@ -226,7 +285,10 @@ export async function doctor(root) {
         });
       }
     }
-  checks.push(await installCheck(root));
+  const [rootCheck, ...nested] = await installChecks(root);
+  checks.push(rootCheck);
+  // Other package roots are reported only when they need attention.
+  checks.push(...nested.filter((c) => !c.ok));
   return { ok: checks.every((c) => c.ok), steps: steps.length, checks };
 }
 export async function setupCourse(root, { emit } = {}) {

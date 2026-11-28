@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, readlinkSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 const entries = new Map();
-const KINDS = new Set(["preview", "test", "action", "sidecar"]);
+const KINDS = new Set(["preview", "test", "action", "sidecar", "hook", "update"]);
 
 /**
  * Track a started session. `session` needs `completion` and `stop()`; `pid`

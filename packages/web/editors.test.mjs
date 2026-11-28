@@ -229,3 +229,14 @@ test("Windows: Cursor and Insiders launchers map to their executables; script sh
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("EDITOR=vi is never a fallback, even in a terminal (Epic e2e bug)", () => {
+  const editors = [
+    { id: "editor", label: "$EDITOR (vi)", kind: "vi", terminal: true, available: true },
+    { id: "code", label: "VS Code", kind: "code", terminal: false, available: false, reason: "not found on PATH" },
+  ];
+  assert.throws(() => chooseEditor(editors), /Terminal editors are only used when chosen explicitly/);
+  assert.equal(chooseEditor(editors, "editor").id, "editor", "an explicit choice is honoured");
+  editors[1].available = true;
+  assert.equal(chooseEditor(editors).id, "code", "GUI editor preferred over $EDITOR");
+});

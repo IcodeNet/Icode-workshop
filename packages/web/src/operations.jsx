@@ -364,29 +364,31 @@ export function IndicatorBanner({ indicators }) {
   );
 }
 export function SetupBanner() {
-  const [check, setCheck] = useState(null);
+  const [checks, setChecks] = useState([]);
   const load = useCallback(() => {
     request("/doctor")
       .then((report) =>
-        setCheck(
-          report.checks.find((c) => c.name === "Course dependencies") || null,
+        setChecks(
+          report.checks.filter((c) => c.name.startsWith("Course dependencies") && !c.ok),
         ),
       )
       .catch(() => {});
   }, []);
   useEffect(load, [load]);
-  if (!check || check.ok) return null;
+  if (!checks.length) return null;
   return (
     <div className="indicator-banners" role="region" aria-label="Setup check">
-      <p className="indicator warning">
-        <strong>Course dependencies</strong> {check.message}{" "}
-        {check.fix && (
-          <>
-            Run <code>{check.fix}</code>{" "}
-          </>
-        )}
-        <button onClick={load}>Check again</button>
-      </p>
+      {checks.map((check) => (
+        <p key={check.name} className="indicator warning">
+          <strong>{check.name}</strong> {check.message}{" "}
+          {check.fix && (
+            <>
+              Run <code>{check.fix}</code>{" "}
+            </>
+          )}
+          <button onClick={load}>Check again</button>
+        </p>
+      ))}
     </div>
   );
 }

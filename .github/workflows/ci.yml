@@ -53,4 +53,4 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@10.0.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: node --test packages/adapter-api/runtime.test.mjs packages/web/sidecars.portability.test.mjs packages/web/editors.test.mjs
+      - run: node --test packages/adapter-api/runtime.test.mjs packages/web/sidecars.portability.test.mjs packages/web/editors.test.mjs packages/web/hooks.test.mjs packages/web/saved-playgrounds.test.mjs packages/web/diff.test.mjs packages/web/update.test.mjs

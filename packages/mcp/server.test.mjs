@@ -13,7 +13,7 @@ test("real MCP stdio handshake, tool discovery, lesson reads and denied paths/so
   t.after(() => client.close());
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 5);
+  assert.equal(tools.length, 7);
   assert.ok(tools.every((tool) => tool.annotations.readOnlyHint));
   const course = await client.callTool({ name: "list_course", arguments: {} });
   assert.equal(
@@ -35,4 +35,23 @@ test("real MCP stdio handshake, tool discovery, lesson reads and denied paths/so
     arguments: { id: "01", variant: "solution", name: "index.mjs" },
   });
   assert.equal(solution.isError, true);
+  const hidden = await client.callTool({
+    name: "diff_sides",
+    arguments: { a: "01.problem", b: "01.solution" },
+  });
+  assert.equal(hidden.isError, true, "diffs never reveal hidden solutions");
+  const traversal = await client.callTool({
+    name: "diff_sides",
+    arguments: { a: "../01.problem", b: "02.problem" },
+  });
+  assert.equal(traversal.isError, true);
+  const cross = await client.callTool({
+    name: "diff_sides",
+    arguments: { a: "01.problem", b: "02.problem" },
+  });
+  assert.ok(JSON.parse(cross.content[0].text).files.length > 0);
+  const touched = await client.callTool({ name: "touched_files", arguments: { id: "01" } });
+  const files = JSON.parse(touched.content[0].text).files;
+  assert.ok(files.some((f) => f.path === "index.mjs" && f.line === 1));
+  assert.ok(files.every((f) => !("hunks" in f)), "no contents");
 });
