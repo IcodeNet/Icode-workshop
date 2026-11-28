@@ -2,6 +2,7 @@
 // Layout: .workshop/saved-playgrounds/<step>/<savedId>/{meta.json,files/…}.
 // Saved ids are generated here and validated against a strict pattern;
 // learner labels are stored only in meta.json and never become paths.
+import { safePreferences, validatePreferences } from "./src/ux/preferences.js";
 import {
   copyFile,
   lstat,
@@ -92,11 +93,16 @@ export async function readPreferences(root) {
   } catch {
     stored = undefined;
   }
-  return { savePlaygrounds: stored?.savePlaygrounds !== false };
+  // Stage 4: UI preferences (theme, fonts, motion, shortcuts...). Invalid
+  // stored values fall back to defaults; they are never passed through.
+  return { savePlaygrounds: stored?.savePlaygrounds !== false, ui: safePreferences(stored?.ui) };
 }
 export async function writePreferences(root, changes) {
-  if (!changes || typeof changes !== "object") throw new Error("Invalid preferences");
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) throw new Error("Invalid preferences");
+  for (const key of Reflect.ownKeys(changes))
+    if (!["savePlaygrounds", "ui"].includes(key)) throw new Error("Invalid preferences: unknown key");
   const next = await readPreferences(root);
+  if (changes.ui !== undefined) next.ui = { ...next.ui, ...validatePreferences(changes.ui, { partial: true }) };
   if (changes.savePlaygrounds !== undefined) {
     if (typeof changes.savePlaygrounds !== "boolean") throw new Error("Invalid preferences");
     next.savePlaygrounds = changes.savePlaygrounds;

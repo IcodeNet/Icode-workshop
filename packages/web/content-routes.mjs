@@ -34,7 +34,7 @@ Each step has a **problem** (where you start), a **solution** (the reference) an
 
 ## Keyboard
 
-In the diff: <kbd>j</kbd>/<kbd>k</kbd> next/previous file, <kbd>n</kbd>/<kbd>p</kbd> next/previous change, <kbd>u</kbd> unified/split, <kbd>?</kbd> help. In the editor: <kbd>Ctrl</kbd>+<kbd>S</kbd> saves.
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (or <kbd>Ctrl</kbd>+<kbd>K</kbd>) opens the command palette: search lessons, files and commands. <kbd>?</kbd> lists every shortcut; Preferences lets you change them. In the diff: <kbd>j</kbd>/<kbd>k</kbd> next/previous file, <kbd>n</kbd>/<kbd>p</kbd> next/previous change, <kbd>u</kbd> unified/split, <kbd>?</kbd> help. In the editor: <kbd>Ctrl</kbd>+<kbd>S</kbd> saves.
 
 ## Safety
 

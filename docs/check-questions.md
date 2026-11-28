@@ -42,7 +42,7 @@ Questions are interactive in a step's documents (lesson, wrap-up and, in the Epi
 - **Progress**: each question's status (`correct`, `incorrect` or `revealed`), the last choice and the self-mark are stored with step progress in `.workshop/progress.json` under `questions.<step>.<id>`, and mirrored in `localStorage` (one copy per course). The free-text attempt itself stays in `localStorage`; it is sent to the engine only with Reveal (to require an attempt) and is not stored there. A self-mark that cannot be sent is kept on the device and sent on the next load. No login.
 - **Summary**: the lesson shows "Check questions: 2/3 checked" for the step, and how many are to review again.
 - **Review again**: the sidebar lists, across all steps, the questions answered incorrectly (until checked correctly or marked "got it") and those marked "review again". Choosing one opens its step and focuses the question.
-- The Stage 4 command palette (PR #10) is not on `main` yet. Follow-up: add the review list to the palette as a "Review" command group once it merges.
+- **Command palette** (Stage 4): every question to review again is a "Review" item ("Review again: <prompt>", with its step); search "review". Choosing one opens the step and focuses the question, like the sidebar list.
 
 ## How the answer stays hidden
 
@@ -82,7 +82,7 @@ Older engines show the block as a YAML code block, answer included. Courses that
 
 ## Accessibility
 
-Each question is a `role="group"` labelled by its prompt. Options are native radio inputs inside `role="radiogroup"` (arrow keys move and select; Tab reaches Check). The free-text box has a visible label. Results are announced through a polite live region, and focus moves to **Try again** or to the revealed answer. Self-marks are toggle buttons (`aria-pressed`). State is never shown by colour alone. Colours are defined for the dark theme on `main` and for the Stage 4 `light` and `high-contrast` themes. Playwright runs axe (WCAG 2.1 A and AA) on answered questions and on the review list.
+Each question is a `role="group"` labelled by its prompt. Options are native radio inputs inside `role="radiogroup"` (arrow keys move and select; Tab reaches Check). The free-text box has a visible label. Results are announced through a polite live region, and focus moves to **Try again** or to the revealed answer. Self-marks are toggle buttons (`aria-pressed`). State is never shown by colour alone. Colours are defined for every Stage 4 theme (dark, light, high contrast: `.app.theme-light`, `.app.theme-hc`). The Stage 4 axe run for each theme (`tests/browser/ux.spec.mjs`) covers question blocks unanswered, checked, revealed and marked, and the review list, including its ARIA id-reference check.
 
 ## Tests
 

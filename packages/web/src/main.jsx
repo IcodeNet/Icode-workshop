@@ -1,6 +1,6 @@
 import "./session.js";
 import Markdown from "react-markdown";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import {
@@ -16,7 +16,7 @@ import {
   useIndicators,
 } from "./operations.jsx";
 import { DiffView, resolveDiffLink } from "./diff.jsx";
-import { QuestionSummary, ReviewList, questionStore, focusQuestion } from "./questions.jsx";
+import { QuestionSummary, ReviewList, questionStore, focusQuestion, useReviewItems } from "./questions.jsx";
 import { SavedPanel, TouchedFiles, UpdateBanner, UpdatePanel, operationSummary } from "./workspace.jsx";
 import {
   AppBrowser,
@@ -29,6 +29,24 @@ import {
   handleContentLink,
   useContentConfig,
 } from "./content.jsx";
+import { CommandPalette, ShortcutsDialog } from "./palette.jsx";
+import {
+  ConnectionBanner,
+  ConnectionStatus,
+  PanelBoundary,
+  PreferencesPage,
+  THEME_LABELS,
+  WarningBanner,
+  nextTheme,
+  useConnection,
+  usePreferences,
+  useScrollRestore,
+  useShortcuts,
+  useTheme,
+  useWarnings,
+} from "./ux.jsx";
+import { COMMANDS, resolveBindings } from "./ux/shortcuts.js";
+import { THEMES } from "./ux/preferences.js";
 const api = async (path, options) => {
   const response = await fetch("/api" + path, {
     ...options,
@@ -132,6 +150,18 @@ function App() {
   const [appVariant, setAppVariant] = useState("playground");
   const [appNavigate, setAppNavigate] = useState(null);
   const [indicators, refreshIndicators] = useIndicators();
+  // Stage 4: preferences, theme, shortcuts, palette, status and warnings.
+  const prefs = usePreferences();
+  const theme = useTheme(prefs.ui);
+  const bindings = useMemo(() => resolveBindings(prefs.ui.shortcuts), [prefs.ui.shortcuts]);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const connection = useConnection();
+  const warnings = useWarnings(workspaceKey);
+  useScrollRestore(page ? "page:" + page : selected ? "step:" + selected : "home", prefs.ui.restoreScroll);
+  useEffect(() => {
+    if (course?.title) document.title = course.title + " · Icode Workshop";
+  }, [course?.title]);
   const actions = useActions({
     onFinished: refreshIndicators,
     onChange: refreshIndicators,
@@ -852,23 +882,136 @@ function App() {
       },
     });
   }
-  useEffect(() => {
-    const shortcut = (event) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      if (event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (selected && dirty && !busy) save();
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        if (selected && !busy) test();
-      }
-    };
-    window.addEventListener("keydown", shortcut);
-    return () => window.removeEventListener("keydown", shortcut);
-  });
+  // Stage 4 (G1/G2): every palette entry and shortcut maps to one of these.
+  // They call the same functions as the buttons, with the same confirmations.
+  const index = ids.indexOf(selected);
+  const wait = busy ? "wait for the current operation to finish" : "";
+  const noStep = exercise ? "" : "open a lesson first";
+  const lessonOnly = (run, extra = "") => ({ disabled: noStep || wait || extra, run: () => (setPage(null), run()) });
+  const commandTable = {
+    "palette.open": { run: () => setPaletteOpen(true) },
+    "shortcuts.open": { run: () => setShortcutsOpen(true) },
+    "preferences.open": { disabled: wait, run: () => setPage("preferences") },
+    "theme.cycle": { run: () => prefs.update({ theme: nextTheme(prefs.ui.theme) }) },
+    "connection.retry": { run: () => connection.retry() },
+    "nav.home": { disabled: wait, run: () => setPage("intro") },
+    "nav.guide": { disabled: wait, run: () => setPage("guide") },
+    "nav.finish": { disabled: wait, run: () => setPage("finished") },
+    "nav.next": { disabled: wait || (!ids.length ? "no lessons" : index >= ids.length - 1 ? "this is the last step" : ""), run: () => choose(ids[index + 1]) },
+    "nav.prev": { disabled: wait || (index < 1 ? (exercise ? "this is the first step" : "open a lesson first") : ""), run: () => choose(ids[index - 1]) },
+    "nav.last": { disabled: wait || (!ids.length ? "no lessons" : ""), run: () => choose(ids[ids.length - 1]) },
+    "nav.incomplete": { disabled: wait || (ids.some((id) => !completed.includes(id)) ? "" : "every step is complete"), run: () => choose(ids.find((id) => !completed.includes(id))) },
+    "view.diff": lessonOnly(() => openDiff()),
+    "view.playground": lessonOnly(() => setTab("playground")),
+    "view.problem": lessonOnly(() => setTab("problem")),
+    "view.solution": lessonOnly(() => setTab("solution")),
+    "file.save": { disabled: noStep || wait || (!dirty ? "nothing to save" : ""), run: save },
+    "tests.run": { disabled: noStep || wait, run: test },
+    "file.new": lessonOnly(() => (setTab("playground"), fileAction("create"))),
+    "file.delete": lessonOnly(() => fileAction("delete"), file ? "" : "no file is open"),
+    "playground.reset": lessonOnly(reset),
+    "playground.solution": lessonOnly(() => replaceFrom(selected, "solution")),
+    "playground.previous": lessonOnly(() => replaceFrom(ids[index - 1], "playground"), index < 1 ? "this is the first step" : ""),
+    "playground.migrate": lessonOnly(migrate, index < 1 ? "this is the first step" : ""),
+    "lesson.complete": lessonOnly(toggleComplete),
+    ...Object.fromEntries(
+      ["preview", "console", "tests", "actions", "processes", "saved", "update", "tools", "tutor"].map((name) => [
+        "panel." + name,
+        { disabled: noStep, run: () => (setPage(null), setPanel(name)) },
+      ]),
+    ),
+  };
+  function runCommand(id) {
+    const command = commandTable[id];
+    if (!command) return false;
+    if (command.disabled) {
+      setActivity("Unavailable: " + command.disabled);
+      // Ctrl/Cmd+S and Ctrl/Cmd+Enter never fall through to the browser.
+      return id === "file.save" || id === "tests.run";
+    }
+    command.run();
+    return true;
+  }
+  const runLatest = useRef(runCommand);
+  runLatest.current = runCommand;
+  useShortcuts(bindings, (id) => runLatest.current(id), { diffActive: Boolean(exercise && !page && tab === "diff") });
+  const reviewItems = useReviewItems();
+  // Opens a check question (review list and palette): its step, then focus.
+  function openQuestion(step, qid) {
+    setPage(null);
+    if (step === selected && focusQuestion(step, qid)) return;
+    questionStore.focusLater(step, qid);
+    if (step !== selected) choose(step);
+  }
+  const paletteItems = useMemo(() => {
+    if (!paletteOpen) return [];
+    const items = COMMANDS.map((c) => ({
+      key: "command:" + c.id,
+      kind: "command",
+      label: c.label,
+      keywords: [c.group, c.id],
+      binding: bindings[c.id]?.[0],
+      disabled: commandTable[c.id]?.disabled || "",
+      run: () => runLatest.current(c.id),
+    }));
+    for (const t of THEMES)
+      items.push({ key: "theme:" + t, kind: "command", label: "Theme: " + THEME_LABELS[t], keywords: ["theme", "colour", "color", "appearance"], detail: prefs.ui.theme === t ? "current" : "", run: () => prefs.update({ theme: t }) });
+    for (const action of actions.actions)
+      items.push({
+        key: "action:" + action.id,
+        kind: "command",
+        label: "Run course action: " + action.label,
+        keywords: [action.group || "", action.description || "", "action"],
+        detail: action.destructive ? "Destructive; asks for typed confirmation" : action.group || "",
+        disabled: actions.running ? "another action is running" : "",
+        // Same entry point as the Actions panel button: the server's typed
+        // confirmation still opens the confirmation dialog.
+        run: () => (setPage(null), setPanel("actions"), actions.start(action)),
+      });
+    for (const module of course?.modules || [])
+      for (const group of module.exercises || [{ id: module.id, title: "", steps: module.steps }])
+        for (const id of group.steps || []) {
+          const title = catalog.find((item) => item.id === id)?.title || "Exercise " + id;
+          items.push({
+            key: "lesson:" + id,
+            kind: "lesson",
+            label: id + " " + title + (completed.includes(id) ? " ✓" : ""),
+            keywords: [String(group.title || ""), String(module.title || "")],
+            detail: [module.title, group.title].filter(Boolean).join(" › "),
+            disabled: wait,
+            run: () => {
+              setPage(null);
+              if (id !== selected) choose(id);
+            },
+          });
+        }
+    for (const item of reviewItems)
+      items.push({
+        key: "review:" + item.step + "/" + item.id,
+        kind: "review",
+        label: "Review again: " + (item.prompt || "Check question"),
+        keywords: ["review", "question", "quiz", "check"],
+        detail: "Step " + item.step + (item.mark === "review" ? " · marked review again" : " · answered incorrectly"),
+        disabled: wait,
+        run: () => openQuestion(item.step, item.id),
+      });
+    for (const name of exercise ? files : [])
+      items.push({
+        key: "file:" + name,
+        kind: "file",
+        label: name,
+        detail: "playground of " + selected,
+        disabled: wait,
+        run: () => {
+          setPage(null);
+          setTab("playground");
+          openFile(name).catch((e) => setResult(e.message));
+        },
+      });
+    return items;
+  }, [paletteOpen]);
   return (
-    <div className="app dark">
+    <div className={theme.className} style={theme.style}>
       <header className="topbar">
         <div className="brand">
           <img className="hippo-logo" src="/hippo.png" alt="Icode hippo" />
@@ -880,6 +1023,13 @@ function App() {
         <div className="top-actions">
           <span className="mode">Local learning environment</span>
           <span className="mode">{course?.title || "AI Engineering Labs"}</span>
+          <ConnectionStatus state={connection.state} />
+          <button className="commands-button" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Control+Shift+P Meta+Shift+P Control+K Meta+K">
+            Commands
+          </button>
+          <button className="commands-button" onClick={() => setShortcutsOpen(true)} aria-keyshortcuts="Shift+?">
+            Shortcuts
+          </button>
 
         </div>
       </header>
@@ -903,9 +1053,15 @@ function App() {
           </button>
         )}
         <span className="shortcut-help">
-          Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests &nbsp; Diff: j/k files · n/p changes · ? help
+          Ctrl/⌘ Shift P · Commands &nbsp; ? · Shortcuts &nbsp; Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests
         </span>
       </div>
+      {paletteOpen && (
+        <PanelBoundary name="command palette">
+          <CommandPalette items={paletteItems} onClose={() => setPaletteOpen(false)} />
+        </PanelBoundary>
+      )}
+      {shortcutsOpen && <ShortcutsDialog bindings={bindings} onClose={() => setShortcutsOpen(false)} />}
       {actions.confirm && (
         <ConfirmDialog
           title={"Confirm: " + (actions.run?.label || "course action")}
@@ -931,6 +1087,7 @@ function App() {
               <button disabled={busy} aria-current={page === "support" ? "page" : undefined} onClick={() => setPage("support")}>Support</button>
             )}
             <button disabled={busy} aria-current={page === "finished" ? "page" : undefined} onClick={() => setPage("finished")}>Finish</button>
+            <button disabled={busy} aria-current={page === "preferences" ? "page" : undefined} onClick={() => setPage("preferences")}>Preferences</button>
           </nav>
           <div className="eyebrow section-label">EXERCISES</div>
           <button
@@ -979,26 +1136,30 @@ function App() {
               ))}
             </section>
           ))}
-          <ReviewList
-            disabled={busy}
-            onOpen={(step, qid) => {
-              setPage(null);
-              if (step === selected && focusQuestion(step, qid)) return;
-              questionStore.focusLater(step, qid);
-              if (step !== selected) choose(step);
-            }}
-          />
+          <ReviewList disabled={busy} items={reviewItems} onOpen={openQuestion} />
           <div className="sidebar-footer">
             Select an exercise to create its playground. Each lab has a
             persistent, separate playground.
           </div>
         </aside>
         <main className="content">
+          <ConnectionBanner connection={connection} />
+          <WarningBanner
+            warnings={warnings}
+            dismissed={prefs.ui.dismissedWarnings}
+            onDismissForever={(id) => prefs.update({ dismissedWarnings: [...prefs.ui.dismissedWarnings, id] })}
+          />
           <IndicatorBanner indicators={indicators} />
           <SetupBanner />
           <UpdateBanner onOpen={() => setPanel("update")} />
           <Notifications sandboxOrigin={sandboxOrigin} />
-          {page && (
+          {page === "preferences" && (
+            <PanelBoundary name="preferences page">
+              <PreferencesPage prefs={prefs} resolvedTheme={theme.resolved} onClose={exercise ? () => setPage(null) : null} />
+            </PanelBoundary>
+          )}
+          {page && page !== "preferences" && (
+            <PanelBoundary name="course page" resetKey={page}>
             <CoursePage
               name={page}
               stepId={selected}
@@ -1014,6 +1175,7 @@ function App() {
               onClose={exercise ? () => setPage(null) : null}
               onLink={contentClick}
             />
+            </PanelBoundary>
           )}
           {page ? null : exercise ? (
             <>
@@ -1023,6 +1185,7 @@ function App() {
                 <p>{exercise.description}</p>
               </div>
               <div className="learning-layout">
+                <PanelBoundary name="lesson panel" resetKey={selected}>
                 <article className="lesson-panel" onClick={(event) => {
                   if (contentClick(event)) return;
                   const href = event.target.closest("a")?.getAttribute("href");
@@ -1107,7 +1270,9 @@ function App() {
                     disk. Test results are reported separately.
                   </small>
                 </article>
+                </PanelBoundary>
                 <div className="workspace-column">
+                  <PanelBoundary name="code workbench" resetKey={selected}>
                   <section className="workbench" data-live-reload={liveReload}>
                     <div className="workbench-head">
                       <div>
@@ -1399,6 +1564,8 @@ function App() {
                       <span>{exercise.runtime}</span>
                     </div>
                   </section>
+                  </PanelBoundary>
+                  <PanelBoundary name="output panel" resetKey={selected}>
                   <section className="output-panel">
                     <div
                       className="tabs"
@@ -1717,6 +1884,7 @@ function App() {
                       </>
                     )}
                   </section>
+                  </PanelBoundary>
                 </div>
               </div>
               <section className="hint">

@@ -130,7 +130,7 @@ function SelfMark({ entry, onMark, busy }) {
   );
 }
 
-export function Question({ step, qid, kind, promptHtml, options, source }) {
+export function Question({ step, qid, kind, promptHtml, options, source, promptId: serverPromptId }) {
   const uid = useId();
   const progress = useQuestionProgress();
   const entry = progress[step]?.[qid];
@@ -141,7 +141,8 @@ export function Question({ step, qid, kind, promptHtml, options, source }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const after = useRef(null);
-  const promptId = uid + "-prompt";
+  // Keep the server id: the block (role="group") is labelled by it.
+  const promptId = serverPromptId || uid + "-prompt";
   useEffect(() => {
     if (result && after.current) after.current.focus();
   }, [result]);
@@ -273,15 +274,15 @@ export function Question({ step, qid, kind, promptHtml, options, source }) {
         <div className={"cq-feedback" + (kind === "choice" ? (result.correct ? " cq-feedback-correct" : " cq-feedback-incorrect") : "")} ref={kind === "free" ? after : undefined} tabIndex={kind === "free" ? -1 : undefined}>
           {kind === "choice" && <p className="cq-verdict">{result.correct ? "Correct." : `Not quite. The correct answer is ${letter(result.answerIndex)}.`}</p>}
           {kind === "free" && (
-            <section className="cq-answer" aria-label="Model answer">
+            <div className="cq-answer">
               <strong>Model answer</strong>
               <Html html={result.answerHtml} />
-            </section>
+            </div>
           )}
-          <section className="cq-explanation" aria-label="Explanation">
+          <div className="cq-explanation">
             <strong>Why</strong>
             <Html html={result.explanationHtml} />
-          </section>
+          </div>
         </div>
       )}
       {kind === "free" && (result || entry?.status === "revealed") && <SelfMark entry={entry} busy={busy} onMark={mark} />}
@@ -302,6 +303,7 @@ export function mountQuestions(container, step) {
     const qid = block.dataset.question;
     const kind = block.dataset.kind === "free" ? "free" : "choice";
     const promptHtml = block.querySelector(".cq-prompt")?.innerHTML ?? "";
+    const promptId = block.querySelector(".cq-prompt")?.id || "";
     const options = [...block.querySelectorAll(".cq-option")].map((li) => li.innerHTML);
     const source = block.querySelector(".cq-source")?.textContent || "";
     const staticNodes = [...block.childNodes];
@@ -312,7 +314,7 @@ export function mountQuestions(container, step) {
     block.dataset.hydrated = "true";
     block.tabIndex = -1;
     const root = createRoot(host);
-    root.render(<Question step={step} qid={qid} kind={kind} promptHtml={promptHtml} options={options} source={source} />);
+    root.render(<Question step={step} qid={qid} kind={kind} promptHtml={promptHtml} options={options} source={source} promptId={promptId} />);
     roots.push({ root, block, host, staticNodes });
   }
   const focus = questionStore.takeFocus(step);
@@ -353,7 +355,8 @@ export function QuestionSummary({ step, questions }) {
   );
 }
 
-export function ReviewList({ onOpen, disabled }) {
+/** Questions to review again across steps (server list, local marks applied). */
+export function useReviewItems() {
   const progress = useQuestionProgress();
   const [items, setItems] = useState([]);
   const key = JSON.stringify(Object.entries(progress).map(([s, e]) => [s, Object.entries(e).filter(([, v]) => needsReview(v)).map(([k]) => k)]));
@@ -368,7 +371,11 @@ export function ReviewList({ onOpen, disabled }) {
     };
   }, [key]);
   // The server list is authoritative for prompts; local marks hide items at once.
-  const shown = items.filter((item) => needsReview(progress[item.step]?.[item.id] ?? item));
+  return items.filter((item) => needsReview(progress[item.step]?.[item.id] ?? item));
+}
+
+export function ReviewList({ onOpen, disabled, items }) {
+  const shown = items;
   if (!shown.length) return null;
   return (
     <nav className="review-list" aria-label="Questions to review again">
