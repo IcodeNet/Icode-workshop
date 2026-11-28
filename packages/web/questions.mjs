@@ -1,4 +1,6 @@
 // Check questions (Stage 5 A6, pulled forward): the `question` fenced block.
+// Finding blocks is the renderer's job (markdown.mjs, analyzeQuestions): one
+// Markdown parse is the single source of truth. This module parses one body.
 // Course content is untrusted, so the YAML inside a block is parsed with the
 // core schema only (no custom or explicit tags, no anchors or aliases), with
 // size, depth and count limits, and is never evaluated. See
@@ -20,37 +22,8 @@ export const QUESTION_LIMITS = {
 };
 export const QUESTION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 const KEYS = new Set(["id", "prompt", "options", "answer", "explanation", "source"]);
-// Any indentation and blockquote prefix: over-detecting is safe (a block is
-// stripped from plain-text copies or reported), missing one is not.
-const FENCE = /^((?:\s*>)*\s*)(`{3,}|~{3,})(.*)$/;
-
 /** True when a fence info string declares a question block. */
 export const isQuestionInfo = (info) => String(info ?? "").trim().split(/\s+/)[0].toLowerCase() === "question";
-
-/**
- * Question fences in a Markdown/MDX source, in document order, with the
- * 1-based line of the opening fence. Uses the same fence rules as the lesson
- * preprocessor (an unclosed fence runs to the end of the document).
- */
-export function findQuestionBlocks(source) {
-  const lines = String(source ?? "").replace(/\r\n?/g, "\n").split("\n");
-  const blocks = [];
-  let fence = null;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(FENCE);
-    if (fence) {
-      if (m && m[2][0] === fence.marker[0] && m[2].length >= fence.marker.length && !m[3].trim()) {
-        if (fence.question) blocks.push({ line: fence.line, endLine: i + 1, body: fence.body.join("\n") });
-        fence = null;
-      } else fence.body.push(fence.quoted ? lines[i].replace(/^(?:\s*>)+ ?/, "") : lines[i].replace(new RegExp("^ {0," + fence.indent + "}"), ""));
-      continue;
-    }
-    if (m && !(m[2][0] === "`" && m[3].includes("`")))
-      fence = { marker: m[2], line: i + 1, question: isQuestionInfo(m[3]), body: [], quoted: m[1].includes(">"), indent: m[1].length };
-  }
-  if (fence?.question) blocks.push({ line: fence.line, endLine: lines.length, body: fence.body.join("\n"), unclosed: true });
-  return blocks;
-}
 
 function depthOf(node, depth = 0) {
   if (depth > QUESTION_LIMITS.depth + 1) return depth;
@@ -196,51 +169,4 @@ export function assignIds(parsed, docPath) {
     return id;
   });
   return { ids, warnings };
-}
-
-/**
- * Replace question blocks with their prompt and options only, for the plain
- * text copies of a lesson (tutor, MCP read_lesson, API `content`): those must
- * never contain an answer or explanation.
- */
-export function stripQuestionAnswers(source) {
-  const blocks = findQuestionBlocks(source);
-  if (!blocks.length) return source;
-  const lines = String(source).replace(/\r\n?/g, "\n").split("\n");
-  const out = [];
-  let cursor = 0;
-  for (const block of blocks) {
-    out.push(...lines.slice(cursor, block.line - 1));
-    const parsed = parseQuestion(block.body);
-    if (parsed.ok) {
-      out.push("**Check question:** " + parsed.question.prompt.trim());
-      if (parsed.question.options) out.push("", ...parsed.question.options.map((o, i) => `${i + 1}. ${o.replace(/\s+/g, " ").trim()}`));
-    } else out.push("**Check question** (invalid block, not shown)");
-    cursor = block.endLine;
-  }
-  out.push(...lines.slice(cursor));
-  return out.join("\n");
-}
-
-/**
- * Validation problems for every question block in a document, with 1-based
- * line numbers (for `workshop validate`).
- */
-export function questionProblems(source, file) {
-  const blocks = findQuestionBlocks(source);
-  const problems = [];
-  if (blocks.length > QUESTION_LIMITS.perDocument)
-    problems.push({ file, line: blocks[QUESTION_LIMITS.perDocument].line, message: `more than ${QUESTION_LIMITS.perDocument} question blocks in one document` });
-  const parsed = blocks.map((b) => parseQuestion(b.body));
-  parsed.forEach((p, i) => {
-    if (blocks[i].unclosed) problems.push({ file, line: blocks[i].line, message: "question block is not closed" });
-    if (!p.ok) for (const message of p.errors) problems.push({ file, line: blocks[i].line, message });
-  });
-  const seen = new Map();
-  parsed.forEach((p, i) => {
-    if (!p.ok || !p.question.id) return;
-    if (seen.has(p.question.id)) problems.push({ file, line: blocks[i].line, message: `duplicate question id "${p.question.id}" (first on line ${seen.get(p.question.id)})` });
-    else seen.set(p.question.id, blocks[i].line);
-  });
-  return { count: blocks.length, problems };
 }

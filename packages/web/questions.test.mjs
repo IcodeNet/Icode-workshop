@@ -4,8 +4,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { parseQuestion, findQuestionBlocks, questionProblems, stripQuestionAnswers, derivedQuestionId, QUESTION_LIMITS } from "./questions.mjs";
-import { renderLesson, renderSafe } from "./markdown.mjs";
+import { parseQuestion, derivedQuestionId, QUESTION_LIMITS } from "./questions.mjs";
+import { renderLesson, renderSafe, analyzeQuestions, questionProblems } from "./markdown.mjs";
 import { lessonDocuments, stepQuestions, lessonText, validateQuestions } from "./lessons.mjs";
 import { readProgress, updateQuestionProgress, cleanQuestions } from "./course.mjs";
 import { nativeCourse, writeTree } from "./test-support/workspace-course.mjs";
@@ -78,14 +78,81 @@ test("safe YAML: no tags, anchors, aliases or merge keys; size, depth and length
   assert.match(errors("prompt: p\nanswer: 0\nexplanation: e\noptions: [" + "y".repeat(501) + ", b]"), /at most 500/);
 });
 
-test("fences: line numbers, ~~~ and longer fences, blockquotes, unclosed blocks and non-question code", () => {
+test("fences: found by the Markdown parse, with source lines; ~~~, longer fences, quotes, unclosed and non-question code", () => {
   const source = ["# T", "", fence(MC), "```js", "```question inside js", "```", "~~~~question", FREE, "~~~~", "> ```question", "> prompt: quoted", "> ```", "```question", "prompt: open"].join("\n");
-  const blocks = findQuestionBlocks(source);
+  const { blocks, orphans } = analyzeQuestions(source);
   assert.deepEqual(blocks.map((b) => b.line), [3, 16, 23, 26]);
   assert.match(blocks[2].body, /^prompt: quoted$/);
-  assert.equal(blocks[3].unclosed, true);
+  assert.deepEqual(blocks.map((b) => b.unclosed), [false, false, false, true]);
+  assert.deepEqual(orphans, [], "a question fence inside a js example is not an orphan");
+  // Lines are source lines even where block components add blank lines.
+  assert.deepEqual(analyzeQuestions("<details>\n<summary>s</summary>\n\n" + fence(MC) + "</details>\n").blocks.map((b) => b.line), [4]);
   assert.equal(derivedQuestionId("README.md", 2), "readme-2");
   assert.equal(derivedQuestionId("01.problem.hello/README.mdx", 1), "01-problem-hello-readme-1");
+});
+
+// Every container a fenced block can sit in (BL-1), each followed by more
+// questions: rendering, the plain-text copy and validate must agree.
+const secretQuestion = (tag, extra = "") => `\`\`\`question\nid: ${tag}\n${extra}prompt: Prompt ${tag}?\nanswer: |\n  Model answer ${tag} with several distinct words SECRET-${tag}-ANSWER\nexplanation: Because ${tag} has its own long reason SECRET-${tag}-EXPLANATION\n\`\`\``;
+const indent = (block, prefix, first = prefix) => block.split("\n").map((l, i) => (i ? prefix : first) + l).join("\n");
+const LAYOUTS = {
+  listItem: (q) => "- item\n\n" + indent(q, "  ", "- "),
+  listNoPad: (q) => indent(q, "  ", "- "),
+  orderedItem: (q) => indent(q, "   ", "1. "),
+  quote: (q) => indent(q, "> "),
+  quoteList: (q) => indent(q, ">   ", "> - "),
+  footnote: (q) => "See the note.[^n]\n\n" + indent(q, "    ", "[^n]: "),
+  nestedList: (q) => "- a\n  - b\n\n" + indent(q, "    ", "    "),
+  tilde: (q) => q.replace(/^```/, "~~~").replace(/```$/, "~~~"),
+  indentedFence: (q) => indent(q, "   "),
+  longFence: (q) => q.replace(/^```/, "`````").replace(/```$/, "`````"),
+  htmlBlankLines: (q) => "<div>\n\n" + q + "\n\n</div>",
+  details: (q) => "<details>\n<summary>More</summary>\n\n" + q + "\n\n</details>",
+  tableNeighbour: (q) => "| a | b |\n|---|---|\n| ```question | x |\n\n" + q,
+};
+test("BL-1: questions in lists, quotes, footnotes, HTML, tables, tilde and indented fences, CRLF: rendered, stripped and validated alike", async () => {
+  for (const [name, layout] of Object.entries(LAYOUTS))
+    for (const mdx of [false, true])
+      for (const eol of ["\n", "\r\n"]) {
+        const source = ["# Lesson", "", "Intro.", "", layout(secretQuestion("nested")), "", "Middle.", "", secretQuestion("after1"), "", secretQuestion("after2"), "", "Outro."].join("\n").replaceAll("\n", eol);
+        const label = `${name} mdx=${mdx} eol=${JSON.stringify(eol)}`;
+        const r = await renderLesson(source, { stepId: "01", docPath: "README.md", mdx });
+        assert.deepEqual(r.questions.map((q) => q.id), ["nested", "after1", "after2"], label);
+        for (const out of [r.html, r.text]) assert.doesNotMatch(out, /SECRET-|several distinct words|its own long reason/, label);
+        assert.match(r.text, /\*\*Check question:\*\* Prompt nested\?[\s\S]*Prompt after1\?[\s\S]*Prompt after2\?[\s\S]*Outro\./, label);
+        assert.equal((r.html.match(/class="check-question"/g) || []).length, 3, label);
+        const { count, problems } = questionProblems(source, "README.md", { mdx });
+        assert.deepEqual([count, problems], [3, []], label);
+        // Invalid in that container: validate reports it, at its line.
+        const bad = ["# Lesson", "", "Intro.", "", layout(secretQuestion("nested", "foo: bar\n")), "", secretQuestion("after1")].join("\n").replaceAll("\n", eol);
+        const report = questionProblems(bad, "README.md", { mdx }).problems;
+        assert.ok(report.some((p) => /Unknown field "foo"/.test(p.message) && p.line >= 5), label + " " + JSON.stringify(report));
+      }
+});
+
+test("fail closed: text that looks like a question but is not parsed as one withholds the lesson and fails validate", async () => {
+  const cases = {
+    htmlNoBlankLine: "<div>\n" + secretQuestion("orphan") + "\n</div>",
+    tabIndented: secretQuestion("orphan").split("\n").map((l) => "\t" + l).join("\n"),
+  };
+  for (const [name, block] of Object.entries(cases)) {
+    const source = "# L\n\nIntro.\n\n" + block + "\n\n" + secretQuestion("ok") + "\n";
+    const r = await renderLesson(source, { stepId: "01", docPath: "README.md" });
+    assert.doesNotMatch(r.html + r.text, /SECRET-orphan|several distinct words/, name);
+    assert.match(r.html, /question-withheld/, name);
+    assert.ok(r.warnings.some((w) => /withheld/.test(w)), name);
+    const { problems } = questionProblems(source, "README.md");
+    assert.ok(problems.some((p) => p.line >= 5 && p.line <= 6 && /not parsed as one/.test(p.message)), name + " " + JSON.stringify(problems));
+  }
+  // Mentions of the syntax inside a fenced example or inline code are not questions.
+  const docs = "Use a ```question fence.\n\n````markdown\n" + secretQuestion("example") + "\n````\n";
+  const shown = await renderLesson(docs, { stepId: "01", docPath: "README.md" });
+  assert.match(shown.html, /SECRET-example-ANSWER/, "an authoring example is shown as code");
+  assert.deepEqual([shown.questions, questionProblems(docs, "README.md").problems], [[], []]);
+  // A raw <pre><code class="language-question"> cannot become a question.
+  const raw = await renderLesson('<pre><code class="language-question">prompt: p\nanswer: a\nexplanation: e</code></pre>', { stepId: "01" });
+  assert.deepEqual(raw.questions, []);
+  assert.doesNotMatch(raw.html, /check-question/);
 });
 
 test("rendering: prompt and options only, answers server-side, ids in document order", async () => {
@@ -162,13 +229,16 @@ test("hostile: huge blocks and a lesson of many questions stay within limits; th
   const huge = await render(fence("prompt: p\nanswer: a\nexplanation: " + "z".repeat(QUESTION_LIMITS.blockBytes + 10)));
   assert.match(huge.html, /larger than 16 KB/);
   assert.doesNotMatch(huge.html, /zzzz/);
-  // A lesson too large to render is shown as plain text, without question answers.
+  // A lesson too large to render is not shown as source when it may hold questions.
   const big = fence(MC) + "x".repeat(260 * 1024);
   const fallback = await renderSafe(big, { stepId: "01" });
   assert.match(fallback.html, /larger than 256 KB/);
-  assert.match(fallback.html, /Check question:\*\* Which ranks/);
-  assert.doesNotMatch(fallback.html, SECRETS);
+  assert.match(fallback.html, /check questions are not shown/);
+  assert.doesNotMatch(fallback.html + fallback.text, SECRETS);
+  assert.doesNotMatch(fallback.html, /lesson-source/);
   assert.deepEqual(fallback.questions, []);
+  const plainBig = await renderSafe("y".repeat(260 * 1024));
+  assert.match(plainBig.html, /lesson-source/, "a lesson without questions keeps its plain-text fallback");
   const started = Date.now();
   const many = await renderSafe(Array.from({ length: QUESTION_LIMITS.perDocument }, () => fence(MC)).join("\n"), { stepId: "01", docPath: "README.md" });
   assert.equal(many.questions.length, QUESTION_LIMITS.perDocument);
@@ -176,11 +246,11 @@ test("hostile: huge blocks and a lesson of many questions stay within limits; th
 });
 
 test("plain-text copies (API content, tutor, MCP) keep prompts and options but never answers", async () => {
-  const stripped = stripQuestionAnswers("Intro\n\n" + fence(MC) + fence(FREE) + fence("prompt: [broken") + "Outro");
+  const stripped = (await render("Intro\n\n" + fence(MC) + fence(FREE) + fence("prompt: [broken") + "Outro")).text;
   assert.doesNotMatch(stripped, SECRETS);
   assert.match(stripped, /\*\*Check question:\*\* Which ranks by term frequency\?\n\n1\. BM25\n2\. Cosine similarity/);
   assert.match(stripped, /\*\*Check question\*\* \(invalid block, not shown\)/);
-  assert.match(stripped, /^Intro[\s\S]*Outro$/);
+  assert.match(stripped, /^Intro[\s\S]*Outro\n?$/);
   const root = await nativeCourse({ files: { "exercises/01/README.md": "# Step\n\n" + fence(MC) + fence(FREE), "exercises/01/FINISHED.md": "# Done\n\n" + fence(MC.replace("source: handoff", "id: wrap")) } });
   const docs = await lessonDocuments(root, "01");
   assert.doesNotMatch(JSON.stringify(docs), SECRETS, "the lesson payload holds no answer");

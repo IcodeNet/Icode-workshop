@@ -15,7 +15,7 @@ import { randomBytes } from "node:crypto";
 export const SANDBOX_GENERATION = randomBytes(8).toString("hex");
 
 // Rendered output without server-only fields (check-question answers).
-const pub = ({ questions, ...rest }) => rest;
+const pub = ({ questions, text, ...rest }) => rest;
 const image = (ref, sandboxOrigin) => (!ref ? undefined : ref.url ?? policy(ref.path, { kind: "image", sandboxOrigin }).href);
 
 const GUIDE = `# Using this workshop

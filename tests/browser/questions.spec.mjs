@@ -212,3 +212,22 @@ test("hostile question blocks: no script runs before or after checking; a YAML b
   expect(await page.evaluate(() => window.__xss)).toBeUndefined();
   expect(problems).toEqual([]);
 });
+
+test("contrast in every theme: dark (default), light and high-contrast pass axe on answered questions", async ({ page }) => {
+  const problems = guard(page);
+  await page.goto("/");
+  await openStep(page, /02 Python approved documents/);
+  const q = question(page, "no status field");
+  await q.getByRole("radio", { name: /Include it/ }).check();
+  await q.getByRole("button", { name: "Check" }).click();
+  await expect(q.locator(".cq-explanation")).toBeVisible();
+  const free = question(page, "What do they prove");
+  await free.getByRole("textbox", { name: "Your answer" }).fill("Contrast check attempt.");
+  await free.getByRole("button", { name: /Reveal/ }).click();
+  await expect(free.locator(".cq-answer")).toBeVisible();
+  for (const theme of [null, "light", "high-contrast"]) {
+    await page.evaluate((t) => (t ? document.documentElement.setAttribute("data-theme", t) : document.documentElement.removeAttribute("data-theme")), theme);
+    await axe(page, ".lesson-panel .check-question");
+  }
+  expect(problems).toEqual([]);
+});

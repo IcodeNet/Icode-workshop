@@ -1344,3 +1344,7 @@ html[data-theme="high-contrast"] .app {
 .review-list button { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 1px solid var(--line); background: transparent; color: inherit; padding: 8px 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
 .review-list button:focus-visible { outline: 3px solid var(--slate); outline-offset: 2px; }
 .review-list .number { font-weight: 700; }
+.check-question :not(pre) > code { color: var(--cq-ink); background: var(--cq-code-bg, rgba(148, 163, 184, 0.18)); }
+html[data-theme="light"] .app .check-question { --cq-code-bg: #e2e8f0; }
+html[data-theme="high-contrast"] .app .check-question { --cq-code-bg: #000000; }
+html[data-theme="high-contrast"] .app .check-question :not(pre) > code { outline: 1px solid #ffffff; }

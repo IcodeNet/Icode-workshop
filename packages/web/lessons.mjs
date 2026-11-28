@@ -3,7 +3,7 @@ import { join, relative, dirname } from "node:path";
 import { stepLayout } from "../core/layout.mjs";
 import { renderCached } from "./markdown.mjs";
 import { assertSafePath } from "./files.mjs";
-import { stripQuestionAnswers, questionProblems } from "./questions.mjs";
+import { questionProblems } from "./markdown.mjs";
 import { readFile as readText } from "node:fs/promises";
 
 const posixRel = (root, path) => relative(root, path).replaceAll("\\", "/");
@@ -29,16 +29,17 @@ export async function renderDocument(root, path, { stepId = null, sandboxOrigin 
 }
 
 // Render the course's declarative MDX subset without evaluating arbitrary JSX/JS.
-// Check questions keep their prompt and options only (never the answer).
+// Callers pass the renderer's plain-text copy (`text`), in which every check
+// question is already reduced to its prompt and options.
 export function lessonMarkdown(source) {
-  const blocks = stripQuestionAnswers(source).split(/(```[\s\S]*?```)/g);
+  const blocks = String(source).split(/(```[\s\S]*?```)/g);
   return blocks
     .map((block, index) =>
       index % 2
         ? block
         : block
             .replace(
-              /<EpicVideo\s+url="([^"]+)"\s*\/>/g,
+              /<EpicVideo\s+url="([^"]+)"\s*(?:\/>|>\s*<\/EpicVideo>)/g,
               (_, url) =>
                 `[Watch the original lesson video (authorised access may be required)](${url})`,
             )
@@ -49,11 +50,11 @@ export function lessonMarkdown(source) {
             .replace(
               /<InlineFile\s+file="([^"]+)"[^>]*>([\s\S]*?)<\/InlineFile>/g,
               (_, file, label) =>
-                `[${label}](#file=${encodeURIComponent(file)})`,
+                `[${label.trim() || file}](#file=${encodeURIComponent(file)})`,
             )
             .replace(
               /<(?:NextDiffLink|PrevDiffLink|DiffLink)[^>]*>([\s\S]*?)<\/(?:NextDiffLink|PrevDiffLink|DiffLink)>/g,
-              "[$1](#comparison)",
+              (_, label) => `[${label.trim() || "View the diff"}](#comparison)`,
             )
             .replace(/<summary>([\s\S]*?)<\/summary>/g, "\n### $1\n")
             .replace(/<\/?(?:details|callout-[\w-]+)[^>]*>/g, "\n")
@@ -101,7 +102,7 @@ export async function lessonDocuments(root, id, { sandboxOrigin = "" } = {}) {
     documents.push({
         title,
         path: doc.path,
-        content: lessonMarkdown(doc.source),
+        content: lessonMarkdown(doc.text),
         html: doc.html,
         toc: doc.toc,
         warnings: doc.warnings,
@@ -146,7 +147,7 @@ export async function validateQuestions(root, ids, extraPaths = []) {
       if (e.code === "ENOENT") continue;
       throw e;
     }
-    const result = questionProblems(source, posixRel(root, path));
+    const result = questionProblems(source, posixRel(root, path), { mdx: path.endsWith(".mdx") });
     count += result.count;
     problems.push(...result.problems);
   }

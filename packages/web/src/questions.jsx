@@ -257,11 +257,11 @@ export function Question({ step, qid, kind, promptHtml, options, source }) {
           />
           <div className="cq-actions">
             {!result && (
-              <button type="button" className="cq-primary" disabled={!attempt.trim() || busy} onClick={reveal}>
+              <button type="button" className="cq-primary" disabled={!/[\p{L}\p{N}]/u.test(attempt) || busy} onClick={reveal}>
                 {entry?.status === "revealed" ? "Reveal again" : "Reveal answer"}
               </button>
             )}
-            {!result && !attempt.trim() && <span className="cq-hint">Write an answer first: the model answer is revealed after your attempt.</span>}
+            {!result && !/[\p{L}\p{N}]/u.test(attempt) && <span className="cq-hint">Write an answer first: the model answer is revealed after your attempt.</span>}
           </div>
         </>
       )}

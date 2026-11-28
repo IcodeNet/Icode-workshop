@@ -1,7 +1,7 @@
 import { stepLayout } from "../core/layout.mjs";
 import { prepareWorkspace } from "./setup.mjs";
 import { cp, mkdir, readFile, stat, writeFile, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { validateId } from "../core/index.mjs";
 import { labConfig } from "./runtime.mjs";
 
@@ -29,10 +29,13 @@ export async function selectWorkspace(root, id) {
     await mkdir(join(resolve(root), ".workshop", "playgrounds"), {
       recursive: true,
     });
+    const { isQuestionLessonFile } = await import("./files.mjs");
     await cp(starter, path, {
       recursive: true,
       force: false,
       errorOnExist: true,
+      // A lesson with check questions stays out of the playground (files.mjs).
+      filter: (src) => !(resolve(dirname(src)) === resolve(starter) && isQuestionLessonFile(src, basename(src))),
     });
     try { await prepareWorkspace(root, path); } catch (error) { await rm(path, { recursive: true, force: true }); throw error; }
   }
@@ -190,10 +193,12 @@ export async function replaceWorkspace(
     previous = path + ".backup-" + token;
   // Stage first: a failed source copy must never remove the learner's workspace.
   try {
+    const { isQuestionLessonFile } = await import("./files.mjs");
     await cp(source, staging, {
       recursive: true,
       errorOnExist: true,
       force: false,
+      filter: (src) => backup !== undefined || !(resolve(dirname(src)) === resolve(source) && isQuestionLessonFile(src, basename(src))),
     });
     // Restoring a backup preserves its database; fresh authored copies run setup before replacing work.
     if (!backup && variant !== "playground") await prepareWorkspace(root, staging);

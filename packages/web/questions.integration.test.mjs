@@ -101,6 +101,9 @@ test("questions: no answer in any lesson payload; check, reveal and self-mark pe
       ["reveal", { id: "01", question: "rrf", attempt: "x".repeat(5001) }, 400],
       ["reveal", { id: "01", question: "bm25", attempt: "BM25" }, 404],
       ["mark", { id: "01", question: "rrf", mark: "review" }, 400],
+      // A client cannot record a result without answering (G6).
+      ["mark", { id: "01", question: "bm25", mark: "got-it", status: "correct" }, 400],
+      ["reveal", { id: "01", question: "rrf", attempt: "\u200b\u200b" }, 400],
     ]) {
       const r = await api.call("/questions/" + path, { method: "POST", body });
       assert.equal(r.status, status, path + " " + JSON.stringify(body));
@@ -118,7 +121,9 @@ test("questions: no answer in any lesson payload; check, reveal and self-mark pe
     assert.match(revealed.body.answerHtml, /MODEL-ANSWER-SECRET/);
     assert.match(revealed.body.explanationHtml, /EXPLAIN-FREE-SECRET/);
     assert.equal((await api.call("/questions/mark", { method: "POST", body: { id: "01", question: "rrf", mark: "maybe" } })).status, 400);
-    assert.equal((await api.call("/questions/mark", { method: "POST", body: { id: "01", question: "rrf", mark: "review" } })).body.progress.mark, "review");
+    const marked = await api.call("/questions/mark", { method: "POST", body: { id: "01", question: "rrf", mark: "review", status: "correct", choice: 1, at: "2000-01-01T00:00:00.000Z" } });
+    assert.deepEqual([marked.body.progress.status, marked.body.progress.mark, marked.body.progress.choice], ["revealed", "review", undefined], "mark ignores a client-sent status, choice and time");
+    assert.notEqual(marked.body.progress.at, "2000-01-01T00:00:00.000Z");
     assert.deepEqual((await api.call("/questions/review")).body.items.map((i) => [i.id, i.mark]), [["rrf", "review"]]);
     await api.call("/progress", { method: "PUT", body: { id: "01", complete: true } });
     // Stored with step progress, on disk; the attempt text itself is not stored.

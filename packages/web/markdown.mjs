@@ -12,7 +12,8 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import { posix } from "node:path";
 import { Worker } from "node:worker_threads";
-import { parseQuestion, assignIds, stripQuestionAnswers, QUESTION_LIMITS } from "./questions.mjs";
+import { parseQuestion, assignIds, isQuestionInfo, QUESTION_LIMITS } from "./questions.mjs";
+import { randomBytes } from "node:crypto";
 
 export const LIMITS = {
   renderMs: 5000,
@@ -55,20 +56,34 @@ function rewriteProse(text) {
 // Block components on their own line get blank lines around them, so their
 // children are parsed as Markdown (as MDX does).
 const BLOCK_LINE = /^\s*<\/?(callout-[a-z]+|details)(\s[^<>]*)?>\s*$/;
-export function preprocess(source, { mdx = false } = {}) {
+// A fence may follow blockquote and list-item markers (`> - ```js`): those
+// lines are code too and are never rewritten.
+const FENCE_LINE = /^(?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*(`{3,}|~{3,})(.*)$/;
+/**
+ * The MDX subset rewrite, with a map from each output line to its 1-based
+ * source line (blank lines are inserted around block components).
+ */
+export function preprocessMapped(source, { mdx = false } = {}) {
   const lines = source.replace(/\r\n?/g, "\n").split("\n");
   const out = [];
+  const map = [];
+  const push = (line, n) => {
+    out.push(line);
+    map.push(n);
+  };
   let fence = null;
-  for (const line of lines) {
-    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const n = i + 1;
+    const marker = line.match(FENCE_LINE);
     if (fence) {
-      out.push(line);
-      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !line.trim().slice(marker[1].length).trim()) fence = null;
+      push(line, n);
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
       continue;
     }
-    if (marker) {
+    if (marker && !(marker[1][0] === "`" && marker[2].includes("`"))) {
       fence = marker[1];
-      out.push(line);
+      push(line, n);
       continue;
     }
     if (mdx && /^(import|export)\s.+(from\s+['"][^'"]+['"]|=.*);?\s*$/.test(line)) continue;
@@ -77,18 +92,17 @@ export function preprocess(source, { mdx = false } = {}) {
       .split(/(`+[^`]*`+)/g)
       .map((part, i) => (i % 2 ? part : rewriteProse(part)))
       .join("");
-    if (BLOCK_LINE.test(rewritten)) {
-      out.push("", rewritten.trim(), "");
+    if (BLOCK_LINE.test(rewritten) || (/<\/summary>\s*$/.test(rewritten) && /^\s*<summary/.test(rewritten))) {
+      push("", n);
+      push(rewritten.trim(), n);
+      push("", n);
       continue;
     }
-    if (/<\/summary>\s*$/.test(rewritten) && /^\s*<summary/.test(rewritten)) {
-      out.push("", rewritten.trim(), "");
-      continue;
-    }
-    out.push(rewritten);
+    push(rewritten, n);
   }
-  return out.join("\n");
+  return { text: out.join("\n"), lines: map };
 }
+export const preprocess = (source, options) => preprocessMapped(source, options).text;
 
 // ---------- hast helpers ----------
 function textOf(node) {
@@ -338,11 +352,18 @@ function code(ctx) {
       }
     });
     const langOf = (node) => (classes(node.children[0]).find((c) => c.startsWith("language-")) || "").slice(9).toLowerCase();
-    // Check questions are rendered first, as one batch, so their ids are
-    // assigned in document order (nested content never holds questions).
-    const questionBlocks = ctx.nested ? [] : blocks.filter(({ node }) => langOf(node) === "question");
-    const done = new Set(questionBlocks.map(({ node }) => node));
-    if (questionBlocks.length) await questions(ctx, [...done]);
+    // Check questions: only the code nodes the Markdown parse found carry
+    // this render's token (raw HTML cannot forge it). Nested content never
+    // holds questions: there, a question fence is plain code.
+    const byIndex = new Map();
+    if (!ctx.nested && ctx.questionToken)
+      for (const { node } of blocks) {
+        // By token only: the info string may differ in case or spacing.
+        const m = textOf(node.children[0]).trim().match(ctx.questionToken);
+        if (m) byIndex.set(Number(m[1]), node);
+      }
+    const done = new Set(byIndex.values());
+    if (ctx.questionBodies?.length) await questions(ctx, byIndex);
     for (const { node } of blocks) {
       if (done.has(node)) continue;
       const codeNode = node.children[0];
@@ -413,12 +434,15 @@ function invalidQuestion(position, errors) {
     el("ul", {}, errors.slice(0, 10).map((e) => el("li", {}, [txt(e)]))),
   ]);
 }
-async function questions(ctx, nodes) {
-  const parsed = nodes.map((node) => parseQuestion(textOf(node.children[0]).replace(/\n$/, "")));
+async function questions(ctx, byIndex) {
+  // Ids and positions follow the Markdown parse (document order, footnotes
+  // where they are defined), the same order validate and the plain copy use.
+  const parsed = ctx.questionBodies.map((body) => parseQuestion(body));
   const { ids, warnings } = assignIds(parsed, ctx.docPath);
   ctx.warnings.push(...warnings);
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
+  for (let i = 0; i < parsed.length; i++) {
+    const node = byIndex.get(i);
+    if (!node) continue;
     const p = parsed[i];
     let replacement;
     if (i >= QUESTION_LIMITS.perDocument) {
@@ -471,6 +495,204 @@ async function questions(ctx, nodes) {
   }
 }
 
+// ---------- 8. one source of truth for question blocks ----------
+// Every consumer (rendered HTML, the plain-text copy, the API payload, MCP,
+// the tutor, `workshop validate`) finds question blocks in the same Markdown
+// parse the renderer uses: `code` nodes whose info string is `question`.
+function syntax(mdx) {
+  const processor = unified().use(remarkParse);
+  if (mdx) processor.use(noIndentedCode);
+  return processor.use(remarkGfm);
+}
+function questionNodes(tree) {
+  const out = [];
+  const visit = (node, depth = 0) => {
+    if (depth > 5000) throw new RangeError("Document nested too deeply");
+    if (node.type === "code" && isQuestionInfo(node.lang)) return void out.push(node);
+    if (node.children) for (const child of node.children) visit(child, depth + 1);
+  };
+  visit(tree);
+  return out;
+}
+const codeNodes = (tree) => {
+  const out = [];
+  const visit = (node) => (node.type === "code" ? out.push(node) : node.children?.forEach(visit));
+  visit(tree);
+  return out;
+};
+/** Remark stage: take question bodies out of the tree, leaving a per-render token. */
+function remarkQuestions(ctx) {
+  return (tree) => {
+    ctx.questionBodies = [];
+    if (ctx.nested) return;
+    questionNodes(tree).forEach((node, i) => {
+      ctx.questionBodies.push(node.value);
+      node.value = ctx.questionTokenPrefix + i;
+      node.meta = null;
+    });
+  };
+}
+// A line that looks like the start of a question fence, however it is
+// indented or prefixed (also NBSP or tabs before the info string).
+// Only at the start of a line (after indentation, blockquote or list
+// markers): inline mentions of the syntax are prose.
+const LOOKALIKE = /^(?:[\s\u00a0\ufeff>]|[-*+](?=\s)|\d{1,9}[.)](?=\s))*(`{3,}|~{3,})[\s\u00a0\ufeff]*question(?![\w-])/i;
+// Anywhere: used where being conservative costs nothing (fallbacks, files).
+const MENTION = /(`{3,}|~{3,})[\s\u00a0\ufeff]*question(?![\w-])/i;
+export const mayHoldQuestions = (source) => MENTION.test(String(source ?? ""));
+const closingFence = (line, marker) => {
+  const m = line.replace(/^(?:[ \t>]|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))*/, "").match(/^(`{3,}|~{3,})\s*$/);
+  return m && m[1][0] === marker[0] && m[1].length >= marker.length;
+};
+/**
+ * Question blocks of a document, from the renderer's own parse.
+ * blocks: [{start, end, line, body, unclosed}] (offsets into `text`, the
+ * preprocessed source; `line` is the 1-based source line).
+ * orphans: text that looks like a question fence but is not parsed as one
+ * (inside raw HTML, an indented code block, a NBSP in the info string…):
+ * it would render as visible text, answer included.
+ */
+export function analyzeQuestions(source, { mdx = false } = {}) {
+  const { text, lines } = preprocessMapped(String(source ?? ""), { mdx });
+  const tree = syntax(mdx).parse(text);
+  const sourceLine = (n) => lines[n - 1] ?? n;
+  const textLines = text.split("\n");
+  const nodes = questionNodes(tree);
+  const blocks = nodes.map((node) => {
+    const { start, end } = node.position;
+    const last = textLines[end.line - 1] ?? "";
+    const marker = (textLines[start.line - 1] ?? "").match(/(`{3,}|~{3,})/)?.[1] ?? "```";
+    return { start: start.offset, end: end.offset, startLine: start.line, endLine: end.line, line: sourceLine(start.line), body: node.value, unclosed: end.line === start.line || !closingFence(last, marker) };
+  });
+  // Fenced examples of the syntax (```markdown … ```question … ```) are
+  // intentional; question fences inside them are not orphans.
+  const examples = codeNodes(tree)
+    // A fenced node's own text starts with its fence; an indented one does not.
+    .filter((node) => !isQuestionInfo(node.lang) && /^(`{3,}|~{3,})/.test(text.slice(node.position.start.offset, node.position.start.offset + 3)))
+    .map((node) => [node.position.start.line, node.position.end.line]);
+  const inside = (n, ranges) => ranges.some(([a, b]) => n >= a && n <= b);
+  const owned = blocks.map((b) => [b.startLine, b.endLine]);
+  const orphans = [];
+  for (let i = 0; i < textLines.length; i++) {
+    const n = i + 1;
+    const m = textLines[i].match(LOOKALIKE);
+    if (!m || inside(n, owned) || inside(n, examples) || inside(n, orphans.map((o) => [o.startLine, o.endLine]))) continue;
+    let j = i + 1;
+    while (j < textLines.length && j - i < 400 && !closingFence(textLines[j], m[1])) j++;
+    const body = textLines
+      .slice(i + 1, j)
+      .map((l) => l.replace(/^(?:[ \t]*>)+ ?/, "").replace(/^\t/, ""))
+      .join("\n");
+    orphans.push({ startLine: n, endLine: Math.min(j + 1, textLines.length), line: sourceLine(n), body });
+  }
+  return { text, blocks, orphans };
+}
+function summary(body) {
+  const parsed = parseQuestion(body);
+  if (!parsed.ok) return "**Check question** (invalid block, not shown)";
+  const q = parsed.question;
+  return ["**Check question:** " + q.prompt.trim(), ...(q.options ? ["", ...q.options.map((o, i) => `${i + 1}. ${o.replace(/\s+/g, " ").trim()}`)] : [])].join("\n");
+}
+/** The preprocessed source with every question block (by node) and orphan replaced. */
+function stripAnalysed({ text, blocks, orphans }) {
+  const ranges = [
+    ...blocks.map((b) => ({ start: b.start, end: b.end, value: summary(b.body) })),
+    ...orphans.map((o) => {
+      const starts = text.split("\n").slice(0, o.startLine - 1).join("\n").length + (o.startLine > 1 ? 1 : 0);
+      const ends = text.split("\n").slice(0, o.endLine).join("\n").length;
+      return { start: starts, end: ends, value: "**Check question** (not shown: run `workshop validate`)" };
+    }),
+  ].sort((a, b) => b.start - a.start);
+  let out = text;
+  let floor = Infinity;
+  for (const r of ranges) {
+    if (r.end > floor) continue; // overlapping: the outer range already went
+    out = out.slice(0, r.start) + r.value + out.slice(r.end);
+    floor = r.start;
+  }
+  return out;
+}
+
+// Fail-closed guard. Fingerprints are runs of words from answers and
+// explanations (and from whole orphan blocks) that occur nowhere in the
+// visible text of the lesson; any output that contains one is withheld.
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+function words(value, { html = false } = {}) {
+  let s = String(value ?? "");
+  if (html) s = s.replace(/<[^>]*>/g, " ");
+  s = s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) =>
+    e[0] === "#" ? String.fromCodePoint(Number(e[1].toLowerCase() === "x" ? "0x" + e.slice(2) : e.slice(1))) : ENTITIES[e.toLowerCase()] ?? " ",
+  );
+  return s.toLowerCase().normalize("NFKC").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+const WINDOW = 5;
+function windows(list, size) {
+  const out = [];
+  for (let i = 0; i + size <= list.length; i++) out.push(list.slice(i, i + size).join(" "));
+  return out;
+}
+function windowSet(list) {
+  return new Set([...windows(list, WINDOW), ...windows(list, 4), ...windows(list, 3)]);
+}
+export function questionFingerprints(analysis, visibleText) {
+  const secrets = [];
+  for (const b of analysis.blocks) {
+    const p = parseQuestion(b.body);
+    if (p.ok) secrets.push(p.question.explanation, ...(p.question.kind === "free" ? [p.question.answer] : []));
+    else secrets.push(b.body);
+  }
+  for (const o of analysis.orphans) {
+    const p = parseQuestion(o.body);
+    secrets.push(...(p.ok ? [p.question.explanation, ...(p.question.kind === "free" ? [p.question.answer] : [])] : [o.body]));
+  }
+  const visible = windowSet(words(visibleText));
+  const out = new Set();
+  for (const secret of secrets) {
+    const w = words(secret);
+    const candidates = w.length >= WINDOW ? windows(w, WINDOW) : w.length >= 3 && w.join(" ").length >= 15 ? [w.join(" ")] : [];
+    for (const c of candidates) if (!visible.has(c)) out.add(c);
+  }
+  return [...out];
+}
+/** True when `output` contains any fingerprint. */
+export function leaksAnswers(output, fingerprints, { html = false } = {}) {
+  if (!fingerprints.length) return false;
+  const seen = windowSet(words(output, { html }));
+  return fingerprints.some((f) => seen.has(f));
+}
+const WITHHELD_HTML =
+  '<div class="callout callout-warning question-withheld" role="note"><strong class="callout-label">Author warning</strong><p>This lesson is withheld because it would show a check question\'s answer or explanation before an attempt. Run <code>workshop validate</code> to find the block.</p></div>';
+const WITHHELD_TEXT = "This lesson is withheld because it would show a check question's answer before an attempt. Run `workshop validate` to find the block.";
+
+/**
+ * Validation problems for every question block of a document, from the same
+ * parse as rendering, with 1-based source lines (for `workshop validate`).
+ */
+export function questionProblems(source, file, { mdx = false } = {}) {
+  if (Buffer.byteLength(String(source ?? "")) > LIMITS.sourceBytes || nestingDepth(String(source ?? "")) > LIMITS.nesting)
+    return { count: 0, problems: mayHoldQuestions(source) ? [{ file, line: 1, message: "document is too large or too deeply nested to render, so its check questions are not shown" }] : [] };
+  const analysis = analyzeQuestions(source, { mdx });
+  const problems = [];
+  const { blocks, orphans } = analysis;
+  if (blocks.length > QUESTION_LIMITS.perDocument)
+    problems.push({ file, line: blocks[QUESTION_LIMITS.perDocument].line, message: `more than ${QUESTION_LIMITS.perDocument} question blocks in one document` });
+  const parsed = blocks.map((b) => parseQuestion(b.body));
+  const seen = new Map();
+  parsed.forEach((p, i) => {
+    const b = blocks[i];
+    if (b.unclosed) problems.push({ file, line: b.line, message: "question block is not closed" });
+    if (!p.ok) for (const message of p.errors) problems.push({ file, line: b.line, message });
+    else if (p.question.id) {
+      if (seen.has(p.question.id)) problems.push({ file, line: b.line, message: `duplicate question id "${p.question.id}" (first on line ${seen.get(p.question.id)})` });
+      else seen.set(p.question.id, b.line);
+    }
+  });
+  for (const o of orphans)
+    problems.push({ file, line: o.line, message: "this looks like a question block but is not parsed as one (for example inside raw HTML without a blank line, indented as code, or with a non-breaking space before 'question'), so it would show its answer as text" });
+  problems.sort((a, b) => a.line - b.line);
+  return { count: blocks.length, problems };
+}
+
 // ---------- pipeline ----------
 function remarkMeta() {
   // Carry fence meta to hast as data-meta (text only; sanitised as such).
@@ -500,20 +722,21 @@ function nestingDepth(source) {
   return max;
 }
 function fallback(source, reason) {
-  // The plain-text fallback never shows a check question's answer.
-  const safe = stripQuestionAnswers(source);
-  const shown = safe.slice(0, LIMITS.fallbackChars);
+  // The plain-text fallback never shows a document that may hold check
+  // questions (it is used when the document could not be parsed in time).
+  const withheld = mayHoldQuestions(source);
+  const shown = withheld ? "" : source.slice(0, LIMITS.fallbackChars);
+  const note = withheld ? " Its check questions are not shown." : "";
   return {
     html:
       '<div class="callout callout-warning" role="note"><strong class="callout-label">Warning</strong><p>' +
-      escapeHtml(reason) +
-      '</p></div><pre class="plain lesson-source"><code>' +
-      escapeHtml(shown) +
-      (safe.length > shown.length ? "\n…" : "") +
-      "</code></pre>",
+      escapeHtml(reason + note) +
+      "</p></div>" +
+      (withheld ? "" : '<pre class="plain lesson-source"><code>' + escapeHtml(shown) + (source.length > shown.length ? "\n…" : "") + "</code></pre>"),
     toc: [],
     warnings: [reason],
     questions: [],
+    text: withheld ? reason + note : source,
   };
 }
 
@@ -524,6 +747,7 @@ function pipeline(ctx, options = {}) {
     .use(remarkGfm)
     .use(remarkEmoji, { accessible: false, emoticon: false })
     .use(remarkMeta)
+    .use(() => remarkQuestions(ctx))
     .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "fn-" })
     .use(rehypeRaw)
     .use(() => components(ctx))
@@ -555,10 +779,31 @@ export async function renderLesson(source, options = {}) {
     questions: [],
   };
   try {
+    const analysis = analyzeQuestions(source, { mdx: options.mdx });
+    const nonce = randomBytes(12).toString("hex");
+    ctx.questionTokenPrefix = "icode-question-" + nonce + "-";
+    ctx.questionToken = new RegExp("^icode-question-" + nonce + "-(\\d+)$");
     const processor = pipeline(ctx, options).use(rehypeStringify);
-    const file = await processor.process(preprocess(source, { mdx: options.mdx }));
+    let html = String(await processor.process(analysis.text));
+    // The plain-text copy (API content, tutor, MCP): question blocks removed by node.
+    let text = stripAnalysed(analysis);
+    for (const o of analysis.orphans) ctx.warnings.push("Text that looks like a check question is not parsed as one (line " + o.line + ")");
+    if (ctx.questionBodies.length !== analysis.blocks.length) throw new Error("check question parse mismatch");
+    const fingerprints = questionFingerprints(analysis, text);
+    if (leaksAnswers(html, fingerprints, { html: true })) {
+      html = WITHHELD_HTML;
+      ctx.toc = [];
+      ctx.questions = [];
+      ctx.warnings.push("Lesson withheld: it would show a check question's answer");
+      console.warn("Author warning: " + (options.docPath || "lesson") + " withheld: its HTML would show a check question's answer; run workshop validate.");
+    }
+    if (leaksAnswers(text, fingerprints)) {
+      text = WITHHELD_TEXT;
+      ctx.warnings.push("Lesson text withheld: it would show a check question's answer");
+      console.warn("Author warning: " + (options.docPath || "lesson") + " plain text withheld: it would show a check question's answer; run workshop validate.");
+    }
     // `questions` holds answers: server-side only, never sent with a lesson.
-    return { html: String(file), toc: ctx.toc, warnings: [...new Set(ctx.warnings)].slice(0, 50), questions: ctx.questions };
+    return { html, toc: ctx.toc, warnings: [...new Set(ctx.warnings)].slice(0, 50), questions: ctx.questions, text };
   } catch (error) {
     return fallback(source, "This lesson could not be rendered (" + String(error.message).slice(0, 200) + ") and is shown as plain text.");
   }

@@ -56,7 +56,7 @@ export async function handleQuestions({ req, res, url, root, json, readBody, san
       const { id, question, attempt } = await readBody(req);
       const q = await find(root, sandboxOrigin, id, question, "free");
       // The model answer is shown only after an attempt.
-      if (typeof attempt !== "string" || !attempt.trim()) throw new Error("Write your answer before revealing the model answer");
+      if (typeof attempt !== "string" || !/[\p{L}\p{N}]/u.test(attempt)) throw new Error("Write your answer before revealing the model answer");
       if (attempt.length > QUESTION_LIMITS.attemptChars) throw new Error("Your answer is too long");
       const data = await updateQuestionProgress(root, id, question, { status: "revealed" });
       return json(res, 200, { answerHtml: q.answerHtml, explanationHtml: q.explanationHtml, progress: data.questions[id][question] }), true;
