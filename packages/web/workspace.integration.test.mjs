@@ -1,4 +1,4 @@
-// Stage 2 over HTTP: hooks, saved playgrounds, diffs, touched files, sync and
+// Over HTTP: hooks, saved playgrounds, diffs, touched files, sync and
 // update routes, including hostile requests.
 import test from "node:test";
 import assert from "node:assert/strict";

@@ -31,6 +31,6 @@ export function next(count) {
 3. <LinkToApp to="/">Open the app</LinkToApp> and click the button yourself.
 
 > [!TIP]
-> Browser tests import `testStep`, `expect` and `dtl` from `@icodenet/workshop-test`. Epic courses can keep importing `@epic-web/workshop-utils/test`.
+> Browser tests import `testStep`, `expect` and `dtl` from `@icodenet/workshop-test`.
 
 <DiffLink>Compare with the solution</DiffLink> when you are done.

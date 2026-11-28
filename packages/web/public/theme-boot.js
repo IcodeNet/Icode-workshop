@@ -1,4 +1,4 @@
-// Stage 4 (G3): apply the stored theme before the UI renders, so the page
+// Apply the stored theme before the UI renders, so the page
 // never flashes the wrong colours. External file: the CSP allows 'self' only.
 (function () {
   var theme = "dark";

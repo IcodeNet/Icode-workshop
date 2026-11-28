@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
+import { APPS_FORMAT } from "./apps-layout.mjs";
 
 // Explicit course opt-in. Discovery never imports or executes authored modules.
 export function hostConfig(root) {
   const file = join(resolve(root), "workshop.json");
   if (!existsSync(file)) return {};
   const config = JSON.parse(readFileSync(file, "utf8"));
-  if (config.schemaVersion !== 1 || !["native", "epic"].includes(config.format))
+  if (config.schemaVersion !== 1 || !["native", APPS_FORMAT].includes(config.format))
     throw new Error("Unsupported workshop.json schema or format");
   return config;
 }
@@ -16,17 +17,17 @@ export function discoverSteps(root) {
   const entries = readdirSync(directory, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .sort((a, b) => a.name.localeCompare(b.name));
-  const epic = hostConfig(root).format === "epic";
+  const apps = hostConfig(root).format === APPS_FORMAT;
   const steps = [];
   for (const entry of entries) {
-    if (!epic && /^\d{2}$/.test(entry.name)) {
+    if (!apps && /^\d{2}$/.test(entry.name)) {
       steps.push({
         id: entry.name,
         base: join(directory, entry.name),
         problem: join(directory, entry.name, "problem"),
         solution: join(directory, entry.name, "solution"),
       });
-    } else if (epic && /^\d+\./.test(entry.name)) {
+    } else if (apps && /^\d+\./.test(entry.name)) {
       const base = join(directory, entry.name);
       const children = readdirSync(base, { withFileTypes: true }).filter((e) =>
         e.isDirectory(),
@@ -44,10 +45,10 @@ export function discoverSteps(root) {
           );
         const ordinal = steps.length + 1;
         if (ordinal > 99)
-          throw new Error("This host supports at most 99 mapped Epic steps");
+          throw new Error("The apps layout supports at most 99 mapped steps");
         steps.push({
           id: String(ordinal).padStart(2, "0"),
-          epic: true,
+          apps: true,
           base,
           module: entry.name,
           step: number,
@@ -60,7 +61,7 @@ export function discoverSteps(root) {
   }
   if (!steps.length)
     throw new Error(
-      'No supported course steps found. Native courses need exercises/NN; Epic courses require workshop.json with schemaVersion: 1 and format: "epic".',
+      'No supported course steps found. Native courses need exercises/NN; apps-layout courses require workshop.json with schemaVersion: 1 and format: "apps".',
     );
   return steps;
 }

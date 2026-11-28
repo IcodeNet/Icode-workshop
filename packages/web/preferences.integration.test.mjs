@@ -1,4 +1,4 @@
-// Stage 4 over HTTP: the preference API (validation, persistence, origin,
+// Over HTTP: the preference API (validation, persistence, origin,
 // Sec-Fetch-Site, session-token and mutation-gate checks), health, exercise
 // warnings and the offline OG image.
 import test from "node:test";

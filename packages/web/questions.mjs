@@ -1,4 +1,4 @@
-// Check questions (Stage 5 A6, pulled forward): the `question` fenced block.
+// Check questions: the `question` fenced block.
 // Finding blocks is the renderer's job (markdown.mjs, analyzeQuestions): one
 // Markdown parse is the single source of truth. This module parses one body.
 // Course content is untrusted, so the YAML inside a block is parsed with the

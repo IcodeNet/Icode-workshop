@@ -4,13 +4,14 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { discoverSteps } from "../core/layout.mjs";
+import { APPS_FORMAT, APPS_VIDEO_TAG } from "../core/apps-layout.mjs";
 import { courseConfig } from "./course.mjs";
 import { lessonDocuments, lessonMarkdown } from "./lessons.mjs";
 import { selectWorkspace, replaceWorkspace } from "./workspaces.mjs";
 import { testLab } from "./runtime.mjs";
 
-test("unsupported nested courses never validate as zero steps; explicit compatibility preserves paths and lessons", async () => {
-  const root = await mkdtemp(join(tmpdir(), "icode-compat-"));
+test("unsupported nested courses never validate as zero steps; the explicit apps layout preserves paths and lessons", async () => {
+  const root = await mkdtemp(join(tmpdir(), "icode-apps-"));
   try {
     const base = join(root, "exercises", "01.ping");
     for (const variant of ["problem", "solution"]) {
@@ -19,7 +20,7 @@ test("unsupported nested courses never validate as zero steps; explicit compatib
       await writeFile(join(dir, "src/index.ts"), "export const value=1;");
       await writeFile(
         join(dir, "README.mdx"),
-        `# ${variant}\n<EpicVideo url="https://example.org/video" />`,
+        `# ${variant}\n<${APPS_VIDEO_TAG} url="https://example.org/video" />`,
       );
       await writeFile(
         join(dir, "package.json"),
@@ -35,7 +36,7 @@ test("unsupported nested courses never validate as zero steps; explicit compatib
       join(root, "workshop.json"),
       JSON.stringify({
         schemaVersion: 1,
-        format: "epic",
+        format: APPS_FORMAT,
         title: "Course",
         testScript: "test",
         testArgs: [],
@@ -57,9 +58,9 @@ test("unsupported nested courses never validate as zero steps; explicit compatib
   }
 });
 
-test("Epic MDX lessons render with components; an exercise intro with DiffLink works (Epic fails there)", async () => {
-  const { epicCourse } = await import("./test-support/workspace-course.mjs");
-  const root = await epicCourse({
+test("apps-layout MDX lessons render with components; an exercise intro with DiffLink works", async () => {
+  const { appsCourse } = await import("./test-support/workspace-course.mjs");
+  const root = await appsCourse({
     files: {
       "exercises/README.mdx": "# Workshop intro\n\n<DiffLink>no step here</DiffLink>\n",
       "exercises/01.basics/README.mdx": "import { Thing } from './thing'\n\n# Basics\n\n<callout-danger>\n\tDo **not** skip.\n</callout-danger>\n\n<DiffLink>See what changes</DiffLink> <NextDiffLink />\n\n```tsx filename=index.tsx lines=1\nexport const App = () => <div>{1}</div>\n```\n",

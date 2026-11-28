@@ -118,7 +118,7 @@ function Hunks({ file, view }) {
   ));
 }
 
-function SidePicker({ label, step, version, catalog, saved, onChange, disabled }) {
+function SideSelect({ label, step, version, catalog, saved, onChange, disabled }) {
   return (
     <span className="diff-side">
       <label>
@@ -318,9 +318,9 @@ export function DiffView({ catalog, selected, initial, dirty, busy, onOpenFile, 
   return (
     <div className="diff-view" ref={root}>
       <div className="file-tools diff-controls">
-        <SidePicker label="From" step={a.step} version={a.version} catalog={catalog} saved={saved[a.step] ?? []} disabled={loading} onChange={(step, version) => setA({ step, version })} />
+        <SideSelect label="From" step={a.step} version={a.version} catalog={catalog} saved={saved[a.step] ?? []} disabled={loading} onChange={(step, version) => setA({ step, version })} />
         <button aria-label="Swap diff sides" disabled={loading} onClick={() => { setA(b); setB(a); }}>⇄</button>
-        <SidePicker label="To" step={b.step} version={b.version} catalog={catalog} saved={saved[b.step] ?? []} disabled={loading} onChange={(step, version) => setB({ step, version })} />
+        <SideSelect label="To" step={b.step} version={b.version} catalog={catalog} saved={saved[b.step] ?? []} disabled={loading} onChange={(step, version) => setB({ step, version })} />
       </div>
       <div className="file-tools diff-controls">
         <div role="group" aria-label="Diff layout">

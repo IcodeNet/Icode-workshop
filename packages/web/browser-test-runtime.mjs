@@ -1,6 +1,6 @@
-// In-browser test runtime (Stage 3, C5). Bundled into test pages on the
-// sandbox origin as `@icodenet/workshop-test` and Epic's
-// `@epic-web/workshop-utils/test`. Results go to the workshop UI origin only.
+// In-browser test runtime. Bundled into test pages on the
+// sandbox origin as `@icodenet/workshop-test` and the apps-layout test import
+// path. Results go to the workshop UI origin only.
 import * as dtl from "@testing-library/dom";
 
 export { dtl };

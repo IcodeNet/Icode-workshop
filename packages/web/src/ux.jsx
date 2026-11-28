@@ -1,4 +1,4 @@
-// Stage 4 UI (G3–G8): preferences (stored through /api/preferences with a
+// UI: preferences (stored through /api/preferences with a
 // validated localStorage mirror), theme, keyboard shortcuts, scroll
 // restoration, connection status, the exercise warning banner and per-panel
 // error boundaries. Course-supplied strings are rendered as React text only.
@@ -29,7 +29,7 @@ function writeMirror(ui) {
   }
 }
 
-// ---------- G4: preferences ----------
+// ---------- preferences ----------
 export function usePreferences() {
   const [ui, setUi] = useState(readMirror);
   const [savePlaygrounds, setSavePlaygrounds] = useState(null);
@@ -121,7 +121,7 @@ export function usePreferences() {
   return { ui, update, status, error, savePlaygrounds, setSavePlaygrounds: updateSavePlaygrounds };
 }
 
-// ---------- G3: theme ----------
+// ---------- theme ----------
 const FONTS = {
   "system-mono": 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
   menlo: "Menlo, Monaco, ui-monospace, monospace",
@@ -164,7 +164,7 @@ export function useTheme(ui) {
 export const THEME_LABELS = { system: "System", light: "Light", dark: "Dark", "high-contrast": "High contrast" };
 export const nextTheme = (theme) => THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
 
-// ---------- G2: shortcuts ----------
+// ---------- shortcuts ----------
 const typingTarget = (el) =>
   Boolean(el && (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.isContentEditable));
 /**
@@ -182,7 +182,7 @@ export function useShortcuts(bindings, run, { diffActive = false } = {}) {
       if (event.target?.closest?.("[data-shortcut-recorder]")) return matcher.reset();
       // Any open modal dialog owns the keyboard (palette, confirmations…).
       if (document.querySelector('[aria-modal="true"]')) return matcher.reset();
-      // In the Diff tab, "?" is the diff's own help (Stage 2).
+      // In the Diff tab, "?" is the diff's own help.
       if (latest.current.diffActive && event.key === "?" && !event.ctrlKey && !event.metaKey) return matcher.reset();
       const typing = typingTarget(event.target);
       const id = matcher.handle(event, { typing });
@@ -196,7 +196,7 @@ export function useShortcuts(bindings, run, { diffActive = false } = {}) {
   }, [matcher]);
 }
 
-// ---------- G8: scroll restoration ----------
+// ---------- scroll restoration ----------
 const SCROLL_KEY = "icode:scroll";
 function readScroll() {
   try {
@@ -246,7 +246,7 @@ export function useScrollRestore(key, enabled) {
   }, [key, enabled]);
 }
 
-// ---------- G5: connection status ----------
+// ---------- connection status ----------
 export function useConnection() {
   const [state, setState] = useState(navigator.onLine === false ? "offline" : "online"); // online | offline | down | checking
   const [nextCheck, setNextCheck] = useState(null);
@@ -329,7 +329,7 @@ export function ConnectionBanner({ connection }) {
   );
 }
 
-// ---------- G6: exercise warning banner ----------
+// ---------- exercise warning banner ----------
 export function useWarnings(refreshKey) {
   const [warnings, setWarnings] = useState([]);
   useEffect(() => {
@@ -376,7 +376,7 @@ export function WarningBanner({ warnings, dismissed, onDismissForever }) {
   ));
 }
 
-// ---------- G5: error boundaries ----------
+// ---------- error boundaries ----------
 export class PanelBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -404,7 +404,7 @@ export class PanelBoundary extends React.Component {
   }
 }
 
-// ---------- G4: preferences page ----------
+// ---------- preferences page ----------
 const STATUS_TEXT = { saved: "Saved", pending: "Saving…", retrying: "Will save when the current operation finishes", error: "Not saved" };
 function ShortcutRow({ command, overrides, bindings, onChange }) {
   const [recording, setRecording] = useState(false);

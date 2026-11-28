@@ -1,4 +1,4 @@
-// Workshop notifications (Stage 3, A7): course-declared, Epic package.json,
+// Workshop notifications: course-declared, apps-layout package.json,
 // and an optional https feed. Offline-safe, bounded, mutable per learner.
 import { readFile, writeFile, mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,7 +28,7 @@ export async function fetchFeed(url, { fetchImpl = fetch, now = Date.now() } = {
     const length = Number(response.headers?.get?.("content-length") || 0);
     if (length > FEED_MAX_BYTES) throw new Error("Feed too large");
     const text = await readCapped(response, FEED_MAX_BYTES);
-    // JSON5 like Epic's feed (comments, trailing commas); plain JSON is JSON5.
+    // JSON5 (comments, trailing commas); plain JSON is JSON5.
     const data = JSON5.parse(text);
     const list = Array.isArray(data) ? data : Array.isArray(data?.notifications) ? data.notifications : [];
     const items = list.slice(0, 50).map(validateNotification).filter(Boolean).map((n) => ({ ...n, source: "feed" }));

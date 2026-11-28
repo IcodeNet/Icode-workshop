@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, relative, dirname } from "node:path";
 import { stepLayout } from "../core/layout.mjs";
+import { APPS_VIDEO_TAG } from "../core/apps-layout.mjs";
 import { renderCached } from "./markdown.mjs";
 import { assertSafePath } from "./files.mjs";
 import { questionProblems } from "./markdown.mjs";
@@ -8,7 +9,7 @@ import { readFile as readText } from "node:fs/promises";
 
 const posixRel = (root, path) => relative(root, path).replaceAll("\\", "/");
 /**
- * Render one course document (Stage 3). `stepId` is null on course pages,
+ * Render one course document. `stepId` is null on course pages,
  * where diff links become inactive instead of failing.
  */
 export async function renderDocument(root, path, { stepId = null, sandboxOrigin = "", docPath } = {}) {
@@ -39,7 +40,7 @@ export function lessonMarkdown(source) {
         ? block
         : block
             .replace(
-              /<EpicVideo\s+url="([^"]+)"\s*(?:\/>|>\s*<\/EpicVideo>)/g,
+              new RegExp(`<${APPS_VIDEO_TAG}\\s+url="([^"]+)"\\s*(?:/>|>\\s*</${APPS_VIDEO_TAG}>)`, "g"),
               (_, url) =>
                 `[Watch the original lesson video (authorised access may be required)](${url})`,
             )
@@ -63,7 +64,7 @@ export function lessonMarkdown(source) {
     .join("");
 }
 function lessonCandidates(root, layout) {
-  return layout.epic
+  return layout.apps
     ? [
         ["Course introduction", join(root, "exercises", "README.mdx")],
         ["Exercise introduction", join(layout.base, "README.mdx")],

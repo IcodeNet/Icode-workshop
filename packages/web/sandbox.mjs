@@ -1,13 +1,14 @@
-// Sandbox origin (Stage 3): serves simple and export apps, in-browser tests,
+// Sandbox origin: serves simple and export apps, in-browser tests,
 // the Mermaid renderer and lesson images on a separate port, so course
 // content never runs on the UI or API origin. Read-only. See
-// docs/stage3-content.md#origins.
+// docs/content.md#origins.
 import { createServer } from "node:http";
 import { readFile, stat, lstat, realpath } from "node:fs/promises";
 import { join, resolve, relative, extname, sep, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { validateId } from "../core/index.mjs";
+import { APPS_TEST_MODULE } from "../core/apps-layout.mjs";
 import { variantRoot, assertSafePath } from "./files.mjs";
 import { appInfo } from "./content-config.mjs";
 import { labConfig } from "./runtime.mjs";
@@ -16,7 +17,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const engineRoot = resolve(here, "..", "..");
 const RUNTIME = join(here, "browser-test-runtime.mjs");
-const TEST_MODULES = /^(@epic-web\/workshop-utils\/test|@icodenet\/workshop-test)$/;
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+const TEST_MODULES = new RegExp(`^(${["@icodenet/workshop-test", APPS_TEST_MODULE].map(escapeRegExp).join("|")})$`);
 const SCRIPT_EXT = new Set([".js", ".mjs", ".jsx", ".ts", ".tsx", ".cjs"]);
 const MAX_BUNDLE = 10 * 1024 * 1024;
 const MAX_FILE = 25 * 1024 * 1024;

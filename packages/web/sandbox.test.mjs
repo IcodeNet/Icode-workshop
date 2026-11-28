@@ -1,4 +1,4 @@
-// Stage 3: the sandbox origin (apps, export apps, browser tests, Mermaid,
+// The sandbox origin (apps, export apps, browser tests, Mermaid,
 // images). Read-only, path-safe, refuses foreign hosts and cross-site use,
 // never bundles files outside the course.
 import test from "node:test";

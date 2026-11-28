@@ -62,7 +62,7 @@ async function main() {
     validateBackupConfig(manifest.backups);
     await outputPatterns(content, course.ids);
     compileIgnore(await ignorePatterns(content, []));
-    // Stage 3 content settings are optional: invalid ones are dropped, reported here.
+    // Content settings are optional: invalid ones are dropped, reported here.
     const contentSettings = await contentConfig(content);
     for (const warning of contentSettings.warnings) console.warn("Content warning: " + warning);
     // Check questions: every invalid block is reported with its file and line.

@@ -1,12 +1,12 @@
-# Stage 2: workspace and diffs
+# Workspace and diffs
 
-Stage 2 of the Epic gap analysis covers B1 (playground hooks), B2 (saved playgrounds), B3 (touched files), B6 (workshop update), D1 (rich diffs) and D2 (diff links and shortcuts). This page records the design. The author-facing reference is in [`course-operations.md`](course-operations.md#workspace-and-diffs-stage-2).
+This page describes the design of playground hooks, saved playgrounds, touched files, rich diffs, diff links and shortcuts, and the workshop update. The author-facing reference is in [`course-operations.md`](course-operations.md#workspace-and-diffs).
 
-Every new manifest field is optional. A course that declares nothing behaves as before, except that saved playgrounds are kept automatically (learners can turn this off) and the Diff tab replaces the Compare tab.
+Every manifest field is optional. A course that declares nothing gets the defaults: saved playgrounds are kept automatically (learners can turn this off) and the Diff tab compares any two versions.
 
 ## Terms
 
-Icode keeps one playground per step (`.workshop/playgrounds/<id>`), not one global playground like Epic. "Set the playground" therefore means any operation that replaces a step's playground:
+Icode keeps one playground per step (`.workshop/playgrounds/<id>`). "Set the playground" therefore means any operation that replaces a step's playground:
 
 | Operation | Trigger | Source |
 |---|---|---|
@@ -16,11 +16,11 @@ Icode keeps one playground per step (`.workshop/playgrounds/<id>`), not one glob
 | migrate | `POST /api/migrate` with `apply` | previous step's playground |
 | restore | `POST /api/saved-playgrounds/restore` | a saved playground |
 
-## B1. Playground hooks
+## Playground hooks
 
 ### Declaring hooks
 
-**Native courses**, in `course.json`. Values are names of scripts in the course root `package.json#scripts`, with the same validation as Stage 1 actions. A step can override a hook in its `lab.json`.
+**Native courses**, in `course.json`. Values are names of scripts in the course root `package.json#scripts`, with the same validation as course actions. A step can override a hook in its `lab.json`.
 
 ```json
 {
@@ -33,26 +33,26 @@ Icode keeps one playground per step (`.workshop/playgrounds/<id>`), not one glob
 }
 ```
 
-**Epic-layout courses** (`workshop.json` with `format: "epic"`) keep Epic's conventions, so existing workshops work unchanged:
+**Apps-layout courses** (`workshop.json` with `format: "apps"`, see [the apps layout](apps-layout.md)) use the layout's own hook files and settings, so those courses run unchanged:
 
-- `epicshop/pre-set-playground.js` and `epicshop/post-set-playground.js` are looked up in the source app directory first, then in the workshop root. They run as `node <file>`.
-- `package.json#epicshop.scripts.postupdate` is a command line. It is split into words without an implicit shell, as Epic's `execaCommand` does (not a sandbox: an explicit `sh -c …` is the author's choice). Shell operators (`|&;<>$` and backticks) are refused, and `node`, `npm` and `npx` resolve to the running Node.js. A `hooks` block in `course.json` takes precedence.
+- `pre-set-playground.js` and `post-set-playground.js` in the layout's hook folder are looked up in the source app directory first, then in the workshop root. They run as `node <file>`.
+- The settings' `scripts.postupdate` is a command line. It is split into words without an implicit shell (not a sandbox: an explicit `sh -c …` is the author's choice). Shell operators (`|&;<>$` and backticks) are refused, and `node`, `npm` and `npx` resolve to the running Node.js. A `hooks` block in `course.json` takes precedence.
 
 ### Running hooks
 
 - Each hook is a managed process from `adapter-api/node.mjs`: a process group on POSIX and `taskkill /T` on Windows. It is registered as kind `hook`, so it appears in the Processes tab and can be stopped there while the request runs. The exit handler kills it too.
 - The timeout defaults to 120 s (range 1–1800). When it expires the tree is killed (SIGTERM, then SIGKILL after 2 s) and the hook counts as failed.
-- Hooks get structured arguments, never `"[object Promise]"`. Every value is computed and awaited before the hook starts:
+- Hooks get structured, fully resolved arguments. Every value is computed and awaited before the hook starts:
   - `ICODE_HOOK` (`pre-set-playground`, `post-set-playground`, `post-update`)
   - `ICODE_HOOK_CONTEXT` (JSON: `operation`, `step`, `source` `{step, variant, savedId?}`, `srcDir`, `destDir`, `timestamp`, `wasRunning`, `isStillRunning`, `restartPlayground`)
   - the same values as separate `ICODE_PLAYGROUND_*` variables
-  - `EPICSHOP_PLAYGROUND_*` with the same booleans, for Epic hooks
+  - the apps layout's own playground variables, with the same booleans, for apps-layout hooks
 - **Pre** runs before anything changes. A non-zero exit or a timeout aborts the operation and leaves the playground untouched.
 - **Post** runs after the new playground is in place. A failure is reported with its output, but the playground is not rolled back.
 - If the step's playground preview was running, it is stopped before the change and restarted after the post hook (`restartPlayground`).
 - Output (the last 20,000 characters for each hook) is returned in the operation's `hooks` array and shown in the Console panel with ANSI colours.
 
-## B2. Saved playgrounds
+## Saved playgrounds
 
 - Storage: `.workshop/saved-playgrounds/<step>/<savedId>/files/…` plus `meta.json` with `label`, `reason`, `createdAt`, `source`, `files` and `bytes`.
 - `savedId` is generated by the server (`YYYYMMDDTHHMMSSmmmZ-<6 hex>`) and must match `^\d{8}T\d{9}Z-[0-9a-f]{6}$`. Learner labels (≤ 80 characters, no control characters) live only in `meta.json` and never in a path. Every API call validates `savedId` against the regex and requires it to be in the listing. Symlinks are refused when saving and restoring.
@@ -61,9 +61,9 @@ Icode keeps one playground per step (`.workshop/playgrounds/<id>`), not one glob
 - Restore: every saved file and directory, dotfiles and binary files included, is restored byte for byte. Tests check content, modes on POSIX and empty directories, including nested `bin`, `obj`, `target`, `__pycache__` and `.venv` folders. What is left out: `node_modules` at any depth, plus build output declared by the step's runtime adapter (`outputs`, root-anchored: Python `/.venv/`, `/.pytest_cache/`, `**/*.pyc`; Rust `/target/`; .NET `/bin/`, `/obj/`) or by the course (`"buildOutput": ["/dist/", "**/*.log"]`, root-anchored paths or explicit globs only). No directory is ever dropped by bare name at any depth, so `src/bin`, `cli/bin` or `lib/target` are always kept. When restoring, what was left out is carried over from the current playground at the same relative path, so the app still runs. Reset/replace/restore backups are bounded too (`backups.limit`, default 5; `backups.maxMegabytes`, default 500; oldest first). Restore is staged and renamed into place, and the playground being replaced is saved first, so a restore can be undone.
 - Hooks run around a restore with `source.variant = "saved"`.
 
-## B3. Touched files
+## Touched files
 
-`GET /api/touched?id=` returns the files the step changes, from the problem→solution diff with the same ignore rules as D1. Each file has its status and first changed line. It is then checked against the learner's playground:
+`GET /api/touched?id=` returns the files the step changes, from the problem→solution diff with the same ignore rules as rich diffs. Each file has its status and first changed line. It is then checked against the learner's playground:
 
 - `unchanged`: identical to the problem;
 - `edited`: differs from the problem;
@@ -73,7 +73,7 @@ Icode keeps one playground per step (`.workshop/playgrounds/<id>`), not one glob
 
 The UI's **Files** list in the workbench opens a file in the playground editor at that line, or in a detected GUI editor.
 
-## D1. Rich diffs
+## Rich diffs
 
 ### Sides and API
 
@@ -91,9 +91,9 @@ A side is `<step>.<variant>` with `variant` one of `problem`, `solution`, `playg
 
 ### Ignore rules
 
-- Defaults: `.git/`, `.DS_Store`, `.vscode/`, `.idea/`, `node_modules` and declared build output (as for saved playgrounds; never bare directory names), `*.db`/`*.sqlite` (with `-wal`/`-shm`), `README.*`, `package-lock.json`, `epicshop/`. Dotfiles such as `.env.example` are diffed.
+- Defaults: `.git/`, `.DS_Store`, `.vscode/`, `.idea/`, `node_modules` and declared build output (as for saved playgrounds; never bare directory names), `*.db`/`*.sqlite` (with `-wal`/`-shm`), `README.*`, `package-lock.json`, the apps-layout hook folder. Dotfiles such as `.env.example` are diffed.
 - `package.json` is ignored when the only difference is `name`.
-- Then the course `diff.ignore` globs, the root `.gitignore`, and `epicshop/.diffignore` at the root and in each side (Epic-compatible).
+- Then the course `diff.ignore` globs, the root `.gitignore`, and, in the apps layout, the hook folder's `.diffignore` at the root and in each side.
 - Patterns are gitignore-style: `*`, `**`, `?`, a trailing `/` for directories, a leading `/` to anchor, and `!` to negate.
 
 ### Paths
@@ -102,19 +102,19 @@ Sides are parsed strictly. `validateId`, the variant allowlist and the `savedId`
 
 ### UI
 
-- The Diff tab replaces Compare. It has from/to pickers (lesson and variant), side-by-side or unified view, an "ignore whitespace" toggle, context lines (3, 10 or the full file), and a per-file accordion with +/− counts. Paired lines get word-level highlights.
+- The Diff tab has from/to pickers (lesson and variant), side-by-side or unified view, an "ignore whitespace" toggle, context lines (3, 10 or the full file), and a per-file accordion with +/− counts. Paired lines get word-level highlights.
 - Large, binary, deferred and too-large files show placeholders. "Load diff" fetches a deferred file.
-- **Not gated**: diffs need no login or entitlement (Epic gates its UI behind login, E3).
+- **Not gated**: diffs need no login or entitlement.
 
-## D2. Diff links and shortcuts
+## Diff links and shortcuts
 
 - **Deep links**: `?diff=<a>..<b>&file=<path>&view=split|unified&ws=ignore`. Opening one selects the lesson of side `a` and shows the diff. The URL is updated as the learner changes the diff, so it can be copied and shared.
 - **Shortcuts**: `?diff=01` means `01.problem..01.solution`. `?diff=01.playground` compares that playground with the step's solution. `?diff=01..02` means `01.solution..02.problem`.
-- **Lesson links**: `[see the diff](#diff=01.problem..01.solution)`, `#diff=step`, `#diff=next` (this step's solution against the next step's problem) and `#diff=prev`, like Epic's `DiffLink`, `NextDiffLink` and `PrevDiffLink`. They work in any lesson document, unlike Epic, where they fail in exercise intros.
+- **Lesson links**: `[see the diff](#diff=01.problem..01.solution)`, `#diff=step`, `#diff=next` (this step's solution against the next step's problem) and `#diff=prev`, also written in MDX as `DiffLink`, `NextDiffLink` and `PrevDiffLink`. They work in any lesson document, including exercise introductions.
 - **Keyboard** (diff view, ignored while typing): `j`/`k` next/previous file, `n`/`p` next/previous change, `u` unified/split, `w` whitespace, `o` expand/collapse all, `c` copy link, `?` help.
-- **Sync** (Epic's sync arrows): when a side is a playground, each file offers **Use this version in playground**. It copies the other side's file into that playground (`POST /api/file/sync`). A file missing on the source side can be removed only with an explicit `remove: true`. Each sync saves the playground first.
+- **Sync**: when a side is a playground, each file offers **Use this version in playground**. It copies the other side's file into that playground (`POST /api/file/sync`). A file missing on the source side can be removed only with an explicit `remove: true`. Each sync saves the playground first.
 
-## B6. Workshop update
+## Workshop update
 
 - `GET /api/update` reports local status without contacting the network: whether the course root is a git work-tree root, the branch, the upstream, ahead/behind counts from the last fetch, and dirty files (`git status --porcelain`, excluding `.workshop/`).
 - `POST /api/update/check` runs `git fetch` with `GIT_TERMINAL_PROMPT=0`, a 60 s timeout and no shell. It then reports the incoming commits (up to 20) and the steps whose `exercises/` content changes. If git cannot reach the remote it returns `offline: true` and nothing changes.

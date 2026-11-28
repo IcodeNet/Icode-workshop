@@ -1,4 +1,5 @@
-// Fixtures for Stage 2 (hooks, saved playgrounds, diffs, update).
+// Fixtures for hooks, saved playgrounds, diffs and update.
+import { APPS_FORMAT, APPS_HOOK_ENV_PREFIX } from "../../core/apps-layout.mjs";
 import { mkdtemp, mkdir, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -38,12 +39,12 @@ export async function nativeCourse({ hooks, scripts = {}, files = {}, course = {
   return root;
 }
 
-/** Epic-layout course with per-app and root hook files. */
-export async function epicCourse({ files = {}, pkg = {} } = {}) {
-  const root = await tempRoot("icode-epic-ws-");
+/** Apps-layout course with per-app and root hook files. */
+export async function appsCourse({ files = {}, pkg = {} } = {}) {
+  const root = await tempRoot("icode-apps-ws-");
   await writeTree(root, {
-    "workshop.json": { schemaVersion: 1, format: "epic" },
-    "package.json": { name: "epic-course", private: true, ...pkg },
+    "workshop.json": { schemaVersion: 1, format: APPS_FORMAT },
+    "package.json": { name: "apps-course", private: true, ...pkg },
     "exercises/01.basics/01.problem.start/src/index.ts": "export const a = 1\n",
     "exercises/01.basics/01.solution.start/src/index.ts": "export const a = 2\n",
     ...files,
@@ -53,7 +54,7 @@ export async function epicCourse({ files = {}, pkg = {} } = {}) {
 
 /** A hook script that records its environment to `<root>/<name>.json`. */
 export const recorderScript = (name) => `import { writeFileSync, appendFileSync } from "node:fs";
-const keys = Object.keys(process.env).filter((k) => k.startsWith("ICODE_") || k.startsWith("EPICSHOP_"));
+const keys = Object.keys(process.env).filter((k) => k.startsWith("ICODE_") || k.startsWith(${JSON.stringify(APPS_HOOK_ENV_PREFIX)}));
 writeFileSync(${JSON.stringify(name + ".json")}, JSON.stringify(Object.fromEntries(keys.map((k) => [k, process.env[k]]))));
 appendFileSync("order.log", ${JSON.stringify(name)} + "\\n");
 console.log("\\x1b[32mhook ${name} ran\\x1b[0m");

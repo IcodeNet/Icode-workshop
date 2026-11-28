@@ -1,4 +1,4 @@
-// Stage 2 in the browser: hooks, touched files, rich diffs (deep links,
+// In the browser: hooks, touched files, rich diffs (deep links,
 // shortcuts, sync), saved playgrounds and the workshop update.
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
@@ -82,7 +82,7 @@ test("rich diff: deep links, lesson links, keyboard shortcuts, whitespace and sy
   await expect(page.getByLabel("Diff to lesson")).toHaveValue("02");
   await expect(page.getByLabel("Diff to version")).toHaveValue("problem");
 
-  // Lesson diff link (Epic's DiffLink).
+  // Lesson diff link (DiffLink).
   await page.goto("/");
   await openLesson(page, /01 Approved/);
   await page.getByRole("article").getByRole("link", { name: "the step diff" }).click();

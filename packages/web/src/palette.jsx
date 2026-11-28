@@ -1,4 +1,4 @@
-// Stage 4 UI (G1, G2): command palette, keyboard shortcuts dialog and the
+// UI: command palette, keyboard shortcuts dialog and the
 // focus trap shared by every modal dialog. This module has no API client:
 // commands are callbacks supplied by main.jsx, the same functions the buttons
 // call, so they keep every confirmation the buttons have (ux.test.mjs checks

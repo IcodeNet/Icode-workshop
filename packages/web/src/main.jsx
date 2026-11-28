@@ -142,7 +142,7 @@ function App() {
   const [reloadPreview, setReloadPreview] = useState(true);
   const [previewKey, setPreviewKey] = useState(0);
   const [liveReload, setLiveReload] = useState("off");
-  // Stage 3: course pages and workshop-served apps.
+  // Course pages and workshop-served apps.
   const contentConfig = useContentConfig();
   const sandboxOrigin = contentConfig?.sandboxOrigin || "";
   const [page, setPage] = useState(null);
@@ -150,7 +150,7 @@ function App() {
   const [appVariant, setAppVariant] = useState("playground");
   const [appNavigate, setAppNavigate] = useState(null);
   const [indicators, refreshIndicators] = useIndicators();
-  // Stage 4: preferences, theme, shortcuts, palette, status and warnings.
+  // Preferences, theme, shortcuts, palette, status and warnings.
   const prefs = usePreferences();
   const theme = useTheme(prefs.ui);
   const bindings = useMemo(() => resolveBindings(prefs.ui.shortcuts), [prefs.ui.shortcuts]);
@@ -409,7 +409,7 @@ function App() {
       setBusy(false);
     }
   }
-  /** "More than Epic": put one file back to the step's problem version. */
+  /** Put one file back to the step's problem version. */
   async function resetFile(name) {
     if (!window.confirm("Reset " + name + " to the problem version? The playground is saved first.")) return;
     setBusy(true);
@@ -861,7 +861,7 @@ function App() {
       setBusy(false);
     }
   }
-  // Stage 3 engine links: #app=, #course=, #h- headings.
+  // Engine links: #app=, #course=, #h- headings.
   function contentClick(event) {
     return handleContentLink(event, {
       app: (path) => {
@@ -882,7 +882,7 @@ function App() {
       },
     });
   }
-  // Stage 4 (G1/G2): every palette entry and shortcut maps to one of these.
+  // Every palette entry and shortcut maps to one of these.
   // They call the same functions as the buttons, with the same confirmations.
   const index = ids.indexOf(selected);
   const wait = busy ? "wait for the current operation to finish" : "";
@@ -1195,7 +1195,7 @@ function App() {
                   } else if (href === "#comparison") {
                     event.preventDefault(); if (!busy) openDiff();
                   } else if (href?.startsWith("#diff=")) {
-                    // Lesson diff links: #diff=step|next|prev|<a>..<b> (Epic DiffLink).
+                    // Lesson diff links: #diff=step|next|prev|<a>..<b> (DiffLink).
                     event.preventDefault();
                     const sides = resolveDiffLink(decodeURIComponent(href.slice(6)), { selected, ids });
                     if (!busy && sides) openDiff({ a: sides[0], b: sides[1] });

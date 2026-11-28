@@ -1,6 +1,0 @@
-
-Running 1 test using 1 worker
-
-  ✓  1 [chromium] › tests/smoke.spec.ts:3:1 › smoke test (1.2s)
-
-  1 passed (3.0s)

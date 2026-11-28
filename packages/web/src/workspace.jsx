@@ -1,4 +1,4 @@
-// Stage 2 learner workspace UI: touched files, saved playgrounds, workshop
+// Learner workspace UI: touched files, saved playgrounds, workshop
 // update and hook output.
 import React, { useEffect, useState } from "react";
 import { AnsiOutput, ConfirmDialog, tail } from "./operations.jsx";

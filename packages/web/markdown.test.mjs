@@ -1,9 +1,10 @@
-// Stage 3 (A4): lesson pipeline, components, URL policy and hostile input.
+// Lesson pipeline, components, URL policy and hostile input.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderLesson, renderSafe, renderCached, policy, parseMeta, preprocess, LIMITS, CACHE_LIMIT, cacheSize } from "./markdown.mjs";
 import { renderDocument } from "./lessons.mjs";
 import { nativeCourse } from "./test-support/workspace-course.mjs";
+import { APPS_VIDEO_TAG } from "../core/apps-layout.mjs";
 import { writeFile, utimes } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -14,7 +15,7 @@ const tags = (html) => [...html.matchAll(/<([a-z][a-z0-9-]*)/g)].map((m) => m[1]
 const attrs = (html) => [...html.matchAll(/<[a-z][a-z0-9-]*((?:\s+[a-zA-Z_:][\w:.-]*(?:="[^"]*"|='[^']*'|=[^\s>]+)?)*)\s*\/?>/g)].flatMap((m) => [...m[1].matchAll(/\s+([a-zA-Z_:][\w:.-]*)(?:="[^"]*"|='[^']*'|=[^\s>]+)?/g)].map((a) => a[1].toLowerCase()));
 const ALLOWED_ATTRS = new Set(["href", "src", "alt", "title", "class", "id", "role", "aria-label", "data-source", "data-lang", "data-meta", "data-blocked-url", "target", "rel", "loading", "referrerpolicy", "style", "tabindex", "type", "disabled", "checked", "open", "colspan", "rowspan", "align", "start", "width", "height", "lang", "dir", "scope", "data-footnote-ref", "data-footnote-backref", "data-footnotes", "aria-describedby", "headers", "abbr", "datetime"]);
 
-test("Epic components, GFM alerts, headings, TOC and Shiki with titles and line highlights", async () => {
+test("lesson components, GFM alerts, headings, TOC and Shiki with titles and line highlights", async () => {
   const { html, toc, warnings } = await render(`import { X } from './x.js'
 export const meta = {}
 
@@ -33,7 +34,7 @@ Open <InlineFile file="src/app.js" /> or <InlineFile file="src/b.js">the helper<
 
 <LinkToApp to="/about">About</LinkToApp> <DiffLink>step diff</DiffLink> <DiffLink app1="01.problem" app2="02.solution">custom</DiffLink> <NextDiffLink /> <PrevDiffLink>prev</PrevDiffLink>
 
-<EpicVideo url="https://www.epicweb.dev/x" />
+<${APPS_VIDEO_TAG} url="https://videos.example.org/x" />
 
 ## Part {' '}one
 
@@ -63,7 +64,7 @@ plain <b>text</b>
   assert.match(html, /href="#diff=01\.problem\.\.02\.solution"[^>]*>custom/);
   assert.match(html, /href="#diff=next"/);
   assert.match(html, /href="#diff=prev"[^>]*>prev/);
-  assert.match(html, /<p class="video-card"><a href="https:\/\/www\.epicweb\.dev\/x" class="video-link" target="_blank" rel="noopener noreferrer nofollow">▶ Watch the video<\/a><\/p>/);
+  assert.match(html, /<p class="video-card"><a href="https:\/\/videos\.example\.org\/x" class="video-link" target="_blank" rel="noopener noreferrer nofollow">▶ Watch the video<\/a><\/p>/);
   assert.deepEqual(toc, [
     { depth: 2, text: "Part one", id: "h-part-one" },
     { depth: 2, text: "Part one", id: "h-part-one-2" },
@@ -76,7 +77,7 @@ plain <b>text</b>
   assert.deepEqual(warnings, []);
 });
 
-test("diff links on course pages are inactive instead of failing (Epic crashes)", async () => {
+test("diff links on course pages are inactive text", async () => {
   const { html } = await render("<DiffLink>See diff</DiffLink> <NextDiffLink />", { stepId: null });
   assert.match(html, /<span class="diff-link-inactive" title="[^"]+">See diff<\/span>/);
   assert.doesNotMatch(html, /#diff=/);
@@ -212,7 +213,7 @@ test("self-closing components cannot swallow the rest of the lesson; code is nev
   assert.doesNotMatch(preprocess("```\n<X />\n```", { mdx: true }), /<\/X>/);
 });
 
-test("fence meta parsing: titles, Epic lines=, braces and bounded ranges", () => {
+test("fence meta parsing: titles, lines=, braces and bounded ranges", () => {
   assert.deepEqual(parseMeta('title="a b.js" {1,3-4}'), { title: "a b.js", lines: new Set([1, 3, 4]) });
   assert.deepEqual(parseMeta("filename=x.ts lines=2"), { title: "x.ts", lines: new Set([2]) });
   assert.equal(parseMeta("{1-99999999}").lines.size, 5001);
@@ -273,7 +274,7 @@ test("the document cache is keyed by course root, mtime, size and step, and boun
   assert.ok(cacheSize() <= CACHE_LIMIT, "cache bounded: " + cacheSize());
 });
 
-test("emoji shortcodes become emoji outside code (A4)", async () => {
+test("emoji shortcodes become emoji outside code", async () => {
   const { html } = await render("Done :tada: :rocket: and `:tada:` in code\n\n```\n:tada:\n```");
   assert.match(html, /Done 🎉 🚀/);
   assert.match(html, /<code>:tada:<\/code>/);

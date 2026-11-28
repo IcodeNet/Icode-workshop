@@ -14,7 +14,7 @@ import { validateId } from "../core/index.mjs";
 import { readFileSync, statSync } from "node:fs";
 import { mayHoldQuestions } from "./markdown.mjs";
 
-// Epic layout: the lesson (README.md/.mdx at an app's root) lives inside the
+// Apps layout: the lesson (README.md/.mdx at an app's root) lives inside the
 // problem and solution apps. When it holds check questions it is kept out of
 // file lists, the editor and the playground copy, so their answers are not
 // one click away. (Files on disk stay readable: this avoids spoilers only.)

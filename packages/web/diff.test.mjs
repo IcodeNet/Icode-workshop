@@ -1,3 +1,4 @@
+import { APPS_SETTINGS_KEY } from "../core/apps-layout.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -84,7 +85,7 @@ test("problem vs solution: modified, added, ignored, renamed and package.json na
       "exercises/01/solution/fixtures/big.json": "{}\n",
       "exercises/01/solution/fixtures/shown.json": "{}\n",
       "exercises/01/solution/out.generated.js": "x\n",
-      "exercises/01/solution/epicshop/.diffignore": "secret.txt\n",
+      [`exercises/01/solution/${APPS_SETTINGS_KEY}/.diffignore`]: "secret.txt\n",
       "exercises/01/solution/secret.txt": "hidden\n",
     },
   });

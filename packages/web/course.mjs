@@ -1,4 +1,5 @@
 import { discoverSteps, hostConfig } from "../core/layout.mjs";
+import { APPS_FORMAT } from "../core/apps-layout.mjs";
 import { randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,7 +24,7 @@ export async function courseConfig(root) {
     if (course.schemaVersion !== 1) throw new Error("Invalid course manifest");
     course = undefined;
   }
-  if (!course && hostConfig(root).format === "epic") {
+  if (!course && hostConfig(root).format === APPS_FORMAT) {
     const steps = discoverSteps(root), groups = new Map();
     for (const step of steps) {
       if (!groups.has(step.module)) groups.set(step.module, { id: step.module, title: step.module.replace(/^\d+\./, "").replaceAll("-", " "), steps: [] });
@@ -85,7 +86,7 @@ export async function courseConfig(root) {
   }
   if (seen.size !== ids.length)
     throw new Error("Every exercise must belong to a course module");
-  // Operations (Stage 1/2) and content settings (Stage 3, served validated by
+  // Operations and content settings (served validated by
   // /api/content/*) are not part of the course outline.
   const { actions, indicators, sidecars, hooks, savedPlaygrounds, diff, backups, buildOutput, pages, notifications, notificationsFeed, forms, support, community, repository, instructor, product, appType, ...rest } = course;
   return { ...rest, ids: [...seen] };
