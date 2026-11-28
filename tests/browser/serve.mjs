@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, cp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 const root = await mkdtemp(join(tmpdir(), "icode-browser-"));
 await cp("examples/exercises", join(root, "exercises"), { recursive: true });
 await cp("examples/course.json", join(root, "course.json"));
@@ -145,6 +146,36 @@ for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "08", variant, "<img src=x onerror=window.__xss=13>.mjs"), "export const crafted = 1;\n");
 }
 course.modules.push({ id: "crafted", title: "<script>window.__xss=11</script>Crafted module", exercises: [{ id: "crafted-ex", title: '<svg onload="window.__xss=12">Crafted exercise', steps: ["08"] }] });
+// Stage 4 (review S-1): code blocks in every language Shiki bundles, ~25 per
+// lesson (steps 09–18) so each lesson renders well inside the 5 s limit. The
+// axe checks open each of them in every theme.
+const shiki = await import(pathToFileURL(join(process.cwd(), "packages", "web", "node_modules", "shiki", "dist", "index.mjs")).href);
+const languages = shiki.bundledLanguagesInfo.map((l) => l.id);
+const sample = [
+  "// comment: TODO fix #1",
+  'import { x } from "module";',
+  "const answer = 42, ok = true, re = /a+b/g;",
+  "function greet(name) { return `hi ${name}`; } # also a comment",
+  '<tag attr="value">text &amp; more</tag>',
+  "+ added line",
+  "- removed line",
+  "SELECT * FROM t WHERE id = 1; -- sql comment",
+  "key: value  # yaml",
+  "@decorator class Thing(Base): pass",
+].join("\n");
+const codeSteps = [];
+for (let i = 0; i * 25 < languages.length; i++) {
+  const id = String(9 + i).padStart(2, "0");
+  const chunk = languages.slice(i * 25, i * 25 + 25);
+  codeSteps.push(id);
+  await mkdir(join(root, "exercises", id, "problem"), { recursive: true });
+  await mkdir(join(root, "exercises", id, "solution"), { recursive: true });
+  await writeFile(join(root, "exercises", id, "lab.json"), JSON.stringify({ schemaVersion: 1, runtime: "node", entry: "index.mjs", title: "Code samples " + (i + 1) }));
+  await writeFile(join(root, "exercises", id, "README.md"), "# Code samples " + (i + 1) + "\n\n" + chunk.map((lang) => "## " + lang + "\n\n```" + lang + " {2}\n" + sample + "\n```\n").join("\n"));
+  for (const variant of ["problem", "solution"]) await writeFile(join(root, "exercises", id, variant, "index.mjs"), "export const value = 1;\n");
+}
+course.modules.push({ id: "code-samples", title: "Code samples (every highlighted language)", steps: codeSteps });
+await writeFile(join(tmpdir(), "icode-browser-code-steps.json"), JSON.stringify(codeSteps));
 await writeFile(join(tmpdir(), "icode-browser-root.txt"), root);
 await writeFile(join(root, "course.json"), JSON.stringify(course));
 for (const variant of ["problem", "solution"]) {

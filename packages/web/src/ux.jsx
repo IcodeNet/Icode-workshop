@@ -308,13 +308,20 @@ export function ConnectionBanner({ connection }) {
   }, [connection.state]);
   if (connection.state !== "down") return null;
   const seconds = connection.nextCheck ? Math.max(0, Math.round((connection.nextCheck - now) / 1000)) : null;
+  // Announced once per state change by the polite status in the top bar; the
+  // banner itself is not a live region, and the countdown is aria-live="off"
+  // so the per-second updates are never read out.
   return (
-    <section className="connection-banner" role="alert" aria-labelledby="connection-title">
+    <section className="connection-banner" role="region" aria-labelledby="connection-title">
       <strong id="connection-title">The workshop server is not reachable.</strong>
       <p>
         Unsaved edits stay in this page. Saving, tests and previews need the server: start it again with <code>workshop start</code> if it stopped.
-        {seconds !== null && " Next automatic check in " + seconds + " s."}
       </p>
+      {seconds !== null && (
+        <p className="countdown" aria-live="off">
+          Next automatic check in {seconds} s.
+        </p>
+      )}
       <div className="actions">
         <button onClick={connection.retry}>Retry now</button>
       </div>
@@ -377,6 +384,10 @@ export class PanelBoundary extends React.Component {
   }
   static getDerivedStateFromError(error) {
     return { error };
+  }
+  componentDidUpdate(previous) {
+    // A new step or page gets a fresh render, not the old error.
+    if (this.state.error && previous.resetKey !== this.props.resetKey) this.setState({ error: null });
   }
   componentDidCatch(error) {
     console.error("Panel failed:", this.props.name, error);

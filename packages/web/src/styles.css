@@ -762,7 +762,7 @@ textarea {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
+  .app:not(.motion-allow) .spinner {
     animation: none;
   }
 }
@@ -1165,11 +1165,11 @@ textarea {
 .code-title { font: 12px ui-monospace, monospace; padding: 4px 12px; background: var(--panel-2); border: 1px solid var(--line); border-bottom: 0; border-radius: 6px 6px 0 0; color: var(--soft); }
 .code-block pre { margin: 0; border-radius: 6px; border: 1px solid var(--line); }
 .code-title + pre { border-radius: 0 0 6px 6px; }
-.copy-code { position: absolute; top: 6px; right: 6px; font-size: 11px !important; padding: 3px 8px !important; opacity: 0.6; background: var(--panel); color: var(--control-ink); border: 1px solid var(--control-border); border-radius: 4px; }
+.copy-code { position: absolute; top: 6px; right: 6px; font-size: 11px !important; padding: 3px 8px !important; opacity: 1; background: var(--panel); color: var(--control-ink); border: 1px solid var(--control-border); border-radius: 4px; }
 .code-block:hover .copy-code, .copy-code:focus { opacity: 1; }
 /* Shiki dual theme: colours follow the UI theme class. */
 .shiki, .shiki span { color: var(--shiki-light); background-color: var(--shiki-light-bg); }
-.app.dark .shiki, .app.dark .shiki span { color: var(--shiki-dark); background-color: var(--shiki-dark-bg); }
+.app.dark .shiki, .app.dark .shiki span { color: var(--shiki-dark); background-color: var(--wall); }
 .app.dark .lesson-panel pre.shiki { background-color: var(--wall); }
 .app.dark .shiki span { background-color: transparent; }
 .lesson-panel .shiki code { color: inherit; font-size: 12.5px; }

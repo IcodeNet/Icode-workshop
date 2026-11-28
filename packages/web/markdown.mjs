@@ -2,6 +2,7 @@
 // is rewritten, never evaluated; HTML is sanitised with an explicit allowlist;
 // every URL passes an explicit policy; code is highlighted server-side with
 // Shiki from text only. See docs/stage3-content.md.
+import { contrast, parseColor } from "./src/ux/contrast.js";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -306,11 +307,70 @@ function headings(ctx) {
 // ---------- 6. code: Shiki and Mermaid ----------
 let highlighterPromise;
 async function highlighter() {
-  highlighterPromise ??= import("shiki").then(async (shiki) => ({
-    shiki,
-    hl: await shiki.createHighlighter({ themes: ["github-light", "github-dark"], langs: [] }),
-  }));
+  highlighterPromise ??= import("shiki").then(async (shiki) => {
+    const hl = await shiki.createHighlighter({ themes: ["github-light", "github-dark"], langs: [] });
+    return { shiki, hl, colorReplacements: contrastReplacements(hl) };
+  });
   return highlighterPromise;
+}
+
+// Stage 4 (WCAG AA): code colours are checked against every background a code
+// line can have in the UI (plain, highlighted line, diff add/remove; dark and
+// high-contrast share the dark palette). A theme colour below the target is
+// darkened (light) or lightened (dark) until it passes. Applied through
+// Shiki's colorReplacements, so this covers every language: token colours
+// come from the theme, not the grammar.
+export const CODE_BACKGROUNDS = {
+  "github-light": ["#ffffff", "#f6ede9", "#e0f4e7", "#fbe8e8"],
+  "github-dark": ["#020617", "#000000", "#2f2628", "#0c2320", "#29121f", "#003d16", "#4d0000"],
+};
+export const CODE_CONTRAST = 4.6;
+const hex6 = (c) => {
+  const v = String(c).toLowerCase();
+  if (/^#[0-9a-f]{3}$/.test(v)) return "#" + [...v.slice(1)].map((h) => h + h).join("");
+  if (/^#[0-9a-f]{6}([0-9a-f]{2})?$/.test(v)) return v.slice(0, 7);
+  return null;
+};
+const toHex = (rgb) => "#" + rgb.map((n) => Math.round(n).toString(16).padStart(2, "0")).join("");
+export function passingColor(color, backgrounds, towards, target = CODE_CONTRAST) {
+  const base = parseColor(hex6(color));
+  const goal = towards === "dark" ? [0, 0, 0] : [255, 255, 255];
+  for (let t = 0; t <= 1.0001; t += 0.02) {
+    const rgb = base.map((c, i) => c + (goal[i] - c) * t);
+    if (backgrounds.every((bg) => contrast(rgb, bg) >= target)) return toHex(rgb);
+  }
+  return toHex(goal);
+}
+/**
+ * Foreground colours a token can be drawn in. With `ownBackground: false`,
+ * rules that paint their own token background are left out (their colour is
+ * checked against that background instead) and so is the theme's background.
+ */
+export function themeColors(theme, { ownBackground = true } = {}) {
+  const out = new Set();
+  const bg = ownBackground ? null : hex6(theme.bg);
+  const add = (c) => hex6(c) && hex6(c) !== bg && out.add(c.toLowerCase());
+  add(theme.fg);
+  for (const rule of theme.settings || theme.tokenColors || [])
+    if (ownBackground || !rule?.settings?.background) add(rule?.settings?.foreground);
+  return [...out];
+}
+function contrastReplacements(hl) {
+  const replacements = {};
+  for (const [name, backgrounds] of Object.entries(CODE_BACKGROUNDS)) {
+    const map = (replacements[name] = {});
+    // Light spans keep their token backgrounds; dark spans are transparent
+    // (styles.css), so every dark foreground sits on the code background.
+    const light = name === "github-light";
+    for (const color of themeColors(hl.getTheme(name), { ownBackground: !light })) {
+      if (backgrounds.every((bg) => contrast(parseColor(hex6(color)), bg) >= CODE_CONTRAST)) continue;
+      map[color] = passingColor(color, backgrounds, light ? "dark" : "light");
+    }
+  }
+  return replacements;
+}
+export async function codeColorReplacements() {
+  return (await highlighter()).colorReplacements;
 }
 export function parseMeta(meta = "") {
   const out = { lines: new Set(), title: null };
@@ -351,13 +411,14 @@ function code(ctx) {
         let pre = null;
         if (Buffer.byteLength(value) <= LIMITS.codeBytes) {
           try {
-            const { shiki, hl } = await highlighter();
+            const { shiki, hl, colorReplacements } = await highlighter();
             const resolved = lang && (shiki.bundledLanguages[lang] ? lang : shiki.bundledLanguagesAlias?.[lang] ? lang : null);
             if (resolved && !hl.getLoadedLanguages().includes(resolved)) await hl.loadLanguage(resolved);
             const root = hl.codeToHast(value, {
               lang: resolved || "text",
               themes: { light: "github-light", dark: "github-dark" },
               defaultColor: false,
+              colorReplacements,
               transformers: [
                 {
                   line(line, n) {

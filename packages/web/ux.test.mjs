@@ -21,6 +21,7 @@ import {
 import { fuzzyMatch, highlightParts, parseQuery, search } from "./src/ux/fuzzy.js";
 import { contrast, parseColor } from "./src/ux/contrast.js";
 import { ogSvg, xmlText } from "./ux-routes.mjs";
+import { CODE_BACKGROUNDS, CODE_CONTRAST, codeColorReplacements, renderSafe, themeColors } from "./markdown.mjs";
 
 const read = (rel) => readFile(new URL(rel, import.meta.url), "utf8");
 
@@ -254,4 +255,35 @@ test("palette module has no API client; mutating commands reuse the button handl
   assert.match(main, /"playground\.solution": lessonOnly\(\(\) => replaceFrom\(selected, "solution"\)\)/);
   const confirms = main.match(/async function (reset|replaceFrom|migrate)\([^)]*\) \{[\s\S]*?window\.confirm/g) || [];
   assert.equal(confirms.length, 3, "reset, replaceFrom and migrate confirm first");
+});
+
+test("code highlighting: every Shiki token colour meets WCAG AA on every code background, in every theme", async () => {
+  const shiki = await import("shiki");
+  const hl = await shiki.createHighlighter({ themes: ["github-light", "github-dark"], langs: [] });
+  const replacements = await codeColorReplacements();
+  assert.ok(replacements["github-light"]["#e36209"], "the 3.48:1 orange found in review is replaced");
+  const final = (theme, c) => replacements[theme][c.toLowerCase()] || c;
+  const failures = [];
+  for (const [theme, backgrounds] of Object.entries(CODE_BACKGROUNDS)) {
+    const light = theme === "github-light";
+    // Dark spans are transparent, so every foreground is drawn on the code background.
+    for (const color of themeColors(hl.getTheme(theme), { ownBackground: !light }))
+      for (const bg of backgrounds) {
+        const ratio = contrast(final(theme, color).slice(0, 7), bg);
+        if (ratio < 4.5) failures.push(`${theme} ${color} → ${final(theme, color)} on ${bg}: ${ratio.toFixed(2)}`);
+      }
+    // Light rules that paint their own token background (diff markup etc.).
+    if (light)
+      for (const rule of hl.getTheme(theme).settings)
+        if (rule.settings?.background && rule.settings?.foreground) {
+          const ratio = contrast(final(theme, rule.settings.foreground).slice(0, 7), final(theme, rule.settings.background).slice(0, 7));
+          if (ratio < 4.5) failures.push(`${theme} rule ${JSON.stringify(rule.scope)}: ${ratio.toFixed(2)}`);
+        }
+  }
+  assert.deepEqual(failures, []);
+  assert.ok(CODE_CONTRAST >= 4.5);
+  // Applied in rendered lessons.
+  const { html } = await renderSafe("```diff\n+ added\n- removed\n```\n\n```js\n// note\n```\n");
+  assert.equal(/--shiki-light:#E36209/i.test(html), false);
+  assert.match(html, /--shiki-light:#626a73/i, "github-light comment grey is darkened");
 });

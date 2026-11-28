@@ -1131,7 +1131,7 @@ function App() {
             </PanelBoundary>
           )}
           {page && page !== "preferences" && (
-            <PanelBoundary name="course page">
+            <PanelBoundary name="course page" resetKey={page}>
             <CoursePage
               name={page}
               stepId={selected}
@@ -1157,7 +1157,7 @@ function App() {
                 <p>{exercise.description}</p>
               </div>
               <div className="learning-layout">
-                <PanelBoundary name="lesson panel">
+                <PanelBoundary name="lesson panel" resetKey={selected}>
                 <article className="lesson-panel" onClick={(event) => {
                   if (contentClick(event)) return;
                   const href = event.target.closest("a")?.getAttribute("href");
@@ -1243,7 +1243,7 @@ function App() {
                 </article>
                 </PanelBoundary>
                 <div className="workspace-column">
-                  <PanelBoundary name="code workbench">
+                  <PanelBoundary name="code workbench" resetKey={selected}>
                   <section className="workbench">
                     <div className="workbench-head">
                       <div>
@@ -1536,7 +1536,7 @@ function App() {
                     </div>
                   </section>
                   </PanelBoundary>
-                  <PanelBoundary name="output panel">
+                  <PanelBoundary name="output panel" resetKey={selected}>
                   <section className="output-panel">
                     <div
                       className="tabs"

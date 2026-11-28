@@ -56,10 +56,25 @@ async function runFromPalette(page, query, option) {
   await page.keyboard.press("Enter");
   await expect(dialog).toHaveCount(0);
 }
-async function axe(page, label) {
+// Every ARIA id reference must resolve (axe reports broken ones only as
+// "incomplete"): aria-labelledby/describedby/controls are id lists.
+async function brokenIdRefs(page) {
+  return page.evaluate(() => {
+    const broken = [];
+    for (const attr of ["aria-labelledby", "aria-describedby", "aria-controls", "aria-activedescendant", "aria-owns"])
+      for (const el of document.querySelectorAll(`[${attr}]`))
+        for (const id of el.getAttribute(attr).split(/\s+/).filter(Boolean))
+          if (!document.getElementById(id)) broken.push(`${el.tagName.toLowerCase()}[${attr}] → #${id}`);
+    return broken;
+  });
+}
+async function axe(page, label, include) {
   // Colours are sampled as rendered: let entrance animations finish first.
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
-  const results = await new AxeBuilder({ page })
+  expect(await brokenIdRefs(page), label + ": ARIA id references").toEqual([]);
+  let builder = new AxeBuilder({ page });
+  if (include) builder = builder.include(include);
+  const results = await builder
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     // Sandboxed app and diagram frames are course content on other origins.
     .options({ iframes: false })
@@ -206,6 +221,10 @@ test("shortcuts dialog, g-sequences, typing guard, Diff '?' and remapping with c
   await expect(dialog).toContainText("Go to next step");
   await expect(dialog).toContainText("Open command palette");
   await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+  // Every section is a named region (ids without spaces), no broken references.
+  for (const name of ["General", "Navigation", "Editor", "Diff (in the Diff tab)", "Dialogs and lists", "Video (browser player, when focused)"])
+    await expect(dialog.getByRole("region", { name, exact: true })).toBeVisible();
+  expect(await brokenIdRefs(page)).toEqual([]);
   await page.keyboard.press("Tab");
   await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused(); // only focusable: trapped
   await page.keyboard.press("Escape");
@@ -370,17 +389,43 @@ test("hostile preferences in localStorage or sent to the API are never applied",
 });
 
 test("connection status: server down banner with retry, recovery", async ({ page }) => {
+  // Machines with only a loopback interface report navigator.onLine = false.
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "onLine", { get: () => true }));
   await page.goto("/");
   const status = page.locator(".connection-status");
   await expect(status).toHaveText("Connected");
   await page.route("**/api/health", (route) => route.abort());
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  const banner = page.getByRole("alert").filter({ hasText: "The workshop server is not reachable." });
+  const banner = page.getByRole("region", { name: "The workshop server is not reachable." });
   await expect(banner).toBeVisible();
   await expect(status).toHaveText("Workshop server not reachable");
   await expect(banner).toContainText(/Next automatic check in \d+ s/);
-  await page.unroute("**/api/health");
+  // Announced once (the polite status changes only with the state); the
+  // banner is not an alert and its countdown is outside any live region.
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(status).toHaveAttribute("aria-live", "polite");
+  const countdown = banner.locator(".countdown");
+  await expect(countdown).toHaveAttribute("aria-live", "off");
+  const live = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('[aria-live="polite"], [aria-live="assertive"], [role="alert"], [role="status"], [role="log"]')]
+        .filter((el) => el.closest('[aria-live="off"]') === null)
+        .map((el) => el.textContent)
+        .join("|"),
+    );
+  const before = await live();
+  const tick = await countdown.textContent();
+  await expect.poll(() => countdown.textContent(), { timeout: 4000 }).not.toBe(tick);
+  expect(await live()).toBe(before);
+  expect(before).not.toMatch(/Next automatic check/);
+  // Retry now really sends a check (still failing here, so the banner stays).
+  let checks = 0;
+  page.on("request", (r) => r.url().endsWith("/api/health") && checks++);
   await banner.getByRole("button", { name: "Retry now" }).click();
+  await expect.poll(() => checks, { timeout: 1500 }).toBeGreaterThan(0);
+  await expect(banner).toBeVisible();
+  await page.unroute("**/api/health");
+  if (await banner.isVisible()) await banner.getByRole("button", { name: "Retry now" }).click({ timeout: 2000 }).catch(() => {});
   await expect(banner).toHaveCount(0);
   await expect(status).toHaveText("Connected");
 });
@@ -451,7 +496,8 @@ test("OG image works offline and robots.txt disallows indexing", async ({ page, 
 });
 
 for (const theme of ["dark", "light", "high-contrast"])
-  test(`axe: no WCAG A/AA violations in the ${theme} theme (home, lesson, palette, shortcuts, preferences)`, async ({ page }) => {
+  test(`axe: no WCAG A/AA violations in the ${theme} theme (home, lesson, palette, shortcuts, preferences, code in every language)`, async ({ page }) => {
+    test.setTimeout(300000);
     await page.goto("/");
     await putPreferences(page, { theme });
     await page.reload();
@@ -469,6 +515,15 @@ for (const theme of ["dark", "light", "high-contrast"])
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Preferences", exact: true }).click();
     await axe(page, theme + " preferences");
+    // Highlighted code in every language Shiki bundles (steps 09–18).
+    const steps = JSON.parse(await readFile(join(tmpdir(), "icode-browser-code-steps.json"), "utf8"));
+    for (const id of steps) {
+      await openStep(page, new RegExp("^" + id + " Code samples"));
+      const lesson = page.locator(".lesson-panel .lesson-html").first();
+      await expect(lesson.locator("pre.shiki").first()).toBeVisible();
+      expect(await lesson.locator("pre.shiki").count()).toBeGreaterThan(10);
+      await axe(page, `${theme} code samples ${id}`, ".lesson-panel");
+    }
   });
 
 test("axe and visible focus with reduced motion; focus ring on every new control", async ({ page }) => {
@@ -486,4 +541,61 @@ test("axe and visible focus with reduced motion; focus ring on every new control
     expect(await control.evaluate((n) => getComputedStyle(n).outlineStyle)).toBe("solid");
     expect(parseFloat(await control.evaluate((n) => getComputedStyle(n).outlineWidth))).toBeGreaterThanOrEqual(2);
   }
+});
+
+test("OS-level reduced motion stops animations and transitions without a preference", async ({ page }) => {
+  const probe = () =>
+    page.evaluate(() => {
+      const app = document.querySelector(".app");
+      const spinner = document.createElement("span");
+      spinner.className = "spinner";
+      const moving = document.createElement("button");
+      moving.style.transition = "opacity 2s ease";
+      app.append(spinner, moving);
+      const out = { animation: getComputedStyle(spinner).animationDuration, transition: getComputedStyle(moving).transitionDuration };
+      spinner.remove();
+      moving.remove();
+      return { animation: parseFloat(out.animation), transition: parseFloat(out.transition) };
+    });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await expect(page.locator(".app")).not.toHaveClass(/motion-reduce/);
+  expect(await probe()).toEqual({ animation: 1, transition: 2 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reduced = await probe();
+  expect(reduced.animation).toBeLessThan(0.001);
+  expect(reduced.transition).toBeLessThan(0.001);
+  // "Allow animations" overrides the OS setting.
+  await page.getByRole("button", { name: "Preferences", exact: true }).click();
+  await page.getByRole("radio", { name: "Allow animations" }).check();
+  expect(await probe()).toEqual({ animation: 1, transition: 2 });
+});
+
+test("error boundaries: a crashing lesson panel is contained and the rest of the workshop keeps working", async ({ page }) => {
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(e.message));
+  // A malformed exercise response: instructions that cannot be rendered.
+  await page.route(/\/api\/exercise\?id=01$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, lesson: null, documents: [], instructions: { not: "markdown" } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /01 Approved/ }).click();
+  const failed = page.getByRole("alert", { name: "lesson panel failed" });
+  await expect(failed).toContainText("The lesson panel failed to render.");
+  await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
+  // The workbench, output panel and sidebar still work.
+  await page.getByRole("tab", { name: "Playground", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Playground code editor" })).toHaveValue(/./);
+  await page.getByRole("button", { name: "Run tests", exact: true }).click();
+  await expect(page.getByRole("status").first()).toContainText(/PASS|FAIL/, { timeout: 30000 });
+  await page.getByRole("tab", { name: "Console" }).click();
+  await expect(page.getByRole("tab", { name: "Console" })).toHaveAttribute("aria-selected", "true");
+  await page.unroute(/\/api\/exercise\?id=01$/);
+  await page.getByRole("button", { name: /02 Python/ }).click();
+  await expect(page.locator(".heading h1", { hasText: "Python approved documents" })).toBeVisible();
+  await expect(failed).toHaveCount(0);
+  await expect(page.locator(".lesson-panel")).toBeVisible();
+  expect(problems.filter((m) => !/Unexpected value|not.*markdown|Objects are not valid/i.test(m))).toEqual([]);
 });

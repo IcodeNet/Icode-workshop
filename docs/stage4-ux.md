@@ -41,6 +41,7 @@ Everything here is UI-side apart from four small API routes (`/api/preferences` 
 - **Light, dark, high contrast and system.** The default stays **dark** (the established Icode look); "system" is one click away. System follows `prefers-color-scheme` and `prefers-contrast: more`, and updates live). Epic has light, dark and system.
 - All colours are CSS custom properties on `.app`. Stage 3's hard-coded colours were replaced with tokens. The default (dark) look is unchanged. `.app.dark` still marks a dark scheme (dark and high contrast), so Shiki's dual theme (`github-light` / `github-dark`) and the Mermaid frame (which re-renders when the class changes) follow the theme without new code paths. The `color-scheme` property follows too, so native controls and scrollbars match.
 - `theme-boot.js` (an external script in `public/`, allowed by `script-src 'self'`) reads the stored theme from `localStorage`, validates it and sets `data-theme` on `<html>` before the first paint. A missing or invalid value means the default (dark). The server copy wins once `/api/preferences` answers.
+- **Code contrast:** Shiki's `github-light`/`github-dark` colours are checked against every background a code line can have (plain, highlighted line, diff add/remove, and the high-contrast backgrounds). Any colour below 4.5:1 is darkened (light) or lightened (dark and high contrast) at highlighter start-up through Shiki's `colorReplacements` (target 4.6:1). This covers every language, because token colours come from the theme. Example: the review found `#E36209` at 3.48:1 on white; it is now `#AD4A07`. Dark code spans never paint token backgrounds. A unit test checks every theme colour, and axe runs on lessons with code in all 242 bundled languages (fixture steps 09–18) in every theme.
 - **Contrast:** every theme's text/background, muted text, accent text, link, focus-ring and border token pairs are checked against WCAG AA in a unit test (4.5:1 for text, 3:1 for focus rings and UI borders). High contrast aims for AAA (7:1) on text. axe runs on the main views in each theme.
 
 ## G4. Preferences
@@ -57,13 +58,13 @@ Everything here is UI-side apart from four small API routes (`/api/preferences` 
 ## G5. Connection status and error boundaries
 
 - `/api/health` (GET, no side effects) is polled every 15 s, on `online`/`offline` events and when the tab becomes visible. Backoff doubles to 60 s while the server is down.
-- The top bar shows a status with text, not only colour: "Connected", "Offline (browser)" or "Workshop server not reachable". When the server is unreachable, a banner explains that work in the editor is kept, offers "Retry now" (more than Epic, which shows a full-screen "Server is down" overlay) and counts down to the next attempt.
+- The top bar shows a status with text, not only colour: "Connected", "Offline (browser)" or "Workshop server not reachable". It is the only live region for the connection (`aria-live="polite"`), and its text changes only when the state changes, so each change is announced once. When the server is unreachable, a banner (a named region, not an alert) explains that work in the editor is kept, offers "Retry now" (more than Epic, which shows a full-screen "Server is down" overlay) and counts down to the next attempt. The countdown is `aria-live="off"`, so its per-second updates are never read out.
 - **Error boundaries** around the lesson, the workbench, the output panel, course pages and the palette: a crash in one panel shows "This panel failed to render" with the message and a "Try again" button; the rest of the workshop keeps working.
 
 ## G6. Warning banner
 
 - `/api/warnings` reports when files under the course's `exercises/` directory differ from the committed course (`git status --porcelain -z -- exercises`, run with an argument array, a 5 s timeout and no prompts; no git means no warning). Learners should work in their playground; editing the course sources by mistake (for example in an external editor) is the case Epic's red banner warns about.
-- The banner lists up to five paths as text and says where the playground is. "Dismiss" hides it until the set of changed paths changes; "Don't warn me again" stores `exercises-changed` in the dismissed warnings preference (Epic's "dismiss exercise warning"). It is a `role="alert"` region only when it first appears.
+- The banner lists up to five paths as text and says where the playground is. "Dismiss" hides it until the set of changed paths changes; "Don't warn me again" stores `exercises-changed` in the dismissed warnings preference (Epic's "dismiss exercise warning"). It is a named `role="region"`.
 - Epic's other warning, "the playground is set to a different step", does not apply: every Icode step has its own playground.
 
 ## G7. OG image and robots
@@ -91,6 +92,14 @@ Everything here is UI-side apart from four small API routes (`/api/preferences` 
 - `packages/web/preferences.integration.test.mjs`: the real server; validated partial writes, 400 without side effects for 13 hostile bodies, tampered files salvaged, 403 for foreign Origin/Host/`Sec-Fetch-Site` and for the UI origin without (or with a wrong) session token, 409 under the mutation gate, health, git-based warnings and the escaped OG SVG.
 - `tests/browser/ux.spec.mjs` (14 tests): keyboard-only palette journey with ARIA and focus trap/restore; crafted titles and file names (`<img onerror>`, `<script>`, `<svg onload>`) shown as text with no script run; palette and `s p` cannot skip `window.confirm`, and a destructive course action from the palette still needs the typed word (the palette cannot be opened over the confirmation); shortcuts dialog, sequences, typing guard, Diff `?`, remapping with conflict/reserved errors and persistence; themes with Shiki and Mermaid following, system/contrast media, fonts, zoom and motion; hostile `localStorage` and API preferences; server-down banner and retry; warning banner; scroll restoration; offline OG and robots; axe in three themes and with reduced motion.
 - axe found faded text only while the workbench's entrance animation was running; the checks wait for animations to finish. It also flagged the Mermaid source fallback as a non-focusable scroll region, which no longer scrolls.
+
+## Follow-ups (from the independent review of PR #10)
+
+- **`launcher.test.mjs` and the Playwright web servers use fixed ports** (5173, 4317, 4318). They fail whenever another workshop or test run holds those ports on the same machine. A free port needs a `WORKSHOP_UI_PORT` threaded through `vite.config.mjs` (`UI_ORIGIN`), `allowedOrigin` in `server.mjs`, the CSP `connect-src` and the sandbox `frame-ancestors`. That is a separate change; this PR does not touch the launcher test.
+- Remap rules (reserved keys, conflicts) are enforced in the UI only. The API validates the schema and the binding grammar. Confirmations are unaffected either way.
+- "Allow animations" cannot bring back the workbench entrance animation under the OS reduce setting: that animation is defined only for `prefers-reduced-motion: no-preference`.
+- Palette entries for lessons and course actions are a snapshot taken when the palette opens. Commands re-check their state when they run.
+- While a dialog is open, Ctrl/Cmd+S reaches the browser.
 
 ## Security summary
 

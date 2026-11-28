@@ -60,6 +60,8 @@ function Highlighted({ text, ranges }) {
   return highlightParts(text, ranges).map((part, i) => (part.match ? <mark key={i}>{part.text}</mark> : <React.Fragment key={i}>{part.text}</React.Fragment>));
 }
 
+// ARIA id references are space-separated lists: ids must have no spaces.
+export const slug = (text) => "sg-" + String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const KIND_LABEL = { command: "Command", lesson: "Lesson", file: "File" };
 
 /**
@@ -202,8 +204,8 @@ export function ShortcutsDialog({ bindings, onClose }) {
         </p>
         <div className="shortcut-groups">
           {[...groups].map(([group, entries]) => (
-            <section key={group} aria-labelledby={"sg-" + group}>
-              <h3 id={"sg-" + group}>{group}</h3>
+            <section key={group} aria-labelledby={slug(group)}>
+              <h3 id={slug(group)}>{group}</h3>
               <dl>
                 {entries.map(([command, list]) => (
                   <React.Fragment key={command.id}>
@@ -222,8 +224,8 @@ export function ShortcutsDialog({ bindings, onClose }) {
             </section>
           ))}
           {FIXED_SHORTCUTS.map((group) => (
-            <section key={group.group} aria-labelledby={"sg-" + group.group}>
-              <h3 id={"sg-" + group.group}>{group.group}</h3>
+            <section key={group.group} aria-labelledby={slug(group.group)}>
+              <h3 id={slug(group.group)}>{group.group}</h3>
               <dl>
                 {group.items.map(([keys, text]) => (
                   <React.Fragment key={keys + text}>
