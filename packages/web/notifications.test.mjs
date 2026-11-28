@@ -53,7 +53,19 @@ test("the feed is optional, offline-safe, bounded, cached and can be disabled", 
   assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(new Error("no")), now: 2000 })).map((n) => n.id), ["x"]);
   assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(new Error("no")), now: 2000 + 3600_001 })).map((n) => n.id), ["x"]);
   clearFeedCache();
+  const json5 = "// Epic-style feed\n[{ id: 'j5', title: 'JSON5', message: 'ok', },]";
+  assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(json5) })).map((n) => n.id), ["j5"], "JSON5 feeds are read");
+  clearFeedCache();
   assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse("x".repeat(70 * 1024)) }), [], "oversized feed refused");
+  // A valid feed over 64 KB is refused too (not just unparsable), streamed or with Content-Length.
+  const big = JSON.stringify([{ id: "big", title: "Big", message: "m", padding: "p".repeat(70 * 1024) }]);
+  assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse(big) }), [], "valid but oversized feed refused");
+  assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse(big, { headers: { "content-length": String(big.length) } }) }), []);
+  const stream = async () => new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(big)); c.close(); } }));
+  assert.deepEqual(await fetchFeed(url, { fetchImpl: stream }), []);
+  const small = JSON.stringify([{ id: "small", title: "Small", message: "m", padding: "p".repeat(1000) }]);
+  assert.deepEqual((await fetchFeed(url, { fetchImpl: feedResponse(small) })).map((n) => n.id), ["small"], "control: a valid feed under the cap is accepted");
+  clearFeedCache();
   assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse("{", {}) }), [], "invalid JSON ignored");
   assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse([], { status: 500 }) }), []);
   assert.deepEqual(await fetchFeed(url, { fetchImpl: feedResponse(Array.from({ length: 80 }, (_, i) => ({ id: "n" + i, title: "t", message: "m" }))) }).then((l) => l.length), 50);

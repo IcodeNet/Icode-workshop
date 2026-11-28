@@ -2904,7 +2904,7 @@
     ],
     "license": "EPL-2.0 OR GPL-3.0-or-later",
     "source": "https://github.com/kieler/elkjs.git",
-    "note": "Mermaid dependency (layout engine). Dual-licensed; used under EPL-2.0."
+    "note": "Installed as a hard dependency of mermaid but never served or shipped: the UI serves Mermaid's ESM build without its elk chunk (layout \"dagre\"). Dual EPL-2.0 OR GPL-3.0-or-later."
   },
   {
     "name": "entities",
@@ -3139,7 +3139,8 @@
       "12.4.0"
     ],
     "license": "MIT",
-    "source": "https://github.com/mermaid-js/mermaid"
+    "source": "https://github.com/mermaid-js/mermaid",
+    "note": "Served from dist/mermaid.esm.min.mjs and chunks/mermaid.esm.min/* except elk-*.mjs; the IIFE build (which inlines elk) is not served."
   },
   {
     "name": "micromark-extension-gfm",
@@ -3404,5 +3405,69 @@
     ],
     "license": "MIT",
     "source": "wooorm/web-namespaces"
+  },
+  {
+    "name": "unicode-emoji-modifier-base",
+    "versions": [
+      "1.0.0"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/mathiasbynens/unicode-emoji-modifier-base.git"
+  },
+  {
+    "name": "emojilib",
+    "versions": [
+      "2.4.0"
+    ],
+    "license": "MIT",
+    "source": "git+https://github.com/muan/emojilib.git"
+  },
+  {
+    "name": "emoticon",
+    "versions": [
+      "4.1.0"
+    ],
+    "license": "MIT",
+    "source": "wooorm/emoticon"
+  },
+  {
+    "name": "@sindresorhus/is",
+    "versions": [
+      "4.6.0"
+    ],
+    "license": "MIT",
+    "source": "sindresorhus/is"
+  },
+  {
+    "name": "skin-tone",
+    "versions": [
+      "2.0.0"
+    ],
+    "license": "MIT",
+    "source": "sindresorhus/skin-tone"
+  },
+  {
+    "name": "char-regex",
+    "versions": [
+      "1.0.2"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/Richienb/char-regex.git"
+  },
+  {
+    "name": "node-emoji",
+    "versions": [
+      "2.2.0"
+    ],
+    "license": "MIT",
+    "source": "https://github.com/omnidan/node-emoji"
+  },
+  {
+    "name": "remark-emoji",
+    "versions": [
+      "5.0.2"
+    ],
+    "license": "MIT",
+    "source": "git+https://github.com/rhysd/remark-emoji.git"
   }
 ]

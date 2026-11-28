@@ -5,6 +5,7 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import remarkEmoji from "remark-emoji";
 import remarkRehype from "remark-rehype";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
@@ -220,6 +221,8 @@ export function policy(raw, { kind = "link", root = null, docDir = "", sandboxOr
     try {
       const parsed = new URL(probe);
       if (parsed.protocol === "https:" && parsed.hostname && !parsed.username && !parsed.password) return { href: parsed.href, external: true };
+      // Lessons often point at a local dev server: http only on loopback, links only.
+      if (kind === "link" && parsed.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) && !parsed.username && !parsed.password) return { href: parsed.href, external: true };
     } catch {}
     return { blocked: "scheme" };
   }
@@ -442,6 +445,7 @@ export async function renderLesson(source, options = {}) {
     if (options.mdx) processor.use(noIndentedCode);
     processor
       .use(remarkGfm)
+      .use(remarkEmoji, { accessible: false, emoticon: false })
       .use(remarkMeta)
       .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "fn-" })
       .use(rehypeRaw)
@@ -515,8 +519,10 @@ export function renderSafe(source, options = {}, { timeoutMs } = {}) {
   });
 }
 
-// In-memory LRU keyed by the caller (path + mtime + size + context).
+// In-memory LRU keyed by the caller (root + path + mtime + size + context).
 const cache = new Map();
+export const CACHE_LIMIT = 200;
+export const cacheSize = () => cache.size;
 export async function renderCached(key, source, options) {
   if (cache.has(key)) {
     const hit = cache.get(key);
@@ -526,7 +532,7 @@ export async function renderCached(key, source, options) {
   }
   const result = await renderSafe(source, options);
   cache.set(key, result);
-  if (cache.size > 200) cache.delete(cache.keys().next().value);
+  if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value);
   return result;
 }
 export { escapeHtml };

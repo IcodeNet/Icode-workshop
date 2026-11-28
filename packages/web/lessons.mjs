@@ -15,7 +15,7 @@ export async function renderDocument(root, path, { stepId = null, sandboxOrigin 
   if (!info.isFile()) throw Object.assign(new Error("Not a file"), { code: "ENOENT" });
   const source = await readFile(path, "utf8");
   const rel = posixRel(root, path);
-  const key = [rel, info.mtimeMs, info.size, stepId, sandboxOrigin].join("|");
+  const key = [root, rel, info.mtimeMs, info.size, stepId, sandboxOrigin].join("|");
   const rendered = await renderCached(key, source, {
     mdx: path.endsWith(".mdx"),
     stepId,

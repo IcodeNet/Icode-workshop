@@ -41,6 +41,7 @@ import { detectEditors, publicEditors, launchEditor } from "./editors.mjs";
 import { doctor } from "./setup.mjs";
 import { lstat } from "node:fs/promises";
 import { createServer } from "node:http";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import {
@@ -90,6 +91,16 @@ const allowedOrigin = "http://127.0.0.1:5173";
 // from this separate, read-only origin, which the API refuses.
 const sandboxOrigin = "http://127.0.0.1:" + SANDBOX_PORT;
 let sandboxServer = null;
+// Per-process session token. Browser requests that mutate (they carry Origin
+// or Fetch Metadata) must echo it in x-icode-session; the UI fetches it from
+// /api/session, which only a same-origin page can read. Non-browser clients
+// (CLI, tests) send neither header and are unaffected.
+const sessionToken = randomBytes(32).toString("hex");
+function hasSessionToken(req) {
+  const given = Buffer.from(String(req.headers["x-icode-session"] ?? ""));
+  const expected = Buffer.from(sessionToken);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
 const json = (res, code, body) => {
   res.writeHead(code, {
     "content-type": "application/json; charset=utf-8",
@@ -204,6 +215,10 @@ function ndjson(res) {
   };
 }
 const server = createServer(async (req, res) => {
+  // The API is never a document or a frame.
+  res.setHeader("x-frame-options", "DENY");
+  res.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'; sandbox");
+  res.setHeader("x-content-type-options", "nosniff");
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(req.headers.host))
     return json(res, 403, { error: "Host denied" });
   if (req.headers.origin && req.headers.origin !== allowedOrigin)
@@ -214,11 +229,21 @@ const server = createServer(async (req, res) => {
   const site = req.headers["sec-fetch-site"];
   if (site && !["same-origin", "none"].includes(site))
     return json(res, 403, { error: "Cross-site request denied" });
+  const browser = req.headers.origin !== undefined || site !== undefined;
+  if (browser && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !hasSessionToken(req))
+    return json(res, 403, { error: "Missing or invalid workshop session" });
+  if (req.method === "GET" && req.url === "/api/session") {
+    // Only a same-origin script (the UI through its proxy) may read the token.
+    if (site !== "same-origin" || req.headers["sec-fetch-dest"] !== "empty")
+      return json(res, 403, { error: "Session token is only available to the workshop UI" });
+    res.setHeader("cache-control", "no-store");
+    return json(res, 200, { token: sessionToken });
+  }
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type",
+      "access-control-allow-headers": "content-type, x-icode-session",
     });
     return res.end();
   }

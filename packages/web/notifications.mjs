@@ -3,6 +3,7 @@
 import { readFile, writeFile, mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import JSON5 from "json5";
 import { contentConfig, validateNotification } from "./content-config.mjs";
 import { assertSafePath } from "./files.mjs";
 import { renderSafe as renderLesson } from "./markdown.mjs";
@@ -27,7 +28,8 @@ export async function fetchFeed(url, { fetchImpl = fetch, now = Date.now() } = {
     const length = Number(response.headers?.get?.("content-length") || 0);
     if (length > FEED_MAX_BYTES) throw new Error("Feed too large");
     const text = await readCapped(response, FEED_MAX_BYTES);
-    const data = JSON.parse(text);
+    // JSON5 like Epic's feed (comments, trailing commas); plain JSON is JSON5.
+    const data = JSON5.parse(text);
     const list = Array.isArray(data) ? data : Array.isArray(data?.notifications) ? data.notifications : [];
     const items = list.slice(0, 50).map(validateNotification).filter(Boolean).map((n) => ({ ...n, source: "feed" }));
     feeds.set(url, { at: now, items });

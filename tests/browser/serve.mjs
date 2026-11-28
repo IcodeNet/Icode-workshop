@@ -111,6 +111,30 @@ const hostileApp = `<!doctype html><html><head><title>Hostile app</title></head>
   document.getElementById("out").textContent = JSON.stringify(results);
 })();
 </script></body></html>`;
+// BL-1 regression: course-like HTML inside the engine checkout (where Vite's
+// default fs.allow would serve it on the UI origin) and an app (07) that tries
+// to reach it by navigating its frame, a popup or a top-level tab.
+const evilPaths = [join(process.cwd(), "bl1-evil.html"), join(process.cwd(), "packages", "web", "bl1-evil.html"), join(process.cwd(), "examples", "bl1-evil.html")];
+// The content spec plants course-like HTML at these paths during its test.
+const toFs = (path) => "http://127.0.0.1:5173/@fs" + (path.startsWith("/") ? "" : "/") + path.replaceAll("\\", "/");
+const escapeApp = `<!doctype html><html><head><title>Escape</title></head><body><pre id="out">idle</pre><script>
+const targets = ${JSON.stringify(["http://127.0.0.1:5173/bl1-evil.html", ...evilPaths.map(toFs), "http://127.0.0.1:5173/"])};
+const go = new URLSearchParams(location.search).get("go");
+const index = Number(new URLSearchParams(location.search).get("i") || 0);
+if (go === "frame") location.href = targets[index];
+if (go === "spoof") location.href = "http://127.0.0.1:4404/spoof";
+if (go === "popup") { let w = null; try { w = window.open(targets[index]); } catch {} document.getElementById("out").textContent = w ? "opened" : "popup blocked"; }
+</script></body></html>`;
+await mkdir(join(root, "exercises", "07", "problem"), { recursive: true });
+await mkdir(join(root, "exercises", "07", "solution"), { recursive: true });
+await writeFile(join(root, "exercises", "07", "lab.json"), JSON.stringify({ schemaVersion: 1, runtime: "node", entry: "index.mjs", title: "Escape attempt", app: { type: "simple" } }));
+await writeFile(join(root, "exercises", "07", "README.md"), "# Escape attempt\n");
+for (const variant of ["problem", "solution"]) {
+  await writeFile(join(root, "exercises", "07", variant, "index.html"), escapeApp);
+  await writeFile(join(root, "exercises", "07", variant, "index.mjs"), "export const value = 1;\n");
+}
+course.modules.at(-1).steps.push("07");
+await writeFile(join(root, "course.json"), JSON.stringify(course));
 for (const variant of ["problem", "solution"]) {
   await writeFile(join(root, "exercises", "06", variant, "index.html"), hostileApp);
   await writeFile(join(root, "exercises", "06", variant, "index.mjs"), "export const value = 1;\n");
@@ -198,6 +222,9 @@ createServer((req, res) => {
     );
   }
   res.setHeader("content-type", "text/html");
+  if (req.url === "/spoof")
+    // Another origin inside the app frame forges workshop messages (U5).
+    return res.end('<h1>Spoof</h1><script>for (const m of [{ type: "icode:location", href: "/app/07/playground/spoofed" }, { type: "icode:mermaid", ok: true, height: 9999 }]) parent.postMessage(m, "*");</script>');
   res.end("<h1>Local service fixture</h1>");
 }).listen(4404, "127.0.0.1");
 // Stage 2 update fixture: the course is a clone that is one commit behind its

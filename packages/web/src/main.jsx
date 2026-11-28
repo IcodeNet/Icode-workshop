@@ -1,3 +1,4 @@
+import "./session.js";
 import Markdown from "react-markdown";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";

@@ -1,6 +1,8 @@
 // Mermaid renderer: opaque-origin sandboxed frame on the sandbox server, no
 // network (CSP connect-src 'none'), securityLevel "strict". Receives diagram
-// source from the workshop UI and reports its size back.
+// source from the workshop UI and reports its size back. Loads Mermaid's ESM
+// build; layouts load on demand and the elk layout is never served.
+import mermaid from "/__icode/mermaid/mermaid.esm.min.mjs";
 (function () {
   var UI = "%ICODE_UI_ORIGIN%";
   var box = document.getElementById("d");
@@ -17,8 +19,9 @@
     if (data.type !== "icode:mermaid-render" || typeof data.source !== "string" || data.source.length > 51200) return;
     var theme = data.theme === "dark" ? "dark" : "default";
     try {
-      window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: theme, htmlLabels: false, flowchart: { htmlLabels: false } });
-      window.mermaid
+      // dagre, not elk (Mermaid 12's default): the elk chunk is not served.
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: theme, layout: "dagre", htmlLabels: false, flowchart: { htmlLabels: false }, state: { layout: "dagre" } });
+      mermaid
         .render("icode-mermaid-" + n++, data.source)
         .then(function (result) {
           box.innerHTML = result.svg;

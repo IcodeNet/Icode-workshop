@@ -5,3 +5,6 @@ playwright-report/
 test-results/
 __pycache__/
 .pytest_cache/
+/bl1-evil.html
+/examples/bl1-evil.html
+/packages/web/bl1-evil.html

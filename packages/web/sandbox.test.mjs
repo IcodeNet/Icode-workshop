@@ -8,7 +8,9 @@ import { once } from "node:events";
 import { createServer } from "node:net";
 import { mkdir, symlink, writeFile, rm } from "node:fs/promises";
 import { join, dirname, basename } from "node:path";
-import { createSandboxServer, urlSegments } from "./sandbox.mjs";
+import { createSandboxServer, urlSegments, mermaidFile } from "./sandbox.mjs";
+import { readdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { nativeCourse } from "./test-support/workspace-course.mjs";
 import { selectWorkspace } from "./workspaces.mjs";
 
@@ -67,8 +69,9 @@ test("refuses foreign hosts, cross-site requests and every method but GET/HEAD",
   for (const site of ["same-site", "same-origin", "none"]) assert.equal((await get(port, "/app/01/problem/", { headers: { "sec-fetch-site": site } })).status, 200, site);
   for (const method of ["POST", "PUT", "DELETE", "PATCH"]) assert.equal((await get(port, "/app/01/problem/", { method })).status, 405, method);
   // Only the static Mermaid engine scripts are loadable cross-site (opaque frame).
-  assert.equal((await get(port, "/__icode/mermaid.js", { headers: { "sec-fetch-site": "cross-site" } })).status, 200);
-  assert.equal((await get(port, "/__icode/mermaid.js?x", { headers: { "sec-fetch-site": "cross-site" } })).status, 403);
+  assert.equal((await get(port, "/__icode/mermaid/mermaid.esm.min.mjs", { headers: { "sec-fetch-site": "cross-site" } })).status, 200);
+  assert.equal((await get(port, "/__icode/mermaid-frame.js", { headers: { "sec-fetch-site": "cross-site" } })).status, 200);
+  assert.equal((await get(port, "/__icode/mermaid/mermaid.esm.min.mjs?x", { headers: { "sec-fetch-site": "cross-site" } })).status, 403);
   assert.equal((await get(port, "/asset/images/pic.png", { headers: { "sec-fetch-site": "cross-site" } })).status, 403);
 });
 
@@ -175,8 +178,51 @@ test("lesson images are served from the course with a sandbox CSP; Mermaid page 
   assert.match(png.headers["content-security-policy"], /^sandbox;/);
   const mermaid = await get(port, "/__icode/mermaid.html");
   assert.match(mermaid.headers["content-security-policy"], /default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'/);
-  assert.match(mermaid.body, /<script src="\/__icode\/mermaid\.js"><\/script>/);
+  assert.match(mermaid.body, /<script type="module" src="\/__icode\/mermaid-frame\.js"><\/script>/);
   const frame = await get(port, "/__icode/mermaid-frame.js");
   assert.match(frame.body, /securityLevel: "strict"/);
   assert.match(frame.body, /event\.origin !== UI/);
+});
+
+test("Mermaid is served from its ESM build without the elk layout (EPL/GPL): no elk code is reachable", async (t) => {
+  const { port, server, secret } = await setup();
+  t.after(() => (server.close(), rm(secret, { force: true })));
+  const dist = join(dirname(createRequire(import.meta.url).resolve("mermaid/package.json")), "dist");
+  const chunks = await readdir(join(dist, "chunks", "mermaid.esm.min"));
+  const elk = chunks.filter((f) => /elk/i.test(f));
+  assert.ok(elk.length >= 1, "the elk chunk exists in the package");
+  let served = 0;
+  for (const name of ["mermaid.esm.min.mjs", ...chunks.map((c) => "chunks/mermaid.esm.min/" + c)]) {
+    const body = await mermaidFile(name);
+    if (!body) continue;
+    served++;
+    assert.doesNotMatch(body.toString("utf8"), /org\.eclipse\.elk|Eclipse Public License/, name);
+  }
+  assert.ok(served > 50, "ESM entry and chunks are served");
+  for (const name of elk) assert.equal((await get(port, "/__icode/mermaid/chunks/mermaid.esm.min/" + name)).status, 404, name);
+  for (const path of ["/__icode/mermaid.js", "/__icode/mermaid/mermaid.esm.min.mjs.map", "/__icode/mermaid/chunks/mermaid.esm.min/ELK-x.mjs", "/__icode/mermaid/../package.json", "/__icode/mermaid/chunks/mermaid.core/x.mjs"])
+    assert.ok([400, 404].includes((await get(port, path)).status), path);
+  const entry = await get(port, "/__icode/mermaid/mermaid.esm.min.mjs");
+  assert.equal(entry.headers["access-control-allow-origin"], "*");
+  assert.match((await get(port, "/__icode/mermaid-frame.js")).body, /layout: "dagre"/);
+});
+
+test("double-encoded traversal and hidden files are refused (assets, apps and the bundler)", async (t) => {
+  const { root, port, server, secret } = await setup();
+  t.after(() => (server.close(), rm(secret, { force: true })));
+  for (const path of ["/asset/%252e%252e/%252e%252e/course.json", "/asset/%252e%252e%252fcourse.json", "/app/01/problem/%252e%252e%252f%252e%252e%252fcourse.json", "/asset/images/%252e%252e/%252e%252e/x.png"]) {
+    const r = await get(port, path);
+    assert.ok([400, 404].includes(r.status), path + " " + r.status);
+    assert.doesNotMatch(r.body, /schemaVersion/);
+  }
+  await mkdir(join(root, "exercises", "02", "solution", ".secret"), { recursive: true });
+  await writeFile(join(root, "exercises", "02", "solution", ".secret", "x.js"), "export const s = 'hidden-file-content';\n");
+  await mkdir(join(root, ".workshop"), { recursive: true });
+  await writeFile(join(root, ".workshop", "preferences.json"), '{"pref":"workshop-private"}');
+  for (const spec of ["./.secret/x.js", "../../../.workshop/preferences.json"]) {
+    await writeFile(join(root, "exercises", "02", "solution", "index.mjs"), `import x from ${JSON.stringify(spec)};\nexport const v = x;\n`);
+    const r = await get(port, "/app/02/solution/index.mjs?" + encodeURIComponent(spec));
+    assert.match(r.body, /Refused to bundle a file outside the course/, spec);
+    assert.doesNotMatch(r.body, /hidden-file-content|workshop-private/);
+  }
 });

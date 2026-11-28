@@ -1,7 +1,8 @@
 // Stage 3: lessons, apps, in-browser tests, course pages, notifications and
 // the hostile-content guarantees, in a real browser.
 import { test, expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
 
 const SANDBOX = "http://127.0.0.1:4318";
 function guard(page) {
@@ -170,4 +171,90 @@ test("course home, finished page with feedback form, guide, support and notifica
   await expect(page.getByRole("article", { name: "AI Engineering Foundations" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Workshop notifications" })).toHaveCount(0);
   expect(problems).toEqual([]);
+});
+
+// BL-1 regression: an app must not reach course HTML served on the UI origin
+// (Vite /@fs/ or root files) by navigating its frame, a popup or a new tab.
+test("a sandboxed app cannot escape to the UI origin through frame navigation, popups or a new tab", async ({ page, context, request }) => {
+  // Plant course-like HTML where Vite's default fs.allow would serve it (the
+  // engine root, the UI package, examples/), as in the review's reproduction.
+  const evil = `<!doctype html><html><body><script>
+window.top.__pwned = 1;
+try { parent.document.title = "pwned"; } catch {}
+fetch("/api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "02", complete: true }) });
+</script></body></html>`;
+  const planted = [join(process.cwd(), "bl1-evil.html"), join(process.cwd(), "packages", "web", "bl1-evil.html"), join(process.cwd(), "examples", "bl1-evil.html")];
+  for (const path of planted) await writeFile(path, evil);
+  try {
+    await escapeAttempts({ page, context, request });
+  } finally {
+    for (const path of planted) await rm(path, { force: true });
+  }
+});
+async function escapeAttempts({ page, context, request }) {
+  const problems = guard(page);
+  const before = await (await request.get("http://127.0.0.1:4317/api/progress")).json();
+  // Direct requests for the planted files are refused by the UI server.
+  for (const path of ["/bl1-evil.html", "/@fs" + process.cwd().replaceAll("\\", "/").replace(/^(?!\/)/, "/") + "/bl1-evil.html", "/@fs" + process.cwd().replaceAll("\\", "/").replace(/^(?!\/)/, "/") + "/examples/bl1-evil.html", "/@fs" + process.cwd().replaceAll("\\", "/").replace(/^(?!\/)/, "/") + "/packages/web/bl1-evil.html"])
+    expect((await request.get("http://127.0.0.1:5173" + path)).status(), path).toBe(403);
+  // A same-site navigation to the UI itself is refused too.
+  expect((await request.get("http://127.0.0.1:5173/", { headers: { "sec-fetch-dest": "iframe", "sec-fetch-site": "same-site" } })).status()).toBe(403);
+  // UI and API responses forbid framing; the UI has a strict CSP.
+  const ui = await request.get("http://127.0.0.1:5173/");
+  expect(ui.headers()["x-frame-options"]).toBe("DENY");
+  expect(ui.headers()["content-security-policy"]).toMatch(/frame-ancestors 'none'/);
+  expect(ui.headers()["content-security-policy"]).toMatch(/script-src 'self' 'nonce-/);
+  expect((await request.get("http://127.0.0.1:4317/api/exercises")).headers()["x-frame-options"]).toBe("DENY");
+  await page.goto("/");
+  await openStep(page, /07 Escape attempt/);
+  await page.getByRole("tab", { name: "Preview" }).click();
+  const address = page.getByRole("textbox", { name: "App address" });
+  const app = page.frameLocator('iframe[title="App preview 07"]');
+  await expect(app.locator("#out")).toHaveText("idle");
+  for (let i = 0; i < 5; i++) {
+    await address.fill(`/?go=frame&i=${i}`);
+    await page.getByRole("button", { name: "Go" }).click();
+    await page.waitForTimeout(700);
+  }
+  // Messages from another origin inside the app frame are ignored.
+  await address.fill("/?go=spoof");
+  await page.getByRole("button", { name: "Go" }).click();
+  await expect(app.getByRole("heading", { name: "Spoof" })).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(address).not.toHaveValue(/spoofed/);
+  await address.fill("/?go=popup&i=1");
+  await page.getByRole("button", { name: "Go" }).click();
+  await expect(app.locator("#out")).toHaveText("popup blocked");
+  expect(context.pages()).toHaveLength(1);
+  // "Open in new tab" runs the app top-level on the sandbox origin; it still cannot reach the UI.
+  const tab = await context.newPage();
+  for (let i = 0; i < 5; i++) {
+    const response = await tab.goto(`http://127.0.0.1:4318/app/07/playground/?go=frame&i=${i}`).catch(() => null);
+    await tab.waitForLoadState().catch(() => {});
+    await tab.waitForTimeout(500);
+    if (tab.url().startsWith("http://127.0.0.1:5173")) expect(await tab.content()).not.toContain("__pwned");
+    void response;
+  }
+  await tab.close();
+  await page.waitForTimeout(500);
+  expect(await page.title()).not.toBe("pwned");
+  expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
+  expect(await (await request.get("http://127.0.0.1:4317/api/progress")).json()).toEqual(before);
+  expect(problems).toEqual([]);
+}
+
+test("the API requires the per-session token for browser mutations; the UI sends it", async ({ request, page }) => {
+  const noToken = await request.put("http://127.0.0.1:4317/api/progress", { headers: { origin: "http://127.0.0.1:5173" }, data: { id: "01", complete: true } });
+  expect(noToken.status()).toBe(403);
+  const wrong = await request.put("http://127.0.0.1:4317/api/progress", { headers: { origin: "http://127.0.0.1:5173", "x-icode-session": "0".repeat(64) }, data: { id: "01", complete: true } });
+  expect(wrong.status()).toBe(403);
+  // The token is not readable by navigation or by other sites.
+  expect((await request.get("http://127.0.0.1:4317/api/session")).status()).toBe(403);
+  expect((await request.get("http://127.0.0.1:4317/api/session", { headers: { "sec-fetch-site": "same-site", "sec-fetch-dest": "empty" } })).status()).toBe(403);
+  await page.goto("/");
+  await openStep(page, /01 Approved/);
+  await page.getByRole("button", { name: "Mark complete" }).click();
+  await expect(page.getByRole("button", { name: "Mark incomplete" })).toBeVisible();
+  await page.getByRole("button", { name: "Mark incomplete" }).click();
+  await expect(page.getByRole("button", { name: "Mark complete" })).toBeVisible();
 });

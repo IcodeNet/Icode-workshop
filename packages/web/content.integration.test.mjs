@@ -166,3 +166,37 @@ test("stopping the API also closes the sandbox origin", { timeout: 60000 }, asyn
   await api.stop();
   await assert.rejects(fetch(`http://127.0.0.1:${api.sandboxPort}/__icode/nav.js`, { signal: AbortSignal.timeout(2000) }));
 });
+
+test("mute takes the mutation gate; browser mutations need the session token", { timeout: 60000 }, async () => {
+  const root = await nativeCourse({
+    hooks: { preSetPlayground: "slow" },
+    scripts: { slow: "node slow.mjs" },
+    files: { "slow.mjs": "setTimeout(() => {}, 3000);\n" },
+    course: { notifications: [{ id: "n1", title: "Note", message: "Hello" }] },
+  });
+  const api = await start(root);
+  try {
+    const select = api.call("/select", { method: "POST", body: { id: "01" } });
+    await new Promise((r) => setTimeout(r, 800));
+    const muted = await api.call("/notifications/mute", { method: "POST", body: { id: "n1" } });
+    assert.equal(muted.status, 409, "mute waits for the running operation");
+    assert.equal((await select).status, 200);
+    await assert.rejects(access(join(root, ".workshop", "notifications.json")));
+    // A browser request (Origin or Fetch Metadata) without the token is refused, even from the UI origin.
+    const host = "127.0.0.1:" + api.port;
+    const body = JSON.stringify({ id: "n1" });
+    for (const headers of [{ host, origin: "http://127.0.0.1:5173" }, { host, "sec-fetch-site": "same-origin" }, { host, origin: "http://127.0.0.1:5173", "x-icode-session": "x".repeat(64) }])
+      assert.equal((await raw(api.port, "/api/notifications/mute", { method: "POST", headers, body })).status, 403, JSON.stringify(headers));
+    // Only a same-origin fetch can read the token; with it, the UI's request succeeds.
+    assert.equal((await raw(api.port, "/api/session", { headers: { host } })).status, 403);
+    assert.equal((await raw(api.port, "/api/session", { headers: { host, "sec-fetch-site": "same-origin", "sec-fetch-dest": "document" } })).status, 403);
+    const session = await raw(api.port, "/api/session", { headers: { host, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" } });
+    const { token } = JSON.parse(session.data);
+    assert.equal(token.length, 64);
+    assert.equal(session.headers["x-frame-options"], "DENY");
+    const ok = await raw(api.port, "/api/notifications/mute", { method: "POST", headers: { host, origin: "http://127.0.0.1:5173", "sec-fetch-site": "same-origin", "x-icode-session": token }, body });
+    assert.equal(ok.status, 200);
+  } finally {
+    await api.stop();
+  }
+});

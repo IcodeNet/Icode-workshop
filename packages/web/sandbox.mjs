@@ -215,7 +215,18 @@ function generatedPage(title, entry) {
 function exportPage(entryUrl) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Export app</title><link rel="stylesheet" href="/__icode/export.css"></head><body><main data-entry="${escapeAttr(entryUrl)}"><section aria-label="Console output"><h2>Console output</h2><ol id="console"></ol></section><section aria-label="Exports"><h2>Exports</h2><div id="exports"><p>Loading…</p></div></section></main><script type="module" src="/__icode/export.js"></script></body></html>`;
 }
-const MERMAID_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Diagram</title><style>html,body{margin:0;background:transparent;overflow:hidden}#d{display:flex;justify-content:center}#d svg{max-width:100%;height:auto}#e{font:13px system-ui;color:#b42318;white-space:pre-wrap}</style></head><body><div id="d"></div><div id="e"></div><script src="/__icode/mermaid.js"></script><script src="/__icode/mermaid-frame.js"></script></body></html>`;
+// Served Mermaid files: the ESM entry and its chunks; no source maps, no elk.
+const MERMAID_FILE = /^\/__icode\/mermaid\/(mermaid\.esm\.min\.mjs|chunks\/mermaid\.esm\.min\/[A-Za-z0-9_-]+\.mjs)$/;
+const MERMAID_DIST = () => dirname(require.resolve("mermaid/package.json")) + "/dist";
+export async function mermaidFile(rel) {
+  if (/elk/i.test(rel) || !/^(mermaid\.esm\.min\.mjs|chunks\/mermaid\.esm\.min\/[A-Za-z0-9_-]+\.mjs)$/.test(rel)) return null;
+  try {
+    return await readFile(join(MERMAID_DIST(), ...rel.split("/")));
+  } catch {
+    return null;
+  }
+}
+const MERMAID_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Diagram</title><style>html,body{margin:0;background:transparent;overflow:hidden}#d{display:flex;justify-content:center}#d svg{max-width:100%;height:auto}#e{font:13px system-ui;color:#b42318;white-space:pre-wrap}</style></head><body><div id="d"></div><div id="e"></div><script type="module" src="/__icode/mermaid-frame.js"></script></body></html>`;
 
 /** @returns {import('node:http').Server} */
 export function createSandboxServer({ root, port, uiOrigin = "http://127.0.0.1:5173" }) {
@@ -329,7 +340,7 @@ export function createSandboxServer({ root, port, uiOrigin = "http://127.0.0.1:5
       const site = req.headers["sec-fetch-site"];
       // Static engine scripts (no course content) are fetched by the
       // opaque-origin Mermaid frame, whose requests are "cross-site".
-      const engineAsset = ["/__icode/mermaid.js", "/__icode/mermaid-frame.js"].includes(req.url);
+      const engineAsset = req.url === "/__icode/mermaid-frame.js" || MERMAID_FILE.test(req.url);
       if (site && !["same-origin", "same-site", "none"].includes(site) && !engineAsset) return text(res, 403, "Cross-site request denied");
       if (!["GET", "HEAD"].includes(req.method)) return text(res, 405, "Read-only");
       const url = new URL(req.url, "http://sandbox.invalid");
@@ -339,10 +350,17 @@ export function createSandboxServer({ root, port, uiOrigin = "http://127.0.0.1:5
         const [name, ...more] = rest;
         // Engine assets (no course content): loadable by the opaque-origin Mermaid frame.
         const shared = { "cross-origin-resource-policy": "cross-origin" };
-        if (name === "nav.js" || name === "export.js" || name === "mermaid-frame.js") return base(res, 200, MIME[".js"], await clientFile(name), shared);
+        if (name === "nav.js" || name === "export.js") return base(res, 200, MIME[".js"], await clientFile(name), shared);
+        if (name === "mermaid-frame.js") return base(res, 200, MIME[".js"], await clientFile(name), { ...shared, "access-control-allow-origin": "*" });
         if (name === "export.css") return base(res, 200, MIME[".css"], await clientFile(name), shared);
         if (name === "mermaid.html") return html(res, MERMAID_PAGE, mermaidCsp(uiOrigin));
-        if (name === "mermaid.js") return base(res, 200, MIME[".js"], await readFile(require.resolve("mermaid/dist/mermaid.min.js")), { ...shared, "cache-control": "max-age=3600" });
+        if (name === "mermaid" && MERMAID_FILE.test(req.url)) {
+          // Mermaid's ESM build, never its elk layout chunk (EPL-2.0/GPL):
+          // elk diagrams fail into the source fallback.
+          const file = await mermaidFile(more.join("/"));
+          if (!file) return text(res, 404, "Not found");
+          return base(res, 200, MIME[".js"], file, { ...shared, "access-control-allow-origin": "*", "cache-control": "max-age=3600" });
+        }
         if (name === "test-bundle" && more.length >= 3) return await serveTestBundle(res, more[0], more[1], more.slice(2));
         return text(res, 404, "Not found");
       }

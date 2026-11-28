@@ -243,7 +243,7 @@ export function AppBrowser({ base, initialRoute = "/", kind = "sandbox", sandbox
         ref={iframe}
         title={title}
         src={src}
-        sandbox="allow-scripts allow-forms allow-same-origin allow-modals allow-popups"
+        sandbox="allow-scripts allow-forms allow-same-origin allow-modals"
         referrerPolicy="no-referrer"
       />
     </div>

@@ -1,7 +1,11 @@
 // Stage 3 (A4): lesson pipeline, components, URL policy and hostile input.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderLesson, renderSafe, renderCached, policy, parseMeta, preprocess, LIMITS } from "./markdown.mjs";
+import { renderLesson, renderSafe, renderCached, policy, parseMeta, preprocess, LIMITS, CACHE_LIMIT, cacheSize } from "./markdown.mjs";
+import { renderDocument } from "./lessons.mjs";
+import { nativeCourse } from "./test-support/workspace-course.mjs";
+import { writeFile, utimes } from "node:fs/promises";
+import { join } from "node:path";
 
 const SANDBOX = "http://127.0.0.1:4318";
 const render = (source, options = {}) => renderLesson(source, { mdx: true, stepId: "01", docDir: "exercises/01", sandboxOrigin: SANDBOX, ...options });
@@ -145,6 +149,11 @@ test("URL policy: https, fragments and course-relative paths only", () => {
   assert.deepEqual(policy("my%20pic.png", { ...ctx, kind: "image" }), { href: SANDBOX + "/asset/exercises/01/my%20pic.png" });
   for (const bad of ["http://example.com", "javascript:alert(1)", " javascript:alert(1)", "java\tscript:alert(1)", "JAVASCRIPT:x", "data:text/html,x", "vbscript:x", "file:///etc/passwd", "//evil.test", "/etc/passwd", "\\\\evil\\share", "C:/Windows", "../../../etc/passwd", "%2e%2e/%2e%2e/%2e%2e/etc/passwd", "..%2f..%2f..%2fetc", "a/%00b", "%E0%A4%A", "https://user:pw@example.com/", "mailto:a@b.c", ".git/config", "../../.workshop/progress.json", ""])
     assert.ok(policy(bad, ctx).blocked, "allowed: " + bad);
+  assert.deepEqual(policy("http://localhost:3000/a", ctx), { href: "http://localhost:3000/a", external: true });
+  assert.deepEqual(policy("http://127.0.0.1:8080", ctx), { href: "http://127.0.0.1:8080/", external: true });
+  assert.ok(policy("http://localhost:3000/a.png", { ...ctx, kind: "image" }).blocked, "loopback http is for links only");
+  assert.ok(policy("http://localhost.evil.test/", ctx).blocked);
+  assert.ok(policy("http://u:p@localhost/", ctx).blocked);
   assert.ok(policy("#x", { ...ctx, kind: "image" }).blocked);
   assert.ok(policy("notes.txt", { ...ctx, kind: "image" }).blocked, "only image types are served");
   assert.ok(policy("pic.png", { docDir: "", kind: "image" }).blocked, "no sandbox origin, no image");
@@ -216,4 +225,56 @@ test("plain .md lessons keep indented code blocks; .mdx disables them like MDX",
   const mdx = await renderLesson("<callout-info>\n\n    indented text\n\n</callout-info>", { mdx: true });
   assert.doesNotMatch(mdx.html, /<pre/);
   assert.match(mdx.html, /indented text/);
+});
+
+test("code-block titles and languages from fence meta are text, never HTML", async () => {
+  const { html } = await render('```js title="<img src=x onerror=alert(1)>" {1}\nlet a\n```\n\n```js filename=<script>alert(1)</script>\nlet b\n```\n\n```"><img/src/onerror=alert(1)>\nlet c\n```');
+  assert.doesNotMatch(html, /<img|<script/);
+  assert.match(html, /<div class="code-title">&#x3C;img src=x onerror=alert\(1\)><\/div>|<div class="code-title">&lt;img src=x onerror=alert\(1\)&gt;<\/div>/);
+  assert.match(html, /<div class="code-title">&#x3C;script>alert\(1\)&#x3C;\/script><\/div>|<div class="code-title">&lt;script&gt;alert\(1\)&lt;\/script&gt;<\/div>/);
+});
+
+test("author id and name attributes never survive (no DOM clobbering); only engine h-/fn- ids", async () => {
+  const { html } = await render('<h2 id="root">T</h2>\n\n<a name="api" id="fetch" href="https://x.test">a</a> <img name="cookie" id="location" src="https://x.test/a.png"> <p id="h-fake">p</p> <span id="fn-x">s</span>\n\nFoot[^1]\n\n[^1]: note');
+  const ids = [...html.matchAll(/\s(id|name)="([^"]*)"/g)].map((m) => m[1] + "=" + m[2]);
+  for (const id of ids) assert.match(id, /^id=(h-|fn-)/, id);
+  assert.doesNotMatch(html, /name=|id="root"|id="fetch"|id="location"|id="h-fake"|id="fn-x"/);
+  assert.match(html, /<h2 id="h-t">/);
+});
+
+test("rendering is off the event loop: the loop keeps ticking during a pathological render", async () => {
+  let ticks = 0;
+  const timer = setInterval(() => ticks++, 20);
+  try {
+    const result = await renderSafe("_*".repeat(50000), {}, { timeoutMs: 1500 });
+    assert.match(result.warnings[0], /took too long/);
+  } finally {
+    clearInterval(timer);
+  }
+  assert.ok(ticks >= 30, "event loop ran " + ticks + " ticks while rendering");
+});
+
+test("the document cache is keyed by course root, mtime, size and step, and bounded", async () => {
+  const a = await nativeCourse({ files: { "exercises/01/README.md": "# One\n\n<DiffLink>d</DiffLink>\n" } });
+  const b = await nativeCourse({ files: { "exercises/01/README.md": "# Two\n\n<DiffLink>d</DiffLink>\n" } });
+  const file = (root) => join(root, "exercises", "01", "README.md");
+  const t = new Date("2026-01-01T00:00:00Z");
+  await utimes(file(a), t, t);
+  await utimes(file(b), t, t);
+  assert.match((await renderDocument(a, file(a), { stepId: "01" })).html, /One/);
+  assert.match((await renderDocument(b, file(b), { stepId: "01" })).html, /Two/, "another course with the same path, mtime and size");
+  assert.match((await renderDocument(a, file(a), { stepId: "01" })).html, /#diff=step/);
+  assert.match((await renderDocument(a, file(a), { stepId: null })).html, /diff-link-inactive/, "step context is part of the key");
+  await writeFile(file(a), "# Changed\n");
+  const later = new Date("2026-01-02T00:00:00Z");
+  await utimes(file(a), later, later);
+  assert.match((await renderDocument(a, file(a), { stepId: "01" })).html, /Changed/, "mtime is part of the key");
+  for (let i = 0; i < CACHE_LIMIT + 20; i++) await renderCached("bound|" + i, "x" + i, {});
+  assert.ok(cacheSize() <= CACHE_LIMIT, "cache bounded: " + cacheSize());
+});
+
+test("emoji shortcodes become emoji outside code (A4)", async () => {
+  const { html } = await render("Done :tada: :rocket: and `:tada:` in code\n\n```\n:tada:\n```");
+  assert.match(html, /Done 🎉 🚀/);
+  assert.match(html, /<code>:tada:<\/code>/);
 });
