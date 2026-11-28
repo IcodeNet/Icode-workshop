@@ -78,45 +78,76 @@ export function parsePorcelain(text) {
 }
 
 const nulList = (text) => text.split("\0").filter(Boolean);
-const isWorkshopState = (path) => path === ".workshop" || path.startsWith(".workshop/");
-async function existsLocally(root, path) {
-  try {
-    await lstat(join(root, ...path.split("/")));
-    return true;
-  } catch {
-    return false;
+/** Case- and Unicode-insensitive form of a path (NFC + lower case). Pure. */
+export const foldPath = (path) => path.normalize("NFC").toLowerCase();
+/**
+ * `.workshop` in any case or Unicode normalisation is the engine's state. It is
+ * compared case-insensitively on every platform, because macOS and Windows
+ * filesystems usually are. Pure.
+ */
+export const isWorkshopState = (path) => foldPath(path.split("/")[0]) === ".workshop";
+const isNotFound = (e) => e.code === "ENOENT" || e.code === "ENOTDIR";
+/**
+ * Find `path` on disk the way the filesystem would resolve it. Returns the
+ * local relative path (actual spelling) and whether it is a directory, or null.
+ * On a case-insensitive filesystem each segment matches case-insensitively,
+ * which also simulates such a filesystem on a case-sensitive one.
+ */
+export async function findLocal(root, path, { ignoreCase }) {
+  const { readdir } = await import("node:fs/promises");
+  const actual = [];
+  for (const segment of path.split("/")) {
+    const dir = join(root, ...actual);
+    let name = null;
+    // Match names from the directory listing (never lstat by the incoming
+    // spelling, which a case-insensitive filesystem would resolve anyway).
+    const same = ignoreCase ? (a, b) => foldPath(a) === foldPath(b) : (a, b) => a.normalize("NFC") === b.normalize("NFC");
+    try {
+      name = (await readdir(dir)).find((entry) => same(entry, segment)) ?? null;
+    } catch (e) {
+      if (!isNotFound(e)) throw e;
+    }
+    if (name === null) return null;
+    actual.push(name);
+    const info = await lstat(join(root, ...actual));
+    if (!info.isDirectory() && actual.length < path.split("/").length) return { path: actual.join("/"), directory: false, blocksDirectory: true };
   }
+  const info = await lstat(join(root, ...actual));
+  return { path: actual.join("/"), directory: info.isDirectory(), blocksDirectory: false };
+}
+/** Whether the repository's filesystem is case-insensitive (git probes this into core.ignorecase). */
+export async function ignoresCase(root) {
+  return out(await git(root, ["config", "--bool", "core.ignorecase"])) === "true";
 }
 /**
  * What the incoming commits would do to files git does not protect: paths in
- * `.workshop/` (the engine's state and learner playgrounds: always refused)
- * and added paths that already exist locally as ignored or untracked files
- * (a fast-forward overwrites ignored files silently). Includes a local file
- * standing where the update needs a directory.
+ * `.workshop/` (the engine's state and learner playgrounds: always refused,
+ * in any case or normalisation) and added paths that already exist locally as
+ * ignored or untracked files (a fast-forward overwrites ignored files
+ * silently), including a local file standing where a directory is needed.
+ * A local file that is tracked under another case (a case-only rename on a
+ * case-insensitive filesystem) is not a conflict. `overwrites` lists local
+ * paths, as spelled on disk.
  */
-export async function incomingConflicts(root) {
+export async function incomingConflicts(root, { ignoreCase } = {}) {
+  ignoreCase ??= await ignoresCase(root);
   const all = await git(root, ["diff", "--name-only", "--no-renames", "-z", "HEAD", "@{u}"]);
   const added = await git(root, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "HEAD", "@{u}"]);
-  if (all.code !== 0 || added.code !== 0) throw new Error("Could not compare with the upstream: " + (all.stderr || added.stderr).trim());
+  const tracked = await git(root, ["ls-files", "-z"]);
+  if (all.code !== 0 || added.code !== 0 || tracked.code !== 0)
+    throw new Error("Could not compare with the upstream: " + (all.stderr || added.stderr || tracked.stderr).trim());
   const protectedPaths = nulList(all.stdout).filter(isWorkshopState);
+  const key = (path) => (ignoreCase ? foldPath(path) : path.normalize("NFC"));
+  const trackedFiles = new Set(nulList(tracked.stdout).map(key));
   const overwrites = new Set();
   for (const path of nulList(added.stdout)) {
     if (isWorkshopState(path)) continue;
-    if (await existsLocally(root, path)) {
-      overwrites.add(path);
-      continue;
-    }
-    const parts = path.split("/");
-    for (let i = 1; i < parts.length; i++) {
-      const parent = parts.slice(0, i).join("/");
-      try {
-        if (!(await lstat(join(root, ...parts.slice(0, i)))).isDirectory()) overwrites.add(parent);
-        else continue;
-      } catch {}
-      break;
-    }
+    const local = await findLocal(root, path, { ignoreCase });
+    if (!local || (local.directory && !local.blocksDirectory)) continue;
+    if (!local.blocksDirectory && trackedFiles.has(key(local.path))) continue; // case-only rename of a tracked file
+    overwrites.add(local.path);
   }
-  return { protectedPaths: protectedPaths.slice(0, 50), overwrites: [...overwrites].sort() };
+  return { ignoreCase, protectedPaths: protectedPaths.slice(0, 50), overwrites: [...overwrites].sort() };
 }
 
 /** Map changed paths to step ids (native and Epic layouts). */
@@ -262,13 +293,21 @@ export async function applyUpdate(root, { confirm, stash = false, backupOverwrit
       new Error("The update would change the workshop's own state in .workshop/ (" + checked.protectedPaths.slice(0, 5).join(", ") + "). Icode never lets a course update touch learner playgrounds; ask the course author to stop tracking .workshop/."),
       { code: "PROTECTED", paths: checked.protectedPaths },
     );
+  if (checked.overwrites.length && !backupOverwritten)
+    throw Object.assign(
+      new Error("The update would overwrite local files that git does not track (" + checked.overwrites.slice(0, 5).join(", ") + (checked.overwrites.length > 5 ? ", …" : "") + "). Choose to back them up first, or move them yourself."),
+      { code: "OVERWRITE", paths: checked.overwrites },
+    );
+  // Every refusal is decided before anything is moved: the dirty files that
+  // remain once the overwritten ones are backed up must be stashable.
+  const fold = (path) => (checked.ignoreCase ? foldPath(path) : path);
+  const backed = checked.overwrites.map(fold);
+  const remaining = checked.allDirty.filter((p) => !backed.some((b) => fold(p) === b || fold(p).startsWith(b + "/")));
+  if (remaining.length && !stash)
+    throw Object.assign(new Error("The course has uncommitted changes (" + remaining.slice(0, 5).join(", ") + (remaining.length > 5 ? ", …" : "") + "). Commit them, or choose to stash them during the update."), { code: "DIRTY", dirty: remaining.slice(0, 50) });
+  if (remaining.length > 500) throw new Error("Too many local changes to stash safely; commit or stash them with git yourself.");
   let backedUp = null;
   if (checked.overwrites.length) {
-    if (!backupOverwritten)
-      throw Object.assign(
-        new Error("The update would overwrite local files that git does not track (" + checked.overwrites.slice(0, 5).join(", ") + (checked.overwrites.length > 5 ? ", …" : "") + "). Choose to back them up first, or move them yourself."),
-        { code: "OVERWRITE", paths: checked.overwrites },
-      );
     // Move each file to .workshop/update-backups/<time>/<same path> before git can touch it.
     const dir = join(".workshop", "update-backups", new Date().toISOString().replace(/[:.]/g, "-"));
     step("backup", "Backing up " + checked.overwrites.length + " local file(s) to " + dir.split(sep).join("/") + "…");
@@ -278,26 +317,23 @@ export async function applyUpdate(root, { confirm, stash = false, backupOverwrit
       await rename(join(root, ...path.split("/")), target);
     }
     backedUp = { dir: dir.split(sep).join("/"), paths: checked.overwrites };
-    Object.assign(checked, await updateStatus(root));
   }
-  if (checked.dirtyCount && !stash)
-    throw Object.assign(new Error("The course has uncommitted changes (" + checked.dirty.slice(0, 5).join(", ") + (checked.dirtyCount > 5 ? ", …" : "") + "). Commit them, or choose to stash them during the update."), { code: "DIRTY", dirty: checked.dirty });
   const from = out(await git(root, ["rev-parse", "HEAD"]));
   let stashed = false;
   const stashName = "icode-update-" + new Date().toISOString();
-  if (checked.dirtyCount && stash) {
+  if (remaining.length && stash) {
     step("stash", "Stashing local changes as " + stashName + "…");
     // git stash records a commit; supply an identity only if none is configured.
     const identity = out(await git(root, ["config", "user.email"])) ? [] : ["-c", "user.name=Icode Workshop", "-c", "user.email=workshop@localhost"];
-    if (checked.allDirty.length > 500) throw new Error("Too many local changes to stash safely; commit or stash them with git yourself.");
     // Exactly the reported paths (learner data in .workshop is never included).
-    const pathspecs = checked.allDirty.map((p) => ":(literal)" + p);
+    const pathspecs = remaining.map((p) => ":(literal)" + p);
     const r = await run([...identity, "stash", "push", "--include-untracked", "-m", stashName, "--", ...pathspecs], "Update: git stash");
     if (r.code !== 0) throw new Error("Could not stash changes; nothing changed. " + r.stderr.trim());
     stashed = true;
   }
   step("merge", "Fast-forwarding to " + checked.upstream + "…");
-  const merged = await run(["merge", "--ff-only", "@{u}"], "Update: git merge --ff-only", 120_000);
+  // --ff-only (and merge.ff=only) win over the learner's merge.ff/pull.rebase settings.
+  const merged = await run(["-c", "merge.ff=only", "merge", "--ff-only", "--no-edit", "@{u}"], "Update: git merge --ff-only", 120_000);
   if (merged.code !== 0) {
     if (stashed) await run(["stash", "pop"], "Update: git stash pop");
     throw new Error("Fast-forward failed; nothing changed. " + merged.stderr.trim().slice(-400));

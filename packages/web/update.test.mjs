@@ -52,7 +52,7 @@ async function repos() {
 }
 async function pushUpstream(author, files, message = "upstream change") {
   await writeTree(author, files);
-  git(author, "add", ".");
+  git(author, "add", "-f", ".");
   git(author, "commit", "-m", message);
   git(author, "push");
 }
@@ -238,6 +238,75 @@ test("stash takes exactly the dirty paths: an unignored .workshop is neither dir
     const stashed = git(course, "stash", "show", "--include-untracked", "--name-only", "stash@{0}").split("\n").filter(Boolean);
     assert.deepEqual(stashed, ["exercises/01/problem/index.mjs"]);
     assert.equal(await text(join(course, ".workshop/playgrounds/01/index.mjs")), "learner\n", "not stashed away");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("protected paths fold case and Unicode normalisation on every platform", async () => {
+  const { isWorkshopState, foldPath } = await import("./update.mjs");
+  for (const path of [".workshop/a", ".Workshop/playgrounds/01/x", ".WORKSHOP", ".WorkShop/".normalize("NFD") + "y"]) assert.equal(isWorkshopState(path), true, path);
+  for (const path of ["workshop/a", "x/.workshop/a", ".workshops/a"]) assert.equal(isWorkshopState(path), false, path);
+  assert.equal(foldPath("Café".normalize("NFD")), foldPath("CAFÉ".normalize("NFC")));
+});
+
+for (const ignoreCase of [false, true])
+  test("case variants of .workshop are refused; case-only renames are not conflicts (" + (ignoreCase ? "case-insensitive" : "case-sensitive") + " filesystem)", { skip: !hasGit, timeout: 60000 }, async () => {
+    const { base, author, course } = await repos();
+    try {
+      const { incomingConflicts } = await import("./update.mjs");
+      git(course, "config", "core.ignorecase", String(ignoreCase));
+      // A tracked file renamed by case upstream, and an untracked local file in another case.
+      await pushUpstream(author, { "Notes.md": "notes\n" }, "Add notes");
+      git(course, "pull", "-q", "--ff-only");
+      git(author, "mv", "Notes.md", "tmp.md");
+      git(author, "mv", "tmp.md", "notes.md");
+      await pushUpstream(author, { "readme.txt": "upstream\n", ".Workshop/playgrounds/01/index.mjs": "upstream\n" }, "Case changes");
+      await writeTree(course, { "README.TXT": "learner\n", ".workshop/playgrounds/01/index.mjs": "learner\n" });
+      git(course, "fetch", "-q");
+      const conflicts = await incomingConflicts(course);
+      assert.equal(conflicts.ignoreCase, ignoreCase);
+      assert.deepEqual(conflicts.protectedPaths, [".Workshop/playgrounds/01/index.mjs"]);
+      assert.deepEqual(conflicts.overwrites, ignoreCase ? ["README.TXT"] : [], "Notes.md → notes.md is never a conflict");
+      const before = head(course);
+      await assert.rejects(applyUpdate(course, { confirm: "update", backupOverwritten: true, stash: true }), (e) => e.code === "PROTECTED");
+      assert.equal(head(course), before);
+      assert.equal(await text(join(course, "README.TXT")), "learner\n");
+      assert.equal(await text(join(course, ".workshop/playgrounds/01/index.mjs")), "learner\n");
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+
+test("every refusal is decided before any backup: a refused update leaves nothing behind", { skip: !hasGit, timeout: 60000 }, async () => {
+  const { base, author, course } = await repos();
+  try {
+    await writeFile(join(course, ".git", "info", "exclude"), "my.local\n");
+    await writeTree(course, { "my.local": "learner secret\n" });
+    await pushUpstream(author, { "my.local": "upstream\n" });
+    await writeFile(join(course, "exercises/02/problem/index.mjs"), "dirty tracked change\n");
+    const before = head(course);
+    await assert.rejects(applyUpdate(course, { confirm: "update", backupOverwritten: true }), (e) => e.code === "DIRTY");
+    assert.equal(head(course), before);
+    assert.equal(await text(join(course, "my.local")), "learner secret\n", "not moved");
+    await assert.rejects(readFile(join(course, ".workshop", "update-backups")), /ENOENT/);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("always a fast-forward, whatever merge.ff or pull.rebase say", { skip: !hasGit, timeout: 60000 }, async () => {
+  const { base, author, course } = await repos();
+  try {
+    git(course, "config", "merge.ff", "false");
+    git(course, "config", "pull.rebase", "true");
+    git(course, "config", "pull.ff", "false");
+    await pushUpstream(author, { "exercises/01/problem/index.mjs": "export default 13\n" });
+    const result = await applyUpdate(course, { confirm: "update" });
+    assert.equal(result.updated, true);
+    assert.equal(head(course), head(author), "HEAD is exactly the upstream commit");
+    assert.equal(git(course, "rev-list", "--parents", "-n", "1", "HEAD").split(" ").length, 2, "one parent: no merge commit");
+    assert.equal((await updateStatus(course)).ahead, 0);
   } finally {
     await rm(base, { recursive: true, force: true });
   }
