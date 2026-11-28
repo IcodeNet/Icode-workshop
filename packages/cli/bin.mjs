@@ -18,6 +18,7 @@ import { withPlaygroundHooks } from "../web/playground-ops.mjs";
 import { diffSides, ignorePatterns, compileIgnore } from "../web/diff.mjs";
 import { updateStatus, checkForUpdates, applyUpdate } from "../web/update.mjs";
 import { contentConfig } from "../web/content-config.mjs";
+import { validateQuestions } from "../web/lessons.mjs";
 const args = process.argv.slice(2),
   command = args[0],
   contentFlag = args.indexOf("--content");
@@ -62,7 +63,15 @@ async function main() {
     await outputPatterns(content, course.ids);
     compileIgnore(await ignorePatterns(content, []));
     // Stage 3 content settings are optional: invalid ones are dropped, reported here.
-    for (const warning of (await contentConfig(content)).warnings) console.warn("Content warning: " + warning);
+    const contentSettings = await contentConfig(content);
+    for (const warning of contentSettings.warnings) console.warn("Content warning: " + warning);
+    // Check questions: every invalid block is reported with its file and line.
+    const pages = Object.values(contentSettings.pages || {}).filter((p) => typeof p === "string").map((p) => resolve(content, ...p.split("/")));
+    const questions = await validateQuestions(content, course.ids, pages);
+    if (questions.problems.length) {
+      for (const p of questions.problems) console.error(`${p.file}:${p.line}: invalid check question: ${p.message}`);
+      throw new Error(questions.problems.length + " check question problem" + (questions.problems.length === 1 ? "" : "s") + " found");
+    }
     return console.log(
       "Valid course: " +
         course.title +
@@ -74,7 +83,9 @@ async function main() {
         operations.indicators.length +
         " indicators, " +
         operations.sidecars.length +
-        " sidecars)",
+        " sidecars, " +
+        questions.count +
+        " check questions)",
     );
   }
   if (command === "saved") {

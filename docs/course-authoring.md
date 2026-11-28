@@ -99,3 +99,5 @@ See `local-tools-and-ai-courses.md` for `tools` configuration. An embed/external
 ## Lessons, apps and pages (Stage 3)
 
 Lessons can use GFM, Epic callouts (`<callout-warning>`) and GFM alerts (`> [!TIP]`), `<InlineFile>`, `<LinkToApp>`, the diff links, highlighted code (a `js filename=app.js {2}` fence) and Mermaid. A step can declare a workshop-served app with `lab.json#app` (`{"type": "simple" | "export", "browserTests": [...]}`). The course can add `subtitle`, `instructor`, `repository`, `forms`, `notifications`, `support`, `community` and `pages` to `course.json`. Every field is optional. See [Stage 3: content](stage3-content.md) for the schema and the security model (sanitiser, URL policy, sandbox origin).
+
+Check questions are fenced `question` blocks with YAML (`prompt`, optional `options`, `answer`, `explanation`, optional `source` and `id`). `workshop validate` reports invalid blocks with file and line. See [Check questions](check-questions.md).

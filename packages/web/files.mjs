@@ -11,6 +11,23 @@ import {
 import { resolve, join, dirname, parse, sep } from "node:path";
 import { workspacePath } from "./workspaces.mjs";
 import { validateId } from "../core/index.mjs";
+import { readFileSync, statSync } from "node:fs";
+import { mayHoldQuestions } from "./markdown.mjs";
+
+// Epic layout: the lesson (README.md/.mdx at an app's root) lives inside the
+// problem and solution apps. When it holds check questions it is kept out of
+// file lists, the editor and the playground copy, so their answers are not
+// one click away. (Files on disk stay readable: this avoids spoilers only.)
+const LESSON_FILE = /^readme\.mdx?$/i;
+export function isQuestionLessonFile(path, name) {
+  if (!LESSON_FILE.test(name)) return false;
+  try {
+    if (!statSync(path).isFile() || statSync(path).size > 1024 * 1024) return false;
+    return mayHoldQuestions(readFileSync(path, "utf8"));
+  } catch {
+    return false;
+  }
+}
 export function validateFile(name) {
   if (
     typeof name !== "string" ||
@@ -62,6 +79,7 @@ export async function listFiles(root, id, variant) {
       )
         continue;
       const name = prefix + item.name;
+      if (!prefix && item.isFile() && isQuestionLessonFile(join(dir, item.name), item.name)) continue;
       await safe(base, name);
       if (item.isDirectory()) await walk(join(dir, item.name), name + "/");
       else if (item.isFile()) files.push(name);
@@ -77,6 +95,8 @@ export async function readProjectFile(root, id, name, variant) {
     throw new Error("File exceeds editor limit");
   const code = await readFile(path, "utf8");
   if (code.includes("\0")) throw new Error("Binary files cannot be edited");
+  if (!name.includes("/") && LESSON_FILE.test(name) && mayHoldQuestions(code))
+    throw new Error("This lesson file holds check questions: read it in the lesson");
   return code;
 }
 export async function writeProjectFile(

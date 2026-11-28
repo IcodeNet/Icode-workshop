@@ -111,7 +111,8 @@ test("hostile lesson cannot run script; hostile app cannot reach the API, the UI
   const lesson = page.locator(".lesson-panel .lesson-html").first();
   await expect(lesson).toContainText("Safe paragraph after the attacks.");
   await expect(lesson.locator("script, svg, iframe:not(.mermaid-frame), math, form, object, embed, style")).toHaveCount(0);
-  expect(await lesson.evaluate((el) => [...el.querySelectorAll("*")].flatMap((n) => [...n.attributes].map((a) => a.name)).filter((a) => a.startsWith("on") || a === "style"))).toEqual([]);
+  // The engine sizes the Mermaid frame (style.height) when the sandbox reports its height: that one style is not lesson content.
+  expect(await lesson.evaluate((el) => [...el.querySelectorAll("*")].flatMap((n) => [...n.attributes].filter((a) => !(a.name === "style" && n.matches("iframe.mermaid-frame") && /^height: \d+(\.\d+)?px;$/.test(a.value))).map((a) => a.name)).filter((a) => a.startsWith("on") || a === "style"))).toEqual([]);
   expect(await lesson.evaluate((el) => [...el.querySelectorAll("[href],[src]")].map((n) => n.getAttribute("href") ?? n.getAttribute("src")).filter((u) => !/^(https:|#|http:\/\/127\.0\.0\.1:4318\/)/.test(u)))).toEqual([]);
   await expect(lesson.getByText("javascript link")).toHaveAttribute("data-blocked-url", "scheme");
   // The diagram renders (or fails) inside the opaque sandbox only.

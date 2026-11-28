@@ -62,7 +62,7 @@ function Highlighted({ text, ranges }) {
 
 // ARIA id references are space-separated lists: ids must have no spaces.
 export const slug = (text) => "sg-" + String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const KIND_LABEL = { command: "Command", lesson: "Lesson", file: "File" };
+const KIND_LABEL = { command: "Command", lesson: "Lesson", file: "File", review: "Review" };
 
 /**
  * items: [{ key, kind: "command"|"lesson"|"file", label, detail?, keywords?,

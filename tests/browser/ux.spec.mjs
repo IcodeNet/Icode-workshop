@@ -506,6 +506,24 @@ for (const theme of ["dark", "light", "high-contrast"])
     await axe(page, theme + " home");
     await openStep(page, /01 Approved/);
     await axe(page, theme + " lesson");
+    // Check questions (step 02): unanswered, checked wrong, revealed, and the review list.
+    await openStep(page, /02 Python approved documents/);
+    const questions = page.locator(".lesson-panel .check-question");
+    await expect(questions).toHaveCount(3);
+    await axe(page, theme + " check questions (unanswered or restored)", ".lesson-panel");
+    const mc = questions.filter({ hasText: "Where should the approval filter run" });
+    if (await mc.getByRole("button", { name: "Try again" }).isVisible()) await mc.getByRole("button", { name: "Try again" }).click();
+    await mc.getByRole("radio", { name: /In the prompt/ }).check();
+    await mc.getByRole("button", { name: "Check" }).click();
+    await expect(mc.locator(".cq-explanation")).toBeVisible();
+    const free = questions.filter({ hasText: "What do they prove" });
+    await free.getByRole("textbox", { name: "Your answer" }).fill("An attempt for the " + theme + " theme.");
+    await free.getByRole("button", { name: /Reveal/ }).click();
+    await expect(free.locator(".cq-answer")).toBeVisible();
+    await free.getByRole("button", { name: "Review again" }).click();
+    await expect(page.getByRole("navigation", { name: "Questions to review again" })).toBeVisible();
+    await axe(page, theme + " check questions (checked, revealed, marked)", ".lesson-panel");
+    await axe(page, theme + " review list", ".review-list");
     await openPalette(page);
     await palette(page).getByRole("combobox").fill("go");
     await axe(page, theme + " palette");
@@ -598,4 +616,34 @@ test("error boundaries: a crashing lesson panel is contained and the rest of the
   await expect(failed).toHaveCount(0);
   await expect(page.locator(".lesson-panel")).toBeVisible();
   expect(problems.filter((m) => !/Unexpected value|not.*markdown|Objects are not valid/i.test(m))).toEqual([]);
+});
+
+test("command palette lists questions to review again and opens them", async ({ page }) => {
+  await page.goto("/");
+  await openStep(page, /02 Python approved documents/);
+  const q = page.locator(".lesson-panel .check-question").filter({ hasText: "no status field" });
+  if (await q.getByRole("button", { name: "Try again" }).isVisible()) await q.getByRole("button", { name: "Try again" }).click();
+  await q.getByRole("radio", { name: /Raise an error/ }).check();
+  await q.getByRole("button", { name: "Check" }).click();
+  await expect(q.locator(".cq-verdict")).toContainText("Not quite");
+  await expect(page.getByRole("navigation", { name: "Questions to review again" })).toContainText("no status field");
+  await openStep(page, /01 Approved/);
+  const dialog = await openPalette(page);
+  await dialog.getByRole("combobox").fill("review no status");
+  const option = dialog.getByRole("option").first();
+  await expect(option).toContainText("Review again: A document arrives with no status field");
+  await expect(option).toContainText("Review");
+  await expect(option).toContainText("Step 02");
+  await page.keyboard.press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".lesson-panel .eyebrow").first()).toContainText("LESSON · 02");
+  await expect(page.locator(".lesson-panel .check-question").filter({ hasText: "no status field" })).toBeFocused();
+  // Answering correctly removes it from the palette (the lesson was reopened: no result shown).
+  await q.getByRole("radio", { name: /Exclude it/ }).check();
+  await q.getByRole("button", { name: "Check" }).click();
+  await expect(q.locator(".cq-verdict")).toHaveText("Correct.");
+  const again = await openPalette(page);
+  await again.getByRole("combobox").fill("review no status");
+  await expect(again.getByRole("option").filter({ hasText: "no status field" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });

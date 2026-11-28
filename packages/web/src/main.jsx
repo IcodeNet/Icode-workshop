@@ -16,6 +16,7 @@ import {
   useIndicators,
 } from "./operations.jsx";
 import { DiffView, resolveDiffLink } from "./diff.jsx";
+import { QuestionSummary, ReviewList, questionStore, focusQuestion, useReviewItems } from "./questions.jsx";
 import { SavedPanel, TouchedFiles, UpdateBanner, UpdatePanel, operationSummary } from "./workspace.jsx";
 import {
   AppBrowser,
@@ -184,11 +185,15 @@ function App() {
       })
       .catch(() => {});
     api("/progress")
-      .then((data) => setCompleted(data.completed))
+      .then((data) => {
+        setCompleted(data.completed);
+        questionStore.fromServer(data.questions);
+      })
       .catch((e) => setResult(e.message));
     api("/exercises")
       .then(({ ids, exercises, course }) => {
         setCourse(course);
+        questionStore.configure(course?.title + "|" + ids.join(","));
         setIds(ids);
         setCatalog(exercises);
         // Deep link: ?diff=<a>..<b>&file=&view=&ws=
@@ -930,6 +935,14 @@ function App() {
   const runLatest = useRef(runCommand);
   runLatest.current = runCommand;
   useShortcuts(bindings, (id) => runLatest.current(id), { diffActive: Boolean(exercise && !page && tab === "diff") });
+  const reviewItems = useReviewItems();
+  // Opens a check question (review list and palette): its step, then focus.
+  function openQuestion(step, qid) {
+    setPage(null);
+    if (step === selected && focusQuestion(step, qid)) return;
+    questionStore.focusLater(step, qid);
+    if (step !== selected) choose(step);
+  }
   const paletteItems = useMemo(() => {
     if (!paletteOpen) return [];
     const items = COMMANDS.map((c) => ({
@@ -972,6 +985,16 @@ function App() {
             },
           });
         }
+    for (const item of reviewItems)
+      items.push({
+        key: "review:" + item.step + "/" + item.id,
+        kind: "review",
+        label: "Review again: " + (item.prompt || "Check question"),
+        keywords: ["review", "question", "quiz", "check"],
+        detail: "Step " + item.step + (item.mark === "review" ? " · marked review again" : " · answered incorrectly"),
+        disabled: wait,
+        run: () => openQuestion(item.step, item.id),
+      });
     for (const name of exercise ? files : [])
       items.push({
         key: "file:" + name,
@@ -1113,6 +1136,7 @@ function App() {
               ))}
             </section>
           ))}
+          <ReviewList disabled={busy} items={reviewItems} onOpen={openQuestion} />
           <div className="sidebar-footer">
             Select an exercise to create its playground. Each lab has a
             persistent, separate playground.
@@ -1179,13 +1203,14 @@ function App() {
                   }
                 }}>
                   <div className="eyebrow">LESSON · {selected}</div>
+                  <QuestionSummary step={selected} questions={exercise.documents?.flatMap((doc) => doc.questions || [])} />
                   {exercise.lesson?.html !== undefined ? (
-                    <LessonHtml html={exercise.lesson.html} toc={exercise.lesson.toc} sandboxOrigin={sandboxOrigin} label={exercise.title} />
+                    <LessonHtml html={exercise.lesson.html} toc={exercise.lesson.toc} sandboxOrigin={sandboxOrigin} label={exercise.title} stepId={selected} />
                   ) : (
                     <Markdown>{exercise.instructions}</Markdown>
                   )}
                   {exercise.documents?.filter(doc => doc.path !== exercise.lesson?.path).map(doc => (
-                    <details key={doc.path}><summary>{doc.title}</summary>{doc.html !== undefined ? <LessonHtml html={doc.html} toc={[]} sandboxOrigin={sandboxOrigin} /> : <Markdown>{doc.content}</Markdown>}</details>
+                    <details key={doc.path}><summary>{doc.title}</summary>{doc.html !== undefined ? <LessonHtml html={doc.html} toc={[]} sandboxOrigin={sandboxOrigin} stepId={selected} /> : <Markdown>{doc.content}</Markdown>}</details>
                   ))}
                   <ExerciseComplete app={appInfo} ids={ids} selected={selected} onChoose={(id) => choose(id)} />
                   {exercise.media && (

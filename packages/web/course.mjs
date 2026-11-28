@@ -113,6 +113,34 @@ export function validateMedia(media) {
     transcript: media.transcript || "",
   };
 }
+// Per-question progress (check questions): {step: {question: entry}}.
+export const QUESTION_STATUSES = ["correct", "incorrect", "revealed"];
+export const QUESTION_MARKS = ["got-it", "review"];
+const QUESTION_KEY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
+const MAX_QUESTIONS_PER_STEP = 200;
+function cleanQuestionEntry(entry) {
+  if (!entry || typeof entry !== "object" || !QUESTION_STATUSES.includes(entry.status)) return null;
+  const out = { status: entry.status };
+  if (QUESTION_MARKS.includes(entry.mark)) out.mark = entry.mark;
+  if (typeof entry.at === "string" && entry.at.length <= 40 && !Number.isNaN(Date.parse(entry.at))) out.at = entry.at;
+  if (Number.isInteger(entry.choice) && entry.choice >= 0 && entry.choice < 10) out.choice = entry.choice;
+  return out;
+}
+/** Saved question progress, keeping only valid entries of known steps. */
+export function cleanQuestions(questions, ids) {
+  const out = {};
+  if (!questions || typeof questions !== "object" || Array.isArray(questions)) return out;
+  for (const [step, entries] of Object.entries(questions)) {
+    if (!ids.includes(step) || !entries || typeof entries !== "object" || Array.isArray(entries)) continue;
+    const kept = {};
+    for (const [qid, entry] of Object.entries(entries).slice(0, MAX_QUESTIONS_PER_STEP)) {
+      const clean = QUESTION_KEY.test(qid) && cleanQuestionEntry(entry);
+      if (clean) kept[qid] = clean;
+    }
+    if (Object.keys(kept).length) out[step] = kept;
+  }
+  return out;
+}
 export async function readProgress(root) {
   const { ids } = await courseConfig(root);
   const path = await assertSafePath(join(root, ".workshop", "progress.json"));
@@ -120,41 +148,68 @@ export async function readProgress(root) {
     const data = JSON.parse(await readFile(path, "utf8"));
     if (!Array.isArray(data.completed))
       throw new Error("Invalid saved progress");
-    return { completed: data.completed.filter((id) => ids.includes(id)) };
+    return { completed: data.completed.filter((id) => ids.includes(id)), questions: cleanQuestions(data.questions, ids) };
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
-    return { completed: [] };
+    return { completed: [], questions: {} };
   }
 }
 let queue = Promise.resolve();
-export function updateProgress(root, id, complete) {
-  const operation = queue
-    .catch(() => {})
-    .then(async () => {
-      validateId(id);
-      if (
-        typeof complete !== "boolean" ||
-        !(await courseConfig(root)).ids.includes(id)
-      )
-        throw new Error("Invalid progress update");
-      const data = await readProgress(root);
-      data.completed = data.completed.filter((item) => item !== id);
-      if (complete) data.completed.push(id);
-      const path = await assertSafePath(
-        join(root, ".workshop", "progress.json"),
-      );
-      await mkdir(join(root, ".workshop"), { recursive: true });
-      const temporary = path + "." + randomUUID() + ".tmp";
-      try {
-        await writeFile(temporary, JSON.stringify(data, null, 2), {
-          flag: "wx",
-        });
-        await rename(temporary, path);
-      } finally {
-        await rm(temporary, { force: true });
-      }
-      return data;
-    });
+async function writeProgress(root, data) {
+  const path = await assertSafePath(join(root, ".workshop", "progress.json"));
+  await mkdir(join(root, ".workshop"), { recursive: true });
+  const temporary = path + "." + randomUUID() + ".tmp";
+  try {
+    await writeFile(temporary, JSON.stringify(data, null, 2), { flag: "wx" });
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+// Every progress write (steps and questions) is serialised here.
+function serialised(task) {
+  const operation = queue.catch(() => {}).then(task);
   queue = operation;
   return operation;
+}
+export function updateProgress(root, id, complete) {
+  return serialised(async () => {
+    validateId(id);
+    if (typeof complete !== "boolean" || !(await courseConfig(root)).ids.includes(id))
+      throw new Error("Invalid progress update");
+    const data = await readProgress(root);
+    data.completed = data.completed.filter((item) => item !== id);
+    if (complete) data.completed.push(id);
+    await writeProgress(root, data);
+    return data;
+  });
+}
+/**
+ * Record one question's progress. `change` is {status} (after a check or a
+ * reveal, set by the server), {mark} (self-marking after a reveal or check)
+ * The caller has already checked that the question exists.
+ */
+export function updateQuestionProgress(root, id, question, change) {
+  return serialised(async () => {
+    validateId(id);
+    if (!QUESTION_KEY.test(String(question ?? ""))) throw new Error("Invalid question id");
+    const data = await readProgress(root);
+    if (!(await courseConfig(root)).ids.includes(id)) throw new Error("Invalid progress update");
+    const step = { ...(data.questions[id] || {}) };
+    const at = new Date().toISOString();
+    if (change.status !== undefined) {
+      if (!QUESTION_STATUSES.includes(change.status)) throw new Error("Invalid question status");
+      // A new attempt keeps an earlier self-mark only for revealed answers.
+      const mark = change.status === "revealed" ? step[question]?.mark : undefined;
+      step[question] = { status: change.status, ...(mark ? { mark } : {}), ...(Number.isInteger(change.choice) ? { choice: change.choice } : {}), at };
+    } else if (change.mark !== undefined) {
+      if (!QUESTION_MARKS.includes(change.mark)) throw new Error("Invalid question mark");
+      if (!step[question]) throw new Error("Check or reveal the answer before marking it");
+      step[question] = { ...step[question], mark: change.mark, at };
+    } else throw new Error("Invalid question progress update");
+    if (Object.keys(step).length > MAX_QUESTIONS_PER_STEP) throw new Error("Too many questions in one step");
+    data.questions = { ...data.questions, [id]: step };
+    await writeProgress(root, data);
+    return data;
+  });
 }

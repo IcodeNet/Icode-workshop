@@ -1455,3 +1455,111 @@ textarea {
   .app .topbar { height: auto; min-height: 76px; flex-wrap: wrap; padding: 8px 16px; }
   .app .topbar .top-actions { justify-content: flex-start; }
 }
+
+/* Check questions (docs/check-questions.md). Own tokens under ":root .app" so
+   the Stage 4 theme blocks (.app, .app.theme-*) stay the single theme source. Colours are paired with text
+   ("Correct answer", "Your answer") so state never depends on colour alone. */
+:root .app {
+  --cq-bg: rgba(15, 23, 42, 0.72);
+  --cq-ink: #f8fafc;
+  --cq-soft: #cbd5e1;
+  --cq-line: #475569;
+  --cq-accent: #fdba74;
+  --cq-ok: #86efac;
+  --cq-ok-bg: rgba(34, 197, 94, 0.14);
+  --cq-bad: #fca5a5;
+  --cq-bad-bg: rgba(239, 68, 68, 0.14);
+  --cq-button-bg: #fdba74;
+  --cq-button-ink: #0f172a;
+}
+:root .app.theme-light {
+  --cq-bg: #ffffff;
+  --cq-ink: #0f172a;
+  --cq-soft: #334155;
+  --cq-line: #94a3b8;
+  --cq-accent: #9a3412;
+  --cq-ok: #166534;
+  --cq-ok-bg: #dcfce7;
+  --cq-bad: #991b1b;
+  --cq-bad-bg: #fee2e2;
+  --cq-button-bg: #9a3412;
+  --cq-button-ink: #ffffff;
+}
+:root .app.theme-hc {
+  --cq-bg: #000000;
+  --cq-ink: #ffffff;
+  --cq-soft: #ffffff;
+  --cq-line: #ffffff;
+  --cq-accent: #ffff00;
+  --cq-ok: #00ff7f;
+  --cq-ok-bg: #000000;
+  --cq-bad: #ff8080;
+  --cq-bad-bg: #000000;
+  --cq-button-bg: #ffff00;
+  --cq-button-ink: #000000;
+}
+.check-question {
+  margin: 20px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--cq-line);
+  border-left: 4px solid var(--cq-accent);
+  border-radius: 8px;
+  background: var(--cq-bg);
+  color: var(--cq-ink);
+}
+.check-question:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; letter-spacing: 0.04em; }
+.check-question .cq-label { text-transform: uppercase; font-weight: 700; color: var(--cq-accent); }
+.check-question .cq-source { border: 1px solid var(--cq-line); border-radius: 999px; padding: 1px 8px; color: var(--cq-soft); }
+.check-question .cq-status { margin-left: auto; color: var(--cq-soft); }
+.check-question .cq-status-correct { color: var(--cq-ok); }
+.check-question .cq-status-incorrect { color: var(--cq-bad); }
+.check-question .cq-prompt { color: var(--cq-ink); margin: 6px 0 10px; }
+.check-question .cq-prompt > :first-child { margin-top: 4px; }
+.check-question .cq-options { color: var(--cq-ink); }
+.check-question .cq-static { font-size: 13px; color: var(--cq-soft); margin-bottom: 0; }
+.check-question .cq-choices { display: grid; gap: 8px; margin: 8px 0 12px; }
+.check-question .cq-choice { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border: 1px solid var(--cq-line); border-radius: 6px; cursor: pointer; color: var(--cq-ink); line-height: 1.5; }
+.check-question .cq-choice input { margin-top: 5px; accent-color: var(--cq-accent); width: 16px; height: 16px; flex: none; }
+.check-question .cq-choice:focus-within { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-choice.cq-selected { border-color: var(--cq-accent); }
+.check-question .cq-choice.cq-correct { border-color: var(--cq-ok); background: var(--cq-ok-bg); }
+.check-question .cq-choice.cq-incorrect { border-color: var(--cq-bad); background: var(--cq-bad-bg); }
+.check-question .cq-letter { font-weight: 700; min-width: 1.2em; }
+.check-question .cq-option-text { flex: 1; }
+.check-question .cq-tag { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.check-question .cq-correct .cq-tag { color: var(--cq-ok); }
+.check-question .cq-incorrect .cq-tag { color: var(--cq-bad); }
+.check-question .cq-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
+.check-question button { border: 1px solid var(--cq-line); background: transparent; color: var(--cq-ink); padding: 6px 14px; border-radius: 6px; }
+.check-question button.cq-primary { background: var(--cq-button-bg); color: var(--cq-button-ink); border-color: var(--cq-button-bg); font-weight: 600; }
+.check-question button:disabled { opacity: 0.6; cursor: not-allowed; }
+.check-question button:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question button[aria-pressed="true"] { border-color: var(--cq-accent); box-shadow: inset 0 0 0 1px var(--cq-accent); font-weight: 700; }
+.check-question .cq-hint { font-size: 13px; color: var(--cq-soft); }
+.check-question .cq-attempt-label { display: block; font-weight: 600; color: var(--cq-ink); margin-top: 6px; }
+.check-question .cq-attempt { width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--cq-line); border-radius: 6px; background: transparent; color: var(--cq-ink); font: inherit; resize: vertical; }
+.check-question .cq-attempt:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.check-question .cq-error { color: var(--cq-bad); font-size: 14px; }
+.check-question .cq-feedback { border-top: 1px solid var(--cq-line); margin-top: 8px; padding-top: 8px; color: var(--cq-ink); }
+.check-question .cq-feedback:focus { outline: none; }
+.check-question .cq-feedback:focus-visible { outline: 3px solid var(--cq-accent); outline-offset: 2px; }
+.check-question .cq-verdict { font-weight: 700; margin: 4px 0; }
+.check-question .cq-feedback-correct .cq-verdict { color: var(--cq-ok); }
+.check-question .cq-feedback-incorrect .cq-verdict { color: var(--cq-bad); }
+.check-question .cq-answer > strong, .check-question .cq-explanation > strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cq-accent); margin-top: 8px; }
+.check-question .cq-selfmark { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.check-question .cq-selfmark > span { color: var(--cq-soft); font-size: 14px; }
+.check-question a { color: var(--cq-accent); }
+.cq-summary { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 4px 0 12px; font-size: 13px; }
+.cq-summary-count { color: var(--soft); }
+.cq-summary-review { color: var(--cq-accent); }
+.review-list ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.review-list button { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; border: 1px solid var(--line); background: transparent; color: inherit; padding: 8px 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
+.review-list button:focus-visible { outline: 3px solid var(--slate); outline-offset: 2px; }
+.review-list .number { font-weight: 700; }
+.check-question :not(pre) > code { color: var(--cq-ink); background: var(--cq-code-bg, rgba(148, 163, 184, 0.18)); }
+.app.theme-light .check-question { --cq-code-bg: #e2e8f0; }
+.app.theme-hc .check-question { --cq-code-bg: #000000; }
+.app.theme-hc .check-question :not(pre) > code { outline: 1px solid #ffffff; }

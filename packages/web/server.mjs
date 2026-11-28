@@ -1,5 +1,6 @@
 import { lessonDocuments } from "./lessons.mjs";
 import { handleContent } from "./content-routes.mjs";
+import { handleQuestions, QUESTION_ROUTES } from "./question-routes.mjs";
 import { handleUx } from "./ux-routes.mjs";
 import { createSandboxServer } from "./sandbox.mjs";
 import { SANDBOX_PORT } from "./content-config.mjs";
@@ -185,6 +186,9 @@ async function gateDecision(req, pathname) {
     if ((action && id === action.processId) || gateProcessIds.has(id))
       return "exempt";
   }
+  // Check questions touch only progress.json (serialised by its own queue):
+  // a learner can answer them while a test run or hook holds the gate.
+  if (QUESTION_ROUTES.has(pathname)) return "exempt";
   if (action && ACTION_EXCLUSIVE.has(pathname))
     return "A course action is running. Wait for it to finish or cancel it first.";
   if (mutationActive)
@@ -813,6 +817,7 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+    if (await handleQuestions({ req, res, url, root, json, readBody, sandboxOrigin })) return;
     if (await handleUx({ req, res, url, root, json })) return;
     if (await handleContent({ req, res, url, root, json, readBody, sandboxOrigin })) return;
     return json(res, 404, { error: "Not found" });
