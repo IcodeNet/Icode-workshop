@@ -35,6 +35,7 @@ test("course action requires typed confirmation, renders ANSI and drives the cos
   await page.getByRole("button", { name: /01 Approved/ }).click();
   // Opening a lesson can run the course's set-playground hook; wait for it.
   await expect(page.locator(".heading h1")).toHaveText("Approved documents only");
+  await expect(page.getByRole("log", { name: "Workshop activity" })).toHaveText(/^Ready/);
   const banner = page.getByRole("region", { name: "Course status" });
   await expect(banner).toHaveCount(0);
   await page.getByRole("tab", { name: "Actions", exact: true }).click();
@@ -75,6 +76,11 @@ test("course action requires typed confirmation, renders ANSI and drives the cos
 
   // The banner persists across lessons and clears after teardown.
   await page.getByRole("button", { name: /02 Python/ }).click();
+  // Opening a lesson holds the mutation gate (creating the playground); an
+  // action started before it finishes is refused with "Another workshop
+  // operation is still running". Wait for the lesson, not a fixed time.
+  await expect(page.locator(".heading h1")).toHaveText("Python approved documents");
+  await expect(page.getByRole("log", { name: "Workshop activity" })).toHaveText(/^Ready/);
   await expect(banner).toBeVisible();
   await page.getByRole("tab", { name: "Actions", exact: true }).click();
   await page
@@ -90,6 +96,8 @@ test("a running action survives a page reload, re-attaches, and is only stopped 
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /01 Approved/ }).click();
+  await expect(page.locator(".heading h1")).toHaveText("Approved documents only");
+  await expect(page.getByRole("log", { name: "Workshop activity" })).toHaveText(/^Ready/);
   await page.getByRole("tab", { name: "Actions", exact: true }).click();
   await page.getByRole("button", { name: "Long job", exact: true }).click();
   const output = page.getByRole("log", { name: "Action output" });
