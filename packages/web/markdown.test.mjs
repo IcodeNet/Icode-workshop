@@ -278,3 +278,20 @@ test("emoji shortcodes become emoji outside code (A4)", async () => {
   assert.match(html, /Done 🎉 🚀/);
   assert.match(html, /<code>:tada:<\/code>/);
 });
+
+test("lesson documents (renderDocument/renderCached) render off the event loop with the time limit", async () => {
+  const root = await nativeCourse({ files: { "exercises/01/README.md": "_*".repeat(50000) } });
+  let ticks = 0;
+  const timer = setInterval(() => ticks++, 20);
+  const started = Date.now();
+  let doc;
+  try {
+    doc = await renderDocument(root, join(root, "exercises", "01", "README.md"), { stepId: "01" });
+  } finally {
+    clearInterval(timer);
+  }
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < LIMITS.renderMs + 3000, "cut off at the limit: " + elapsed);
+  assert.match(doc.warnings[0], /took too long/);
+  assert.ok(ticks >= (elapsed / 20) * 0.5, `event loop kept running: ${ticks} ticks in ${elapsed} ms`);
+});

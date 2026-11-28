@@ -343,6 +343,11 @@ export function createSandboxServer({ root, port, uiOrigin = "http://127.0.0.1:5
       const engineAsset = req.url === "/__icode/mermaid-frame.js" || MERMAID_FILE.test(req.url);
       if (site && !["same-origin", "same-site", "none"].includes(site) && !engineAsset) return text(res, 403, "Cross-site request denied");
       if (!["GET", "HEAD"].includes(req.method)) return text(res, 405, "Read-only");
+      // No service workers on the sandbox origin: a course app could otherwise
+      // register one that persists and rewrites later content (any course,
+      // any restart). Browsers mark worker script fetches with this header.
+      if (req.headers["service-worker"] !== undefined || req.headers["sec-fetch-dest"] === "serviceworker")
+        return text(res, 403, "Service workers are not allowed on the workshop sandbox");
       const url = new URL(req.url, "http://sandbox.invalid");
       const segments = urlSegments(url.pathname);
       const [area, ...rest] = segments;
@@ -354,6 +359,15 @@ export function createSandboxServer({ root, port, uiOrigin = "http://127.0.0.1:5
         if (name === "mermaid-frame.js") return base(res, 200, MIME[".js"], await clientFile(name), { ...shared, "access-control-allow-origin": "*" });
         if (name === "export.css") return base(res, 200, MIME[".css"], await clientFile(name), shared);
         if (name === "mermaid.html") return html(res, MERMAID_PAGE, mermaidCsp(uiOrigin));
+        if (name === "reset") {
+          // Loaded by the UI once per engine start: clears every service worker,
+          // cache and storage that earlier sessions left on this origin. Never in
+          // an app's scope, so no worker can intercept it.
+          return base(res, 200, "text/html; charset=utf-8", "<!doctype html><title>reset</title>", {
+            "clear-site-data": '"storage", "cache"',
+            "content-security-policy": "default-src 'none'; frame-ancestors " + uiOrigin,
+          });
+        }
         if (name === "mermaid" && MERMAID_FILE.test(req.url)) {
           // Mermaid's ESM build, never its elk layout chunk (EPL-2.0/GPL):
           // elk diagrams fail into the source fallback.

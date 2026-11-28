@@ -200,3 +200,32 @@ test("mute takes the mutation gate; browser mutations need the session token", {
     await api.stop();
   }
 });
+
+test("every API response forbids framing and sniffing, whatever its status", { timeout: 60000 }, async () => {
+  const root = await course();
+  const api = await start(root);
+  try {
+    const host = "127.0.0.1:" + api.port;
+    const cases = [
+      ["GET", "/api/exercises", { host }, 200],
+      ["GET", "/api/content/config", { host }, 200],
+      ["GET", "/api/exercise?id=99", { host }, 400],
+      ["GET", "/api/nope", { host }, 404],
+      ["GET", "/api/exercises", { host: "evil.test" }, 403],
+      ["GET", "/api/exercises", { host, origin: "https://evil.test" }, 403],
+      ["GET", "/api/session", { host }, 403],
+      ["PUT", "/api/progress", { host, origin: "http://127.0.0.1:5173" }, 403],
+      ["OPTIONS", "/api/progress", { host }, 204],
+    ];
+    for (const [method, path, headers, status] of cases) {
+      const r = await raw(api.port, path, { method, headers, body: method === "PUT" ? "{}" : undefined });
+      assert.equal(r.status, status, method + " " + path);
+      assert.equal(r.headers["x-frame-options"], "DENY", path + " " + status);
+      assert.match(r.headers["content-security-policy"] ?? "", /frame-ancestors 'none'/, path + " " + status);
+      assert.match(r.headers["content-security-policy"] ?? "", /(^|; )sandbox($|;)/, path + " " + status);
+      assert.equal(r.headers["x-content-type-options"], "nosniff", path + " " + status);
+    }
+  } finally {
+    await api.stop();
+  }
+});

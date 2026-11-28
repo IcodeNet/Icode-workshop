@@ -34,6 +34,16 @@ The review of the first version of this PR found an escape. An app could navigat
 - **Production:** the built UI is only ever served by `vite preview`, which has the same headers, guard and CORS. Preview serves `dist/` only and has no `/@fs/`. `workshop start` runs the dev server with the restrictions above.
 - **Regression tests** (`tests/browser/content.spec.mjs`). Course-like HTML is planted in the engine root, in `packages/web/` and in `examples/`. A sandboxed app (fixture step 07) navigates its frame to each file, opens popups, and runs top-level in a new tab and navigates. Progress stays unchanged, no script runs on the UI origin, and the direct requests get 403. The test fails against the previous Vite config.
 
+### No service workers on the sandbox origin (SF-A)
+
+A course app could register a service worker on `:4318`. Such a worker persists across restarts and rewrites later loads of its `/app/<step>/<variant>/` path, for that course and for any course served there later, for example to forge browser-test results. It stays on the sandbox origin, but it is still not acceptable. Two layers stop it:
+
+- **Refused at the source.** The sandbox server answers 403 to any request with a `Service-Worker` header or `Sec-Fetch-Dest: serviceworker`, which browsers send when fetching a worker script, so registration fails. Course files never get a `Service-Worker-Allowed` header, so a worker could never claim more than its own app path anyway.
+- **Cleared on every engine start.** `/api/content/config` carries a random `sandboxGeneration`. Once per generation, the UI loads `/__icode/reset` in a hidden frame before it shows any app or diagram. That page answers `Clear-Site-Data: "storage", "cache"`, which removes service workers, caches and storage left on the sandbox origin by older engines or earlier sessions. `/__icode/` is never inside an app's scope, so no worker can intercept the reset. Apps therefore keep `localStorage` within one engine run, not across restarts.
+- **Not done: one origin per course or step.** That would need a port per course (or wildcard loopback hostnames), and an in-browser-test origin per step. The two layers above remove the persistence that made sharing the origin dangerous.
+
+Tests: `sandbox.test.mjs` checks the refusal and the reset headers. In Playwright, an app's `register()` fails in the frame and top-level. A worker installed past the guard (simulating an older engine) is gone after the workshop UI opens. Both tests fail when their layer is removed.
+
 ## A4. Lessons
 
 ### Pipeline (`web/markdown.mjs`, server-side)

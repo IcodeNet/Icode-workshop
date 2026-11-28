@@ -258,3 +258,52 @@ test("the API requires the per-session token for browser mutations; the UI sends
   await page.getByRole("button", { name: "Mark incomplete" }).click();
   await expect(page.getByRole("button", { name: "Mark complete" })).toBeVisible();
 });
+
+// SF-A: course apps must not install a persistent service worker on the
+// sandbox origin, and workers left by older engines are cleared on start.
+test("a course app cannot register a service worker on the sandbox origin", async ({ page, request }) => {
+  await request.post("http://127.0.0.1:4317/api/select", { data: { id: "07" } });
+  await page.goto("/");
+  await openStep(page, /07 Escape attempt/);
+  await page.getByRole("tab", { name: "Preview" }).click();
+  const app = page.frameLocator('iframe[title="App preview 07"]');
+  await expect(app.locator("#out")).toHaveText("idle");
+  await page.getByRole("textbox", { name: "App address" }).fill("/?go=sw");
+  await page.getByRole("button", { name: "Go" }).click();
+  await expect(app.locator("#out")).toHaveText(/^sw refused: /);
+  // Directly, as a top-level page on the sandbox origin, too.
+  const tab = await page.context().newPage();
+  await tab.goto("http://127.0.0.1:4318/app/07/playground/?go=sw");
+  await expect(tab.locator("#out")).toHaveText(/^sw refused: /);
+  expect(await tab.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
+  const script = await request.get("http://127.0.0.1:4318/app/07/playground/sw.js", { headers: { "service-worker": "script" } });
+  expect(script.status()).toBe(403);
+  await tab.close();
+});
+
+test("a stale service worker from an older engine is cleared when the workshop starts", async ({ browser, request }) => {
+  await request.post("http://127.0.0.1:4317/api/select", { data: { id: "07" } });
+  const context = await browser.newContext();
+  try {
+    // Simulate an engine without the fix: serve the worker script past the guard.
+    await context.route("http://127.0.0.1:4318/app/07/playground/sw.js", (route) =>
+      route.fulfill({ status: 200, contentType: "text/javascript", body: "self.addEventListener('install', () => self.skipWaiting());\nself.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));\nself.addEventListener('fetch', (e) => e.respondWith(new Response('<h1>SW owned</h1>', { headers: { 'content-type': 'text/html' } })));" }),
+    );
+    const app = await context.newPage();
+    await app.goto("http://127.0.0.1:4318/app/07/playground/?go=sw");
+    await expect(app.locator("#out")).toHaveText("registered");
+    await app.reload();
+    await expect(app.getByRole("heading", { name: "SW owned" })).toBeVisible();
+    await context.unroute("http://127.0.0.1:4318/app/07/playground/sw.js");
+    // Opening the workshop resets the sandbox origin once per engine start.
+    const ui = await context.newPage();
+    await ui.goto("http://127.0.0.1:5173/");
+    await expect.poll(() => ui.evaluate(() => localStorage.getItem("icode-sandbox-generation")), { timeout: 10000 }).not.toBeNull();
+    await expect(ui.locator('iframe[title="Sandbox reset"]')).toHaveCount(0);
+    await app.goto("http://127.0.0.1:4318/app/07/playground/");
+    await expect(app.locator("#out")).toHaveText("idle");
+    expect(await app.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
+  } finally {
+    await context.close();
+  }
+});
