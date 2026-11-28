@@ -246,16 +246,23 @@ export function detectEditors({
 export function publicEditors(editors) {
   return editors.map(({ command, extraArgs, ...rest }) => rest);
 }
-/** Default: first available editor in detection order (override, VISUAL, EDITOR, GUI editors). */
+/**
+ * Default: first available GUI editor in detection order (override, VISUAL,
+ * EDITOR, GUI editors). A terminal editor (for example the EDITOR=vi that npm
+ * exports) is never a fallback: it would take over the workshop's terminal.
+ * It is used only when the learner picks it explicitly by id.
+ */
 export function chooseEditor(editors, id) {
   const pick = id
     ? editors.find((e) => e.id === id)
-    : editors.find((e) => e.available);
+    : editors.find((e) => e.available && !e.terminal);
   if (!pick)
     throw new Error(
       id
         ? "Unknown editor"
-        : "No local editor detected; use the VS Code link instead",
+        : editors.some((e) => e.available && e.terminal)
+          ? "No GUI editor detected. Terminal editors are only used when chosen explicitly; use the VS Code link instead"
+          : "No local editor detected; use the VS Code link instead",
     );
   if (!pick.available)
     throw new Error(pick.label + " is unavailable: " + pick.reason);

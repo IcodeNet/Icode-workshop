@@ -14,6 +14,8 @@ test("course action requires typed confirmation, renders ANSI and drives the cos
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await page.getByRole("button", { name: /01 Approved/ }).click();
+  // Opening a lesson can run the course's set-playground hook; wait for it.
+  await expect(page.locator(".heading h1")).toHaveText("Approved documents only");
   const banner = page.getByRole("region", { name: "Course status" });
   await expect(banner).toHaveCount(0);
   await page.getByRole("tab", { name: "Actions", exact: true }).click();

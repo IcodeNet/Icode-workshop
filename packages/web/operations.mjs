@@ -13,7 +13,7 @@ import { registerProcess } from "./processes.mjs";
 
 const ID = /^[a-z0-9][a-z0-9_-]{0,39}$/i;
 // Must start with a letter or digit so a script name can never become an npm flag.
-const SCRIPT = /^[a-zA-Z0-9][a-zA-Z0-9:._-]{0,79}$/;
+export const SCRIPT_NAME = /^[a-zA-Z0-9][a-zA-Z0-9:._-]{0,79}$/;
 const LEVELS = ["info", "warning", "danger"];
 // Protocol line: ::icode-confirm:<ICODE_CONFIRM_TOKEN>::{"expected":…,"message":…}
 export const CONFIRM_TAG = "::icode-confirm";
@@ -73,7 +73,7 @@ export function validateIndicators(list) {
 }
 export function validateOperations(course = {}, scripts = {}) {
   const requireScript = (script, where) => {
-    if (typeof script !== "string" || !SCRIPT.test(script))
+    if (typeof script !== "string" || !SCRIPT_NAME.test(script))
       throw new Error("Invalid script name in " + where);
     if (!Object.hasOwn(scripts, script))
       throw new Error(

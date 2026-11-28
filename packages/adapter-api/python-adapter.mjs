@@ -4,6 +4,7 @@ export function createPythonAdapter({
 } = {}) {
   return {
     id: "python",
+    outputs: ["/.venv/", "/.pytest_cache/", "**/*.pyc"],
     apiVersion: 1,
     async detect(context) {
       try {

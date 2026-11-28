@@ -8,6 +8,7 @@ import { readFile } from "node:fs/promises";
 import { courseConfig, readProgress } from "../web/course.mjs";
 import { labConfig } from "../web/runtime.mjs";
 import { listFiles, readProjectFile } from "../web/files.mjs";
+import { diffSides, parseSide, touchedFiles } from "../web/diff.mjs";
 const root = resolve(
   process.env.WORKSHOP_CONTENT || process.argv[2] || "examples",
 );
@@ -89,5 +90,34 @@ server.registerTool(
     annotations,
   },
   async () => result(await readProgress(root)),
+);
+const solutionsAllowed = process.env.WORKSHOP_MCP_SOLUTIONS === "1";
+const side = z.string().max(80);
+server.registerTool(
+  "diff_sides",
+  {
+    description:
+      "Diff two lesson versions (`<id>.problem`, `<id>.playground`, `<id>.saved.<savedId>`" +
+      (solutionsAllowed ? ", `<id>.solution`" : "; solutions are hidden on this server") +
+      "). Read-only; large files are summarised.",
+    inputSchema: { a: side, b: side, ignoreWhitespace: z.boolean().default(false) },
+    annotations,
+  },
+  async ({ a, b, ignoreWhitespace }) => {
+    for (const spec of [a, b])
+      if (parseSide(spec).variant === "solution" && !solutionsAllowed)
+        throw new Error("Solutions are hidden on this server");
+    return result(await diffSides(root, a, b, { whitespace: ignoreWhitespace, lineBudget: 5000 }));
+  },
+);
+server.registerTool(
+  "touched_files",
+  {
+    description:
+      "Files this lesson step changes (paths, status, first changed line) and whether the learner's playground has changed them. No file contents.",
+    inputSchema: { id },
+    annotations,
+  },
+  async ({ id }) => result(await touchedFiles(root, id)),
 );
 await server.connect(new StdioServerTransport());

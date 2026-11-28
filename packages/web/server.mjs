@@ -51,6 +51,20 @@ import {
   renameProjectFile,
 } from "./files.mjs";
 import { labConfig, testLab } from "./runtime.mjs";
+import { stepLayout } from "../core/layout.mjs";
+import { withPlaygroundHooks } from "./playground-ops.mjs";
+import {
+  listSaved,
+  savePlayground,
+  updateSaved,
+  deleteSaved,
+  restoreSaved,
+  savedFilesPath,
+  readPreferences,
+  writePreferences,
+} from "./saved-playgrounds.mjs";
+import { diffSides, diffFile, touchedFiles, syncFile, parseSide, validateRelativePath } from "./diff.mjs";
+import { updateStatus, checkForUpdates, applyUpdate } from "./update.mjs";
 import { fileURLToPath } from "node:url";
 import { validateId } from "../core/index.mjs";
 import {
@@ -118,7 +132,21 @@ const ACTION_EXCLUSIVE = new Set([
   "/api/sidecars/stop",
   "/api/ports/free",
   "/api/processes/stop",
+  "/api/update/check",
+  "/api/update/apply",
 ]);
+const ownGate = (id) => gateProcessIds.add(id);
+const diffOptions = (params) => ({
+  whitespace: params.get("ws") === "ignore",
+  context: params.get("context") === "all" ? -1 : Number(params.get("context") ?? 3),
+});
+async function playgroundExists(id) {
+  try {
+    return (await lstat(workspacePath(root, id))).isDirectory();
+  } catch {
+    return false;
+  }
+}
 /**
  * Mutation gate. Exempt: answering/cancelling the running action and stopping
  * the specific process that holds the gate (the action or the running test).
@@ -141,6 +169,9 @@ async function gateDecision(req, pathname) {
     return "Another workshop operation is still running. Please retry when it finishes.";
   return "gated";
 }
+// One background fetch at startup feeds the update banner (offline-safe;
+// ICODE_UPDATE_CHECK=0 disables it). Update routes wait for it.
+let startupCheck = Promise.resolve();
 let lastPortScan = 0;
 let eventStreams = 0;
 const MAX_EVENT_STREAMS = 16;
@@ -392,13 +423,22 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/api/migrate" && req.method === "POST") {
       const { sourceId, targetId, apply = false } = await readBody(req);
-      if (apply) await stopPreview(targetId);
+      if (!apply) return json(res, 200, await planMigration(root, sourceId, targetId));
+      validateId(sourceId);
+      validateId(targetId);
       return json(
         res,
         200,
-        apply
-          ? await migrateWorkspace(root, sourceId, targetId)
-          : await planMigration(root, sourceId, targetId),
+        await withPlaygroundHooks(
+          root,
+          targetId,
+          { operation: "migrate", source: { step: sourceId, variant: "playground" }, srcDir: workspacePath(root, sourceId) },
+          async () => {
+            await stopPreview(targetId);
+            return migrateWorkspace(root, sourceId, targetId);
+          },
+          { onSpawn: ownGate },
+        ),
       );
     }
     if (url.pathname === "/api/tutor" && req.method === "GET")
@@ -423,20 +463,146 @@ const server = createServer(async (req, res) => {
         backups: await listBackups(root, url.searchParams.get("id")),
       });
     if (url.pathname === "/api/replace-workspace" && req.method === "POST") {
-      const { id, sourceId, variant, backup } = await readBody(req);
+      const { id, sourceId = id, variant = "problem", backup } = await readBody(req);
       validateId(id);
-      await stopPreview(id);
+      validateId(sourceId);
+      if (backup !== undefined && (typeof backup !== "string" || !(await listBackups(root, id)).includes(backup)))
+        throw new Error("Unknown backup");
+      const srcDir =
+        backup === undefined
+          ? variantRoot(root, sourceId, variant)
+          : join(root, ".workshop", "playgrounds", backup);
       return json(
         res,
         200,
-        await replaceWorkspace(root, id, { sourceId, variant, backup }),
+        await withPlaygroundHooks(
+          root,
+          id,
+          {
+            operation: "replace",
+            source: backup === undefined ? { step: sourceId, variant } : { step: id, variant: "backup" },
+            srcDir,
+          },
+          async () => {
+            await stopPreview(id);
+            return replaceWorkspace(root, id, { sourceId, variant, backup });
+          },
+          { onSpawn: ownGate },
+        ),
       );
     }
     if (url.pathname === "/api/reset" && req.method === "POST") {
       const { id } = await readBody(req);
       validateId(id);
-      await stopPreview(id);
-      return json(res, 200, await resetWorkspace(root, id));
+      return json(
+        res,
+        200,
+        await withPlaygroundHooks(
+          root,
+          id,
+          { operation: "reset", source: { step: id, variant: "problem" }, srcDir: stepLayout(root, id).problem },
+          async () => {
+            await stopPreview(id);
+            return resetWorkspace(root, id);
+          },
+          { onSpawn: ownGate },
+        ),
+      );
+    }
+    if (url.pathname === "/api/preferences") {
+      if (req.method === "GET") return json(res, 200, await readPreferences(root));
+      if (req.method === "PUT") return json(res, 200, await writePreferences(root, await readBody(req)));
+    }
+    if (url.pathname === "/api/saved-playgrounds") {
+      if (req.method === "GET") {
+        const id = url.searchParams.get("id");
+        return json(res, 200, {
+          saved: await listSaved(root, id),
+          preferences: await readPreferences(root),
+        });
+      }
+      const { id, savedId, label, pinned } = await readBody(req);
+      validateId(id);
+      if (req.method === "POST")
+        return json(res, 200, await savePlayground(root, id, { label, reason: "manual", source: { step: id, variant: "playground" }, pinned: pinned === true }));
+      if (req.method === "PATCH") return json(res, 200, await updateSaved(root, id, savedId, { label, pinned }));
+      if (req.method === "DELETE") return json(res, 200, await deleteSaved(root, id, savedId));
+    }
+    if (url.pathname === "/api/saved-playgrounds/restore" && req.method === "POST") {
+      const { id, savedId } = await readBody(req);
+      validateId(id);
+      const srcDir = await savedFilesPath(root, id, savedId);
+      return json(
+        res,
+        200,
+        await withPlaygroundHooks(
+          root,
+          id,
+          { operation: "restore", source: { step: id, variant: "saved", savedId }, srcDir },
+          async () => {
+            await stopPreview(id);
+            const restored = await restoreSaved(root, id, savedId);
+            return { ...(await selectWorkspace(root, id)), backup: restored.previous };
+          },
+          { onSpawn: ownGate },
+        ),
+      );
+    }
+    if (url.pathname === "/api/diff" && req.method === "GET")
+      return json(
+        res,
+        200,
+        await diffSides(root, url.searchParams.get("a"), url.searchParams.get("b"), diffOptions(url.searchParams)),
+      );
+    if (url.pathname === "/api/diff/file" && req.method === "GET")
+      return json(
+        res,
+        200,
+        await diffFile(root, url.searchParams.get("a"), url.searchParams.get("b"), url.searchParams.get("path"), diffOptions(url.searchParams)),
+      );
+    if (url.pathname === "/api/touched" && req.method === "GET")
+      return json(res, 200, await touchedFiles(root, url.searchParams.get("id")));
+    if (url.pathname === "/api/file/sync" && req.method === "POST") {
+      const { id, name, from, remove = false } = await readBody(req);
+      validateId(id);
+      validateRelativePath(name);
+      if (typeof remove !== "boolean") throw new Error("Invalid remove flag");
+      // Validate fully before the automatic save.
+      await syncFile(root, id, name, from, { remove, dryRun: true });
+      return json(
+        res,
+        200,
+        await withPlaygroundHooks(
+          root,
+          id,
+          { operation: "sync", source: parseSide(from), hooks: false },
+          () => syncFile(root, id, name, from, { remove }),
+        ),
+      );
+    }
+    if (url.pathname === "/api/update" && req.method === "GET") {
+      const { allDirty, ...status } = await updateStatus(root);
+      return json(res, 200, status);
+    }
+    if (url.pathname === "/api/update/check" && req.method === "POST") {
+      await startupCheck;
+      const { allDirty, ...status } = await checkForUpdates(root, { onSpawn: ownGate });
+      return json(res, 200, status);
+    }
+    if (url.pathname === "/api/update/apply" && req.method === "POST") {
+      const { confirm, stash = false, backupOverwritten = false } = await readBody(req);
+      await startupCheck;
+      // Validate before streaming so refusals are plain 400 responses.
+      if (confirm !== "update") throw new Error('Updating requires typing "update" to confirm');
+      const send = ndjson(res);
+      send({ type: "started" });
+      try {
+        const result = await applyUpdate(root, { confirm, stash, backupOverwritten, emit: send, onSpawn: ownGate });
+        send({ type: "result", ok: true, ...result });
+      } catch (error) {
+        send({ type: "result", ok: false, error: error.message, code: error.code, dirty: error.dirty, paths: error.paths });
+      }
+      return res.end();
     }
     if (url.pathname === "/api/compare" && req.method === "GET") {
       const id = url.searchParams.get("id"),
@@ -536,11 +702,21 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/select") {
       const { id } = await readBody(req);
       validateId(id);
-      const result = await selectWorkspace(root, id);
+      // Creating a playground is "setting" it: hooks run, nothing to save.
+      const result = (await playgroundExists(id))
+        ? await selectWorkspace(root, id)
+        : await withPlaygroundHooks(
+            root,
+            id,
+            { operation: "create", source: { step: id, variant: "problem" }, srcDir: stepLayout(root, id).problem },
+            () => selectWorkspace(root, id),
+            { onSpawn: ownGate },
+          );
       return json(res, 200, {
         code: result.code,
         entry: result.entry,
         restored: true,
+        hooks: result.hooks ?? [],
       });
     }
     if (req.method === "PUT" && url.pathname === "/api/playground") {
@@ -616,6 +792,7 @@ const server = createServer(async (req, res) => {
       json(res, 400, {
         error: error.message,
         ...(error.code === "PORT_OCCUPIED" ? { code: error.code, port: error.port } : {}),
+        ...(error.hooks?.length ? { hooks: error.hooks } : {}),
       });
   } finally {
     if (ownsMutation) {
@@ -628,6 +805,8 @@ server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
   );
+  if (process.env.ICODE_UPDATE_CHECK !== "0")
+    startupCheck = checkForUpdates(root).catch(() => {});
   if (process.env.ICODE_SIDECARS !== "0")
     startSidecars(root).catch((error) =>
       console.error("Sidecars not started: " + error.message),

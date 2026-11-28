@@ -56,6 +56,67 @@ export async function saveWorkspace(root, id, code) {
   await writeProjectFile(root, id, config.entry, code);
 }
 
+export const DEFAULT_BACKUP_LIMIT = 5;
+export const DEFAULT_BACKUP_MEGABYTES = 500;
+/** course.json#backups: {limit 1–50, maxMegabytes 1–10000}. Pure validation exported for tests. */
+export function validateBackupConfig(config) {
+  const limits = { limit: DEFAULT_BACKUP_LIMIT, maxBytes: DEFAULT_BACKUP_MEGABYTES * 1048576 };
+  if (config === undefined) return limits;
+  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("backups must be an object");
+  if (config.limit !== undefined) {
+    if (!Number.isInteger(config.limit) || config.limit < 1 || config.limit > 50) throw new Error("backups.limit must be 1–50");
+    limits.limit = config.limit;
+  }
+  if (config.maxMegabytes !== undefined) {
+    if (!Number.isInteger(config.maxMegabytes) || config.maxMegabytes < 1 || config.maxMegabytes > 10000)
+      throw new Error("backups.maxMegabytes must be 1–10000");
+    limits.maxBytes = config.maxMegabytes * 1048576;
+  }
+  return limits;
+}
+async function backupConfig(root) {
+  let course;
+  try {
+    course = JSON.parse(await readFile(join(resolve(root), "course.json"), "utf8"));
+  } catch {
+    course = undefined;
+  }
+  return validateBackupConfig(course?.backups);
+}
+async function treeBytes(path) {
+  const { readdir, lstat } = await import("node:fs/promises");
+  let total = 0;
+  for (const item of await readdir(path, { withFileTypes: true })) {
+    const child = join(path, item.name);
+    if (item.isDirectory()) total += await treeBytes(child);
+    else total += (await lstat(child)).size;
+  }
+  return total;
+}
+const backupTime = (name) => Number(name.split(".backup-")[1]?.split("-")[0]) || 0;
+/**
+ * Bound reset/replace/restore backups of a step: at most `limit`, and at most
+ * `maxBytes` in total (dependencies included). Oldest are evicted first; the
+ * newest backup is always kept. Returns the removed names.
+ */
+export async function pruneBackups(root, id) {
+  const { limit, maxBytes } = await backupConfig(root);
+  const names = (await listBackups(root, id)).sort((a, b) => backupTime(b) - backupTime(a) || b.localeCompare(a));
+  const parent = join(resolve(root), ".workshop", "playgrounds");
+  const removed = [];
+  let total = 0;
+  for (const [index, name] of names.entries()) {
+    const path = join(parent, name);
+    const bytes = await treeBytes(path).catch(() => 0);
+    if (index === 0 || (index < limit && total + bytes <= maxBytes)) total += bytes;
+    else {
+      await rm(path, { recursive: true, force: true });
+      removed.push(name);
+    }
+  }
+  return removed;
+}
+
 export async function resetWorkspace(root, id) {
   const { rename } = await import("node:fs/promises");
   const path = workspacePath(root, id);
@@ -64,7 +125,9 @@ export async function resetWorkspace(root, id) {
   const backup = path + ".backup-" + Date.now();
   if (await exists(path)) await rename(path, backup);
   try {
-    return { ...(await selectWorkspace(root, id)), backup };
+    const result = { ...(await selectWorkspace(root, id)), backup };
+    await pruneBackups(root, id);
+    return result;
   } catch (error) {
     if (await exists(backup)) {
       await rm(path, { recursive: true, force: true });
@@ -142,10 +205,12 @@ export async function replaceWorkspace(
       if (hadPrevious) await rename(previous, path);
       throw e;
     }
-    return {
+    const result = {
       ...(await selectWorkspace(root, id)),
       backup: hadPrevious ? previous : null,
     };
+    await pruneBackups(root, id);
+    return result;
   } finally {
     await rm(staging, { recursive: true, force: true });
   }

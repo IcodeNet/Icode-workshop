@@ -43,6 +43,7 @@ function requireTests(context, count, result) {
 export function createRustAdapter({ executable = "cargo" } = {}) {
   return {
     id: "rust",
+    outputs: ["/target/"],
     apiVersion: 1,
     detect: (context) =>
       detect(executable, ["--version"], context, "Rust/Cargo"),
@@ -76,6 +77,7 @@ export function createRustAdapter({ executable = "cargo" } = {}) {
 export function createDotnetAdapter({ executable = "dotnet" } = {}) {
   return {
     id: "dotnet",
+    outputs: ["/bin/", "/obj/"],
     apiVersion: 1,
     detect: (context) => detect(executable, ["--version"], context, ".NET SDK"),
     async prepare(context) {
@@ -129,6 +131,7 @@ export function createJupyterAdapter({
 } = {}) {
   return {
     id: "jupyter",
+    outputs: ["/.ipynb_checkpoints/", "**/*.pyc"],
     apiVersion: 1,
     detect: (context) =>
       detect(

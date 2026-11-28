@@ -14,7 +14,7 @@ Implement `approvedOnly(documents)` in `index.mjs`. Return only documents whose 
 
 1. Run the starter tests and read the failure.
 2. Open **Playground**, edit the implementation and run tests again.
-3. Use **Compare** to inspect saved files against the reference solution.
+3. Use the **Diff** tab to compare your saved files with the reference solution, or open [the step diff](#diff=step) (problem → solution).
 4. Explain what should happen if a document has no approval status.
 
 ## Why this matters

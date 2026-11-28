@@ -68,7 +68,7 @@ Problem and Solution views have independent file lists. Test and preview executi
 
 Replacing a playground from a reference or the previous step stages the source first and backs up existing files. Restore Backup selects an earlier saved directory; the current state is backed up before restoration. Unsaved editor text is not included in filesystem backups. Backup retention is manual. Copy Previous replaces the whole project. Migrate Previous Edits instead performs a conservative three-way comparison of the source starter, saved source edits and target starter. Independent file changes carry forward; conflicting files stop migration without overwriting the target. It does not merge conflicting hunks automatically. Matching runtimes are required.
 
-The Compare panel supports source/target variants and a target lesson. It compares saved files, with an explicit refresh after selection changes. Renames appear as removal/addition. File editing still excludes hidden/generated content and binary/large files.
+The Diff tab compares saved files of any two lesson versions (problem, solution, playground or a saved playground of any lesson), side by side or unified, and detects renames of identical files. Lessons can link to a diff with `[see the diff](#diff=step)`, `#diff=next`, `#diff=prev` or `#diff=01.solution..02.problem`; course `diff.ignore` patterns hide files. See [workspace and diffs](course-operations.md#workspace-and-diffs-stage-2) for hooks, saved playgrounds, touched files and updates. File editing still excludes hidden/generated content and binary/large files.
 
 ## Actions, indicators and sidecars
 

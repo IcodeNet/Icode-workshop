@@ -977,3 +977,185 @@ textarea {
 .dialog-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .holder { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; }
 .holder dd { margin: 0; }
+
+/* Stage 2: rich diffs, touched files, saved playgrounds, update */
+.app .diff-view {
+  max-height: 640px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  padding: 8px;
+}
+.app .diff-controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.app .diff-side {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.app [role="group"] button[aria-pressed="true"] {
+  background: var(--slate);
+  color: var(--bg);
+}
+.app .diff-summary,
+.app .diff-note {
+  color: var(--soft);
+  font-size: 13px;
+}
+.app .diff-error {
+  color: var(--red);
+}
+.app .add-count {
+  color: #3fb950;
+}
+.app .del-count {
+  color: var(--red);
+}
+.app .diff-file {
+  border: 1px solid var(--line);
+  margin: 8px 0;
+}
+.app .diff-file.focused {
+  outline: 2px solid var(--slate);
+}
+.app .diff-file-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  background: var(--wall);
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+}
+.app .diff-toggle {
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.app .diff-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.app .diff-status.added {
+  color: #3fb950;
+}
+.app .diff-status.deleted {
+  color: var(--red);
+}
+.app .diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.app .diff-col-num {
+  width: 3.5em;
+}
+.app .diff-num {
+  color: var(--soft);
+  text-align: right;
+  padding: 0 6px;
+  user-select: none;
+  vertical-align: top;
+}
+.app .diff-code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 0 6px;
+}
+.app .diff-code.add {
+  background: rgba(63, 185, 80, 0.16);
+}
+.app .diff-code.del {
+  background: rgba(248, 81, 73, 0.16);
+}
+.app .diff-code.empty {
+  background: var(--wall);
+}
+.app .diff-sign {
+  display: inline-block;
+  width: 1.2em;
+  color: var(--soft);
+}
+.app .word-change {
+  background: rgba(255, 210, 63, 0.45);
+  color: inherit;
+  border-radius: 2px;
+}
+.app .diff-hunk-head td {
+  color: var(--soft);
+  background: var(--panel);
+  padding: 2px 6px;
+}
+.app .diff-hunk-current .diff-hunk-head td {
+  outline: 2px solid var(--slate);
+}
+.app .diff-shortcuts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-size: 13px;
+}
+.app .diff-shortcuts dd {
+  margin: 0;
+}
+.app .touched-files {
+  margin: 8px 0;
+  padding: 0 18px;
+  font-size: 13px;
+}
+.app .touched-files ul {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+.app .touched-files li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 2px 0;
+}
+.app .touched-open {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.app .touched-state.done {
+  color: #3fb950;
+}
+.app .touched-state.edited {
+  color: var(--slate);
+}
+.app .touched-state.missing {
+  color: var(--red);
+}
+.app .touched-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+}
+.app .saved-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.app .saved-table td,
+.app .saved-table th {
+  border-bottom: 1px solid var(--line);
+  padding: 4px;
+  text-align: left;
+}
+.app .saved-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}

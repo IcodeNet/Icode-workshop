@@ -23,8 +23,10 @@ test("Node and Python learner journeys, multi-file CRUD, persistence, compare an
   page.once("dialog", (d) => d.accept("src/value.mjs"));
   await page.getByRole("button", { name: "Rename", exact: true }).click();
   await expect(page.getByLabel("Project file")).toHaveValue("src/value.mjs");
-  await page.getByRole("tab", { name: "Compare", exact: true }).click();
-  await expect(page.getByText("src/value.mjs — playground only")).toBeVisible();
+  await page.getByRole("tab", { name: "Diff", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Diff of src/value.mjs" }),
+  ).toContainText("deleted");
   await page.reload();
   await page.getByRole("button", { name: /01 Approved/ }).click();
   await page.getByText("Project file tree", { exact: true }).click();
@@ -275,7 +277,7 @@ test("reference preview restart and backup restoration preserve the learner work
   page.off("dialog", accept);
 });
 
-test("comparison supports other lessons and transcript remains alongside the workspace", async ({
+test("diffs support other lessons and transcript remains alongside the workspace", async ({
   page,
 }) => {
   await page.goto("/");
@@ -286,18 +288,12 @@ test("comparison supports other lessons and transcript remains alongside the wor
   await expect(page.getByRole("article")).toContainText(
     "A preview is a running local application.",
   );
-  await page.getByRole("tab", { name: "Compare", exact: true }).click();
-  await page
-    .getByLabel("Compare from", { exact: true })
-    .selectOption("problem");
-  await page.getByLabel("Compare target lesson").selectOption("01");
+  await page.getByRole("tab", { name: "Diff", exact: true }).click();
+  await page.getByLabel("Diff from version").selectOption("problem");
+  await page.getByLabel("Diff to lesson").selectOption("01");
   await expect(
-    page.getByText("Refresh comparison to view the selected projects."),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Refresh comparison" }).click();
-  await expect(
-    page.getByText("index.mjs — solution only", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Diff of index.mjs" }),
+  ).toContainText("added");
 });
 
 test("unconfigured tutor is explicit and never fabricates an answer", async ({
