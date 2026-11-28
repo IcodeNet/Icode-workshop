@@ -107,9 +107,11 @@ export function preprocessMapped(source, { mdx = false } = {}) {
 export const preprocess = (source, options) => preprocessMapped(source, options).text;
 
 // ---------- hast helpers ----------
+/** Visible text of a node: the hidden new-tab hint of a link is left out. */
 function textOf(node) {
   if (!node) return "";
   if (node.type === "text") return node.value;
+  if (node.type === "element" && [].concat(node.properties?.className || []).includes("new-tab-hint")) return "";
   return (node.children || []).map(textOf).join("");
 }
 function walk(node, fn, parent = null, depth = 0) {
@@ -263,6 +265,8 @@ export function policy(raw, { kind = "link", root = null, docDir = "", sandboxOr
   return { href: "#course=" + encodeURIComponent(joined) };
 }
 
+/** Text appended, visually hidden, to every link that opens a new tab. */
+export const NEW_TAB_HINT = " (opens in a new tab)";
 function applyPolicy(ctx) {
   return (tree) => {
     walk(tree, (node) => {
@@ -289,8 +293,12 @@ function applyPolicy(ctx) {
       }
       p[attr] = result.href;
       if (node.tagName === "a" && result.external) {
+        // A link to another origin opens in a new tab, so the workshop page
+        // stays where it is. The hint is part of the link's accessible name.
         p.target = "_blank";
         p.rel = ["noopener", "noreferrer", "nofollow"];
+        p.className = [...classes(node).filter((c) => c !== "external-link"), "external-link"];
+        node.children.push(el("span", { className: ["visually-hidden", "new-tab-hint"] }, [txt(NEW_TAB_HINT)]));
       }
       if (node.tagName === "img") {
         p.loading = "lazy";
@@ -304,7 +312,7 @@ function applyPolicy(ctx) {
 function headings(ctx) {
   return (tree) => {
     const used = new Map();
-    walk(tree, (node) => {
+    walk(tree, (node, parent) => {
       if (node.type !== "element" || !/^h[1-6]$/.test(node.tagName)) return;
       const text = textOf(node).replace(/\s+/g, " ").trim();
       let slug = "h-" + (text.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "section");
@@ -312,7 +320,11 @@ function headings(ctx) {
       used.set(slug, n + 1);
       if (n) slug += "-" + (n + 1);
       node.properties.id = slug;
-      node.children.push(el("a", { href: "#" + slug, className: ["heading-anchor"], ariaLabel: "Link to " + text.slice(0, 80) }, [txt("#")]));
+      // The section link is a sibling of the heading, so the heading's
+      // accessible name is its own text and nothing else.
+      const anchor = el("a", { href: "#" + slug, className: ["heading-anchor"], ariaLabel: "Link to section: " + text.slice(0, 80) }, [el("span", { ariaHidden: "true" }, [txt("#")])]);
+      const index = parent ? parent.children.indexOf(node) : -1;
+      if (index >= 0) parent.children[index] = el("div", { className: ["heading-row"] }, [node, anchor]);
       if ((node.tagName === "h2" || node.tagName === "h3") && ctx.toc.length < LIMITS.tocEntries)
         ctx.toc.push({ depth: Number(node.tagName[1]), text: text.slice(0, 120), id: slug });
       return false;
