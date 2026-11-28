@@ -44,6 +44,8 @@ const pane = (page, name) => page.locator(`[data-scroll-pane="${name}"]`);
 const sidebar = (page) => page.locator(".sidebar");
 const scrollTop = (locator) => locator.evaluate((n) => Math.round(n.scrollTop));
 const box = (locator) => locator.evaluate((n) => { const r = n.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), height: Math.round(r.height) }; });
+/** A box measured from the bottom of the header: a banner that arrives late pushes everything below it down. */
+const belowHeader = (locator) => locator.evaluate((n) => { const r = n.getBoundingClientRect(); const h = document.querySelector(".app-header").getBoundingClientRect().bottom; return { top: Math.round(r.top - h), bottom: Math.round(r.bottom - h), left: Math.round(r.left), right: Math.round(r.right) }; });
 /** Nothing at page level scrolls, and nothing can make it scroll. */
 async function expectPageFixed(page) {
   const state = await page.evaluate(() => {
@@ -61,6 +63,12 @@ async function expectPageFixed(page) {
 // Notices load after the first paint: measure once the header is settled.
 const geometry = (page) => page.evaluate(() => Object.fromEntries([["header", ".app-header"], ["shell", ".shell"], ["lesson", '[data-scroll-pane="lesson"]']].map(([k, sel]) => { const r = document.querySelector(sel)?.getBoundingClientRect(); return [k, r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height) } : null]; })));
 async function settled(page) {
+  // Banners that load late arrive first: the update check, setup checks,
+  // course indicators and notifications have answered.
+  await expect
+    .poll(() => page.evaluate(() => ["/api/update", "/api/doctor", "/api/indicators", "/api/notifications"].every((path) => performance.getEntriesByType("resource").some((e) => new URL(e.name).pathname === path))), { timeout: 15000 })
+    .toBe(true)
+    .catch(() => {});
   let last = await geometry(page);
   for (let i = 0; i < 40; i++) {
     await page.waitForTimeout(250);
@@ -104,7 +112,7 @@ for (const viewport of VIEWPORTS) {
       const sideAt = await scrollTop(side);
       await side.evaluate((n) => n.scrollTo(0, 0));
       const runTests = page.getByRole("button", { name: "Run tests", exact: true });
-      const before = { workbench: await box(workbench), runTests: await box(runTests), header: await box(page.locator(".app-header")) };
+      const before = { workbench: await belowHeader(workbench), runTests: await belowHeader(runTests) };
       await expect(runTests).toBeInViewport({ ratio: 1 });
 
       // Reading the lesson to its end moves nothing else.
@@ -115,8 +123,8 @@ for (const viewport of VIEWPORTS) {
       expect(await scrollTop(workbench)).toBe(0);
       expect(await scrollTop(side)).toBe(0);
       expect(sideAt).toBeGreaterThan(0);
-      expect(await box(workbench)).toEqual(before.workbench);
-      expect(await box(runTests)).toEqual(before.runTests);
+      expect(await belowHeader(workbench)).toEqual(before.workbench);
+      expect(await belowHeader(runTests)).toEqual(before.runTests);
       await expect(runTests).toBeInViewport({ ratio: 1 });
       await expectPageFixed(page);
       const lessonAt = await scrollTop(lesson);
@@ -151,7 +159,8 @@ for (const viewport of VIEWPORTS) {
       // Long output scrolls inside its panel.
       await output.evaluate((n) => (n.textContent = Array.from({ length: 200 }, (_, i) => "output line " + (i + 1)).join("\n")));
       expect(await output.evaluate((n) => n.scrollHeight > n.clientHeight && n.clientHeight <= window.innerHeight * 0.5)).toBe(true);
-      expect(await box(page.locator(".app-header"))).toEqual(before.header);
+      expect((await box(page.locator(".app-header"))).top).toBe(0);
+      expect((await box(page.locator(".shell"))).top).toBe((await box(page.locator(".app-header"))).bottom);
       await expectPageFixed(page);
 
       // Positions are kept per pane and per step.
@@ -232,8 +241,10 @@ for (const viewport of VIEWPORTS) {
         await pane(page, "workbench").evaluate((n) => n.scrollTo(0, n.scrollHeight));
         await sidebar(page).evaluate((n) => n.scrollTo(0, n.scrollHeight));
         await expect.poll(() => scrollTop(lesson)).toBeGreaterThan(500);
-        expect((await geometry(page)).header).toEqual(stacked.header);
-        expect(await box(cost)).toEqual(stacked.cost);
+        const scrolled = await geometry(page);
+        expect(scrolled.header.top).toBe(0);
+        expect(scrolled.header.height).toBeGreaterThanOrEqual(stacked.header.height);
+        expect(scrolled.shell.top).toBe(scrolled.header.bottom);
         for (const locator of [cost, down, page.locator(".connection-status"), page.locator(".activity-bar"), page.getByRole("button", { name: "Commands", exact: true })]) await expect(locator).toBeInViewport({ ratio: 1 });
         // Nothing of the lesson shows through or over the header.
         const covering = await page.evaluate(() => {
