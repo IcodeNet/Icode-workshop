@@ -2,6 +2,7 @@
 // contents, sandboxed Mermaid, the in-workshop browser, in-browser tests,
 // course pages, notifications and cloud-editor links.
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { mountQuestions } from "./questions.jsx";
 
 const json = async (path, options) => {
   const response = await fetch("/api" + path, { ...options, headers: { "content-type": "application/json", ...options?.headers } });
@@ -126,14 +127,20 @@ function addCopyButtons(container) {
 }
 
 /** Sanitised lesson HTML from the API, with TOC, copy buttons and diagrams. */
-export function LessonHtml({ html, toc = [], sandboxOrigin, label, showToc = true }) {
+export function LessonHtml({ html, toc = [], sandboxOrigin, label, showToc = true, stepId = null }) {
   const ref = useRef(null);
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
     addCopyButtons(node);
-    return mountMermaid(node, sandboxOrigin);
-  }, [html, sandboxOrigin]);
+    const unmountMermaid = mountMermaid(node, sandboxOrigin);
+    // Check questions are interactive only inside a step's lessons.
+    const unmountQuestions = mountQuestions(node, stepId);
+    return () => {
+      unmountQuestions();
+      unmountMermaid();
+    };
+  }, [html, sandboxOrigin, stepId]);
   return (
     <>
       {showToc && toc.length > 1 && (

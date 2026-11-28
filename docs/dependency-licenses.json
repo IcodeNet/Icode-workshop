@@ -1,5 +1,14 @@
 [
   {
+    "name": "@axe-core/playwright",
+    "versions": [
+      "4.14.1"
+    ],
+    "license": "MPL-2.0",
+    "source": "https://github.com/dequelabs/axe-core-npm",
+    "note": "Stage 4: development dependency for the automated accessibility checks in tests/browser only (WCAG A/AA rules). MPL-2.0 is file-level (weak) copyleft: the files are used unmodified and are never bundled into the UI, served or shipped, so no Icode source is affected. Replaceable if a permissive-only policy is required."
+  },
+  {
     "name": "@azure-rest/core-client",
     "versions": [
       "2.9.0"
@@ -496,6 +505,15 @@
     ],
     "license": "MIT",
     "source": "https://github.com/ajv-validator/ajv-formats#readme"
+  },
+  {
+    "name": "axe-core",
+    "versions": [
+      "4.14.1"
+    ],
+    "license": "MPL-2.0",
+    "source": "https://github.com/dequelabs/axe-core",
+    "note": "Stage 4: development dependency for the automated accessibility checks in tests/browser only (WCAG A/AA rules). MPL-2.0 is file-level (weak) copyleft: the files are used unmodified and are never bundled into the UI, served or shipped, so no Icode source is affected. Replaceable if a permissive-only policy is required."
   },
   {
     "name": "bail",
@@ -3469,5 +3487,14 @@
     ],
     "license": "MIT",
     "source": "git+https://github.com/rhysd/remark-emoji.git"
+  },
+  {
+    "name": "yaml",
+    "versions": [
+      "2.9.1"
+    ],
+    "license": "ISC",
+    "source": "https://github.com/eemeli/yaml",
+    "note": "Check questions: parses the YAML inside lesson `question` blocks (core schema; tags, anchors and aliases refused). Runtime dependency of packages/web; no dependencies of its own."
   }
 ]

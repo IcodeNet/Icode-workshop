@@ -14,6 +14,8 @@ import { randomBytes } from "node:crypto";
 // Changes on every engine start: the UI resets the sandbox origin once per value.
 export const SANDBOX_GENERATION = randomBytes(8).toString("hex");
 
+// Rendered output without server-only fields (check-question answers).
+const pub = ({ questions, ...rest }) => rest;
 const image = (ref, sandboxOrigin) => (!ref ? undefined : ref.url ?? policy(ref.path, { kind: "image", sandboxOrigin }).href);
 
 const GUIDE = `# Using this workshop
@@ -77,11 +79,11 @@ export async function handleContent({ req, res, url, root, json, readBody, sandb
         validateId(id);
         source += structure(root, id);
       }
-      return json(res, 200, { name, title: "Guide", exists: true, ...(await renderLesson(source, { sandboxOrigin })) }), true;
+      return json(res, 200, { name, title: "Guide", exists: true, ...pub(await renderLesson(source, { sandboxOrigin })) }), true;
     }
     if (name === "support") {
       const md = [c.support?.text, c.support?.url && `[Get support](${c.support.url})`, c.support?.email && `Email: ${c.support.email}`, c.community && `[${c.community.title}](${c.community.url})`].filter(Boolean).join("\n\n");
-      return json(res, 200, { name, title: "Support", exists: Boolean(md), ...(await renderLesson(md || "This course has no support information.", { sandboxOrigin })), email: c.support?.email }), true;
+      return json(res, 200, { name, title: "Support", exists: Boolean(md), ...pub(await renderLesson(md || "This course has no support information.", { sandboxOrigin })), email: c.support?.email }), true;
     }
     if (name !== "intro" && name !== "finished") return json(res, 400, { error: "Unknown page" }), true;
     let doc = null;

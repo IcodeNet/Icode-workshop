@@ -151,7 +151,7 @@ test("the API refuses the sandbox origin, cross-site, foreign-origin and foreign
     }
     // Nothing changed.
     assert.deepEqual((await api.call("/notifications")).body.notifications.map((n) => n.id), ["n1"]);
-    assert.deepEqual((await api.call("/progress")).body, { completed: [] });
+    assert.deepEqual((await api.call("/progress")).body, { completed: [], questions: {} });
     await assert.rejects(access(join(root, ".workshop", "notifications.json")));
     // Invalid mute ids are plain 400s.
     assert.equal((await api.call("/notifications/mute", { method: "POST", body: { id: "../x" } })).status, 400);

@@ -12,6 +12,7 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import { posix } from "node:path";
 import { Worker } from "node:worker_threads";
+import { parseQuestion, assignIds, stripQuestionAnswers, QUESTION_LIMITS } from "./questions.mjs";
 
 export const LIMITS = {
   renderMs: 5000,
@@ -336,9 +337,16 @@ function code(ctx) {
         return false;
       }
     });
+    const langOf = (node) => (classes(node.children[0]).find((c) => c.startsWith("language-")) || "").slice(9).toLowerCase();
+    // Check questions are rendered first, as one batch, so their ids are
+    // assigned in document order (nested content never holds questions).
+    const questionBlocks = ctx.nested ? [] : blocks.filter(({ node }) => langOf(node) === "question");
+    const done = new Set(questionBlocks.map(({ node }) => node));
+    if (questionBlocks.length) await questions(ctx, [...done]);
     for (const { node } of blocks) {
+      if (done.has(node)) continue;
       const codeNode = node.children[0];
-      const lang = (classes(codeNode).find((c) => c.startsWith("language-")) || "").slice(9).toLowerCase();
+      const lang = langOf(node);
       const meta = parseMeta(codeNode.properties?.dataMeta);
       const value = textOf(codeNode).replace(/\n$/, "");
       let replacement;
@@ -386,6 +394,83 @@ function code(ctx) {
   };
 }
 
+// ---------- 7. check questions (docs/check-questions.md) ----------
+const htmlOf = (children) => unified().use(rehypeStringify).stringify({ type: "root", children });
+const plain = (children) => textOf({ type: "root", children }).replace(/\s+/g, " ").trim();
+/** Markdown inside a question, through the same sanitiser and URL policy. */
+async function fragment(markdown, ctx, { inline = false } = {}) {
+  const sub = { ...ctx, nested: true, warnings: ctx.warnings, toc: [] };
+  const processor = pipeline(sub, { mdx: ctx.mdx, nested: true });
+  const tree = await processor.run(processor.parse(preprocess(markdown, { mdx: ctx.mdx })));
+  const children = tree.children.filter((c) => !(c.type === "text" && !c.value.trim()));
+  if (inline && children.length === 1 && children[0].tagName === "p") return children[0].children;
+  return children;
+}
+function invalidQuestion(position, errors) {
+  return el("div", { className: ["callout", "callout-warning", "question-invalid"], role: "note" }, [
+    el("strong", { className: ["callout-label"] }, [txt("Author warning")]),
+    el("p", {}, [txt(`Check question ${position} is invalid and is not shown. Run `), el("code", {}, [txt("workshop validate")]), txt(" for the file and line.")]),
+    el("ul", {}, errors.slice(0, 10).map((e) => el("li", {}, [txt(e)]))),
+  ]);
+}
+async function questions(ctx, nodes) {
+  const parsed = nodes.map((node) => parseQuestion(textOf(node.children[0]).replace(/\n$/, "")));
+  const { ids, warnings } = assignIds(parsed, ctx.docPath);
+  ctx.warnings.push(...warnings);
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const p = parsed[i];
+    let replacement;
+    if (i >= QUESTION_LIMITS.perDocument) {
+      replacement = invalidQuestion(i + 1, [`A document may hold at most ${QUESTION_LIMITS.perDocument} check questions.`]);
+      ctx.warnings.push("Too many check questions");
+    } else if (!p.ok) {
+      replacement = invalidQuestion(i + 1, p.errors);
+      ctx.warnings.push("Invalid check question " + (i + 1));
+    } else {
+      const q = p.question;
+      const id = ids[i];
+      const base = "q-" + id;
+      const prompt = await fragment(q.prompt, ctx);
+      const head = [el("span", { className: ["cq-label"] }, [txt("Check question")])];
+      if (q.source) head.push(el("span", { className: ["cq-source"], title: "Source" }, [txt(q.source)]));
+      const children = [el("div", { className: ["cq-head"] }, head), el("div", { className: ["cq-prompt"], id: base + "-prompt" }, prompt)];
+      if (q.kind === "choice") {
+        const options = [];
+        for (let n = 0; n < q.options.length; n++)
+          options.push(el("li", { className: ["cq-option"], dataOption: String(n) }, await fragment(q.options[n], ctx, { inline: true })));
+        children.push(el("ol", { className: ["cq-options"] }, options));
+      }
+      // Static text for engines or pages that do not hydrate the block. It
+      // never holds the answer: that is fetched only after an attempt.
+      children.push(
+        el("p", { className: ["cq-static"] }, [
+          txt(!ctx.stepId ? "Check questions can be answered inside a step's lessons." : q.kind === "choice" ? "Choose an answer, then check it." : "Write your answer, then reveal the model answer."),
+        ]),
+      );
+      replacement = el(
+        "div",
+        { className: ["check-question"], id: base, role: "group", ariaLabelledBy: base + "-prompt", dataQuestion: id, dataKind: q.kind, ...(ctx.stepId ? {} : { dataInactive: "true" }) },
+        children,
+      );
+      if (ctx.stepId) {
+        const explanation = await fragment(q.explanation, ctx);
+        ctx.questions.push({
+          id,
+          kind: q.kind,
+          options: q.options?.length ?? 0,
+          ...(q.kind === "choice" ? { answerIndex: q.answerIndex } : { answerHtml: htmlOf(await fragment(q.answer, ctx)) }),
+          explanationHtml: htmlOf(explanation),
+          promptText: plain(prompt).slice(0, 200),
+          ...(q.source ? { source: q.source } : {}),
+        });
+      }
+    }
+    for (const k of Object.keys(node)) delete node[k];
+    Object.assign(node, replacement);
+  }
+}
+
 // ---------- pipeline ----------
 function remarkMeta() {
   // Carry fence meta to hast as data-meta (text only; sanitised as such).
@@ -415,18 +500,38 @@ function nestingDepth(source) {
   return max;
 }
 function fallback(source, reason) {
-  const shown = source.slice(0, LIMITS.fallbackChars);
+  // The plain-text fallback never shows a check question's answer.
+  const safe = stripQuestionAnswers(source);
+  const shown = safe.slice(0, LIMITS.fallbackChars);
   return {
     html:
       '<div class="callout callout-warning" role="note"><strong class="callout-label">Warning</strong><p>' +
       escapeHtml(reason) +
       '</p></div><pre class="plain lesson-source"><code>' +
       escapeHtml(shown) +
-      (source.length > shown.length ? "\n…" : "") +
+      (safe.length > shown.length ? "\n…" : "") +
       "</code></pre>",
     toc: [],
     warnings: [reason],
+    questions: [],
   };
+}
+
+function pipeline(ctx, options = {}) {
+  const processor = unified().use(remarkParse);
+  if (options.mdx) processor.use(noIndentedCode);
+  processor
+    .use(remarkGfm)
+    .use(remarkEmoji, { accessible: false, emoticon: false })
+    .use(remarkMeta)
+    .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "fn-" })
+    .use(rehypeRaw)
+    .use(() => components(ctx))
+    .use(rehypeSanitize, schema)
+    .use(() => applyPolicy(ctx));
+  // Headings inside a question get no ids or TOC entries.
+  if (!options.nested) processor.use(() => headings(ctx));
+  return processor.use(() => code(ctx));
 }
 
 /**
@@ -439,24 +544,21 @@ export async function renderLesson(source, options = {}) {
   if (typeof source !== "string") source = String(source ?? "");
   if (Buffer.byteLength(source) > LIMITS.sourceBytes) return fallback(source, "This lesson is larger than 256 KB and is shown as plain text.");
   if (nestingDepth(source) > LIMITS.nesting) return fallback(source, "This lesson is nested too deeply to render and is shown as plain text.");
-  const ctx = { stepId: options.stepId ?? null, docDir: options.docDir ?? "", sandboxOrigin: options.sandboxOrigin ?? "", warnings: [], toc: [] };
+  const ctx = {
+    stepId: options.stepId ?? null,
+    docDir: options.docDir ?? "",
+    docPath: options.docPath ?? "",
+    sandboxOrigin: options.sandboxOrigin ?? "",
+    mdx: Boolean(options.mdx),
+    warnings: [],
+    toc: [],
+    questions: [],
+  };
   try {
-    const processor = unified().use(remarkParse);
-    if (options.mdx) processor.use(noIndentedCode);
-    processor
-      .use(remarkGfm)
-      .use(remarkEmoji, { accessible: false, emoticon: false })
-      .use(remarkMeta)
-      .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "fn-" })
-      .use(rehypeRaw)
-      .use(() => components(ctx))
-      .use(rehypeSanitize, schema)
-      .use(() => applyPolicy(ctx))
-      .use(() => headings(ctx))
-      .use(() => code(ctx))
-      .use(rehypeStringify);
+    const processor = pipeline(ctx, options).use(rehypeStringify);
     const file = await processor.process(preprocess(source, { mdx: options.mdx }));
-    return { html: String(file), toc: ctx.toc, warnings: [...new Set(ctx.warnings)].slice(0, 50) };
+    // `questions` holds answers: server-side only, never sent with a lesson.
+    return { html: String(file), toc: ctx.toc, warnings: [...new Set(ctx.warnings)].slice(0, 50), questions: ctx.questions };
   } catch (error) {
     return fallback(source, "This lesson could not be rendered (" + String(error.message).slice(0, 200) + ") and is shown as plain text.");
   }

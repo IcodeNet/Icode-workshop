@@ -108,6 +108,24 @@ graph TD
   click B "javascript:alert(1)"
 ${"```"}
 
+${"```"}question
+id: hostile
+prompt: |
+  Hostile prompt <script>window.__xss = 20</script><img src=x onerror="window.__xss = 21"> [prompt link](javascript:window.__xss=22)
+options:
+  - "<img src=x onerror=window.__xss=23>first option"
+  - "[second option](javascript:window.__xss=24)"
+answer: 0
+explanation: |
+  <script>window.__xss = 25</script><a href="javascript:window.__xss=26">explanation link</a> HOSTILE-EXPLANATION
+${"```"}
+
+${"```"}question
+prompt: &a [x, x, x, x, x, x, x, x]
+answer: [*a, *a, *a, *a, *a, *a, *a, *a]
+explanation: YAML bomb
+${"```"}
+
 Safe paragraph after the attacks.
 `,
 );
