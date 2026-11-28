@@ -1,4 +1,7 @@
-import { lessonText, lessonDocuments } from "./lessons.mjs";
+import { lessonDocuments } from "./lessons.mjs";
+import { handleContent } from "./content-routes.mjs";
+import { createSandboxServer } from "./sandbox.mjs";
+import { SANDBOX_PORT } from "./content-config.mjs";
 import { integrationStatus, readIntegration } from "./integrations.mjs";
 import { planMigration, migrateWorkspace } from "./migration.mjs";
 import { askTutor, tutorConfig } from "./tutor.mjs";
@@ -83,6 +86,10 @@ const root = resolve(
 const port = Number(process.env.WORKSHOP_API_PORT ?? 4317);
 const host = "127.0.0.1";
 const allowedOrigin = "http://127.0.0.1:5173";
+// Stage 3: course content (apps, browser tests, Mermaid, images) is served
+// from this separate, read-only origin, which the API refuses.
+const sandboxOrigin = "http://127.0.0.1:" + SANDBOX_PORT;
+let sandboxServer = null;
 const json = (res, code, body) => {
   res.writeHead(code, {
     "content-type": "application/json; charset=utf-8",
@@ -107,12 +114,15 @@ async function load(id) {
   validateId(id);
   const base = join(root, "exercises", id);
   const config = await labConfig(root, id);
-  const instructions = await lessonText(root,id) || config.description;
-  const documents = await lessonDocuments(root,id);
+  const documents = await lessonDocuments(root, id, { sandboxOrigin });
+  const main = documents.find((d) => d.title === "Problem lesson") || documents[0];
+  const instructions = main?.content || config.description;
   return {
     id,
     ...config,
     instructions,
+    // Stage 3: sanitised, highlighted HTML of the main lesson.
+    lesson: main ? { path: main.path, html: main.html, toc: main.toc, warnings: main.warnings } : null,
     documents,
     topic: "AI engineering",
     problem: await readProjectFile(root, id, config.entry, "problem"),
@@ -777,6 +787,7 @@ const server = createServer(async (req, res) => {
       }
       return;
     }
+    if (await handleContent({ req, res, url, root, json, readBody, sandboxOrigin })) return;
     return json(res, 404, { error: "Not found" });
   } catch (error) {
     if (res.headersSent) {
@@ -805,6 +816,10 @@ server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
   );
+  if (process.env.ICODE_SANDBOX !== "0") {
+    sandboxServer = createSandboxServer({ root, port: SANDBOX_PORT, uiOrigin: allowedOrigin });
+    sandboxServer.on("error", (error) => console.error("Sandbox origin not started: " + error.message));
+  }
   if (process.env.ICODE_UPDATE_CHECK !== "0")
     startupCheck = checkForUpdates(root).catch(() => {});
   if (process.env.ICODE_SIDECARS !== "0")
@@ -832,6 +847,7 @@ for (const signal of ["SIGTERM", "SIGINT", "SIGHUP", ...(process.platform === "w
       timeout,
     ]);
     server.close();
+    sandboxServer?.close();
     process.exit(0);
   });
 process.on("exit", () => {

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "runtime": "node",
+  "entry": "index.mjs",
+  "title": "An export app: values, not pages",
+  "description": "Write a function and see its exported results and console output in the Preview panel.",
+  "app": { "type": "export", "entry": "index.mjs" }
+}

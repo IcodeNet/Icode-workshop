@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "runtime": "node",
+  "entry": "counter.mjs",
+  "title": "A counter in the in-workshop browser",
+  "description": "Build a small browser app, check its logic with Node tests and its page with in-browser tests.",
+  "app": { "type": "simple", "initialRoute": "/", "browserTests": ["counter.browser.js"] }
+}

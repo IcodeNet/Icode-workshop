@@ -17,6 +17,7 @@ import { listSaved, savePlayground, restoreSaved, savedConfig, savedFilesPath } 
 import { withPlaygroundHooks } from "../web/playground-ops.mjs";
 import { diffSides, ignorePatterns, compileIgnore } from "../web/diff.mjs";
 import { updateStatus, checkForUpdates, applyUpdate } from "../web/update.mjs";
+import { contentConfig } from "../web/content-config.mjs";
 const args = process.argv.slice(2),
   command = args[0],
   contentFlag = args.indexOf("--content");
@@ -60,6 +61,8 @@ async function main() {
     validateBackupConfig(manifest.backups);
     await outputPatterns(content, course.ids);
     compileIgnore(await ignorePatterns(content, []));
+    // Stage 3 content settings are optional: invalid ones are dropped, reported here.
+    for (const warning of (await contentConfig(content)).warnings) console.warn("Content warning: " + warning);
     return console.log(
       "Valid course: " +
         course.title +

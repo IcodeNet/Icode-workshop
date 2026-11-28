@@ -4,25 +4,44 @@
   "modules": [
     {
       "id": "retrieval",
-      "title": "01 \u00b7 Trusted retrieval",
+      "title": "01 · Trusted retrieval",
       "exercises": [
         {
           "id": "approval",
           "title": "Approval filtering",
-          "steps": ["01", "02"]
+          "steps": [
+            "01",
+            "02"
+          ]
         }
       ]
     },
     {
       "id": "applications",
-      "title": "02 \u00b7 Application workbench",
+      "title": "02 · Application workbench",
       "exercises": [
         {
           "id": "preview",
           "title": "Live applications",
-          "steps": ["03"]
+          "steps": [
+            "03"
+          ]
+        },
+        {
+          "id": "browser",
+          "title": "Browser apps",
+          "steps": [
+            "04",
+            "05"
+          ]
         }
       ]
     }
-  ]
+  ],
+  "subtitle": "Small, testable building blocks for AI applications",
+  "repository": {
+    "github": "IcodeNet/Icode-workshop",
+    "branch": "main",
+    "root": "examples"
+  }
 }

@@ -43,6 +43,78 @@ course.indicators = [{ path: ".icode-deployed", message: "Demo resources are run
 course.sidecars = { "mock-api": { script: "mock-api" } };
 // Stage 2: playground and update hooks.
 course.hooks = { postUpdate: "postupdate", timeoutSeconds: 60 };
+// Stage 3: content settings and a hostile step (06): a lesson full of XSS
+// attempts and an app that tries to reach the engine API and the UI.
+course.instructor = { name: "Ada Example", url: "https://example.com/ada" };
+course.forms = { workshop: "https://example.com/feedback?w={workshopTitle}", exercise: "https://example.com/exercise?e={exerciseTitle}" };
+course.support = { text: "Ask in the **course channel**.", email: "help@example.com" };
+course.community = { title: "Course forum", url: "https://example.com/forum" };
+course.notifications = [
+  { id: "welcome", title: "Welcome notice", message: "A new **lesson** is available.", type: "info", link: "https://example.com/news" },
+  { id: "old", title: "Expired notice", message: "Gone", expiresAt: "2020-01-01" },
+];
+course.modules.push({ id: "hostile", title: "03 · Hostile content", steps: ["06"] });
+await writeFile(join(root, "exercises", "README.md"), (await readFile(join(root, "exercises", "README.md"), "utf8")) + "\nIntro pages have no step: <DiffLink>See the first diff</DiffLink> and <NextDiffLink /> stay inactive instead of failing.\n");
+await mkdir(join(root, "exercises", "06", "problem"), { recursive: true });
+await mkdir(join(root, "exercises", "06", "solution"), { recursive: true });
+await writeFile(join(root, "exercises", "06", "lab.json"), JSON.stringify({ schemaVersion: 1, runtime: "node", entry: "index.mjs", title: "Hostile content", app: { type: "simple" } }));
+await writeFile(
+  join(root, "exercises", "06", "README.md"),
+  `# Hostile lesson
+
+Safe paragraph before the attacks.
+
+<script>window.__xss = 1; alert(1)</script>
+
+<img src="x.png" onerror="window.__xss = 2">
+
+[javascript link](javascript:window.__xss=3)
+
+<a href="jav&#x09;ascript:window.__xss=4">tab link</a>
+
+<svg onload="window.__xss=5"><circle r="5"></circle></svg>
+
+<iframe src="javascript:parent.__xss=6"></iframe>
+
+<details open ontoggle="window.__xss=7"><summary>toggle</summary>content</details>
+
+<p onclick="window.__xss=8" style="background:url(javascript:alert(1))">styled paragraph</p>
+
+<math><mi xlink:href="javascript:alert(1)">m</mi></math>
+
+<a href="data:text/html,<script>alert(1)</script>">data link</a>
+
+<form action="http://127.0.0.1:4317/api/progress"><button>submit</button></form>
+
+<InlineFile file="../../../etc/passwd" />
+
+${"```"}mermaid
+graph TD
+  A["<img src=x onerror=alert(1)>"] --> B
+  click A call alert(1)
+  click B "javascript:alert(1)"
+${"```"}
+
+Safe paragraph after the attacks.
+`,
+);
+const hostileApp = `<!doctype html><html><head><title>Hostile app</title></head><body><h1>Hostile app</h1><pre id="out">running</pre>
+<script>
+(async () => {
+  const results = {};
+  const targets = { api: ["http://127.0.0.1:4317/api/exercises"], ui: ["http://127.0.0.1:5173/api/exercises"], mutate: ["http://127.0.0.1:4317/api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "01", complete: true }) }], uiMutate: ["http://127.0.0.1:5173/api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: "01", complete: true }) }] };
+  for (const [key, args] of Object.entries(targets)) {
+    try { const r = await fetch(...args); results[key] = "status " + r.status; } catch { results[key] = "blocked"; }
+  }
+  try { results.parent = String(window.parent.document.title); } catch { results.parent = "blocked"; }
+  try { window.top.location.href = "http://127.0.0.1:5173/?hijacked"; results.top = "navigated"; } catch { results.top = "blocked"; }
+  document.getElementById("out").textContent = JSON.stringify(results);
+})();
+</script></body></html>`;
+for (const variant of ["problem", "solution"]) {
+  await writeFile(join(root, "exercises", "06", variant, "index.html"), hostileApp);
+  await writeFile(join(root, "exercises", "06", variant, "index.mjs"), "export const value = 1;\n");
+}
 await writeFile(join(root, "course.json"), JSON.stringify(course));
 await writeFile(
   join(root, "package.json"),
