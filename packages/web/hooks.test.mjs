@@ -176,7 +176,14 @@ test("a running hook is listed in Processes and can be stopped there", { timeout
   const root = await nativeCourse({
     hooks: { postUpdate: "hang" },
     scripts: { hang: "node hang.mjs" },
-    files: { "hang.mjs": "setInterval(() => {}, 1000);\n" },
+    files: {
+      "hang.mjs": `import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+writeFileSync("child.pid", String(child.pid));
+setInterval(() => {}, 1000);
+`,
+    },
   });
   try {
     const hooks = await resolveHooks(root);
@@ -186,8 +193,10 @@ test("a running hook is listed in Processes and can be stopped there", { timeout
     const entry = listProcesses().find((p) => p.id === processId);
     assert.equal(entry.kind, "hook");
     assert.match(entry.label, /post-update/);
+    const pid = Number(await until(() => readFile(join(root, "child.pid"), "utf8").catch(() => "")));
     await stopProcess(processId);
     assert.equal((await running).status, "stopped");
+    await until(() => !alive(pid), 10000); // the whole tree, not just the leader
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -229,6 +238,19 @@ test("Epic layout: per-app hook files win over root ones; learner directories ar
     assert.equal(env.EPICSHOP_PLAYGROUND_SRC_DIR, workspacePath(root, "01"));
     await writeFile(join(root, "package.json"), JSON.stringify({ epicshop: { scripts: { postupdate: "npm run x && rm -rf ." } } }));
     await assert.rejects(resolveHooks(root), /shell syntax/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a symlinked hook file is refused, never run", { skip: process.platform === "win32" }, async () => {
+  const { symlink } = await import("node:fs/promises");
+  const root = await epicCourse({ files: { "real/pre.js": recorderScript("linked") } });
+  try {
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(root, "epicshop"));
+    await symlink(join(root, "real/pre.js"), join(root, "epicshop/pre-set-playground.js"));
+    await assert.rejects(resolveHooks(root), /Symlinks are not supported/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

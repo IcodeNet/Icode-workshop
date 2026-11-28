@@ -246,11 +246,35 @@ export function SavedPanel({ selected, refreshKey, busy, setBusy, onRestored, on
   );
 }
 
+/** Banner when the last fetch (the server checks once at startup) found updates. */
+export function UpdateBanner({ onOpen }) {
+  const [status, setStatus] = useState(null);
+  useEffect(() => {
+    const load = () => request("/update").then(setStatus).catch(() => {});
+    const first = setTimeout(load, 1500);
+    const timer = setInterval(load, 30000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, []);
+  if (!status?.behind) return null;
+  return (
+    <div className="indicator-banners" role="region" aria-label="Workshop update">
+      <p className="indicator info">
+        <strong>Workshop update available.</strong> {status.message}{" "}
+        <button onClick={onOpen}>Review update</button>
+      </p>
+    </div>
+  );
+}
+
 export function UpdatePanel({ busy, setBusy, onUpdated }) {
   const [status, setStatus] = useState(null);
   const [output, setOutput] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [stash, setStash] = useState(false);
+  const [backupOverwritten, setBackupOverwritten] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -277,7 +301,7 @@ export function UpdatePanel({ busy, setBusy, onUpdated }) {
       const response = await fetch("/api/update/apply", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirm: "update", stash }),
+        body: JSON.stringify({ confirm: "update", stash, backupOverwritten }),
       });
       if (!response.ok) throw new Error((await response.json()).error);
       const reader = response.body.getReader(),
@@ -331,12 +355,23 @@ export function UpdatePanel({ busy, setBusy, onUpdated }) {
               ))}
             </ul>
           )}
+          {status.protectedPaths?.length > 0 && (
+            <p role="alert">
+              This update would change the workshop's own state in .workshop/ ({status.protectedPaths.slice(0, 5).join(", ")}). It is refused to protect your playgrounds; ask the course author to stop tracking .workshop/.
+            </p>
+          )}
+          {status.overwrites?.length > 0 && (
+            <p className="diff-note" aria-label="Files the update would overwrite">
+              The update would overwrite {status.overwrites.length} local file(s) that git does not track: {status.overwrites.slice(0, 8).join(", ")}
+              {status.overwrites.length > 8 ? ", …" : ""}. You can back them up during the update.
+            </p>
+          )}
           {status.changedSteps?.length > 0 && <p>Lessons changed by this update: {status.changedSteps.join(", ")}. Your playgrounds keep your work; use Migrate or the Diff tab to pick up changes.</p>}
           <div className="file-tools">
             <button disabled={busy || !status.upstream} onClick={check}>
               Check for updates
             </button>
-            <button className="primary" disabled={busy || !status.behind} onClick={() => setConfirming(true)}>
+            <button className="primary" disabled={busy || !status.behind || status.protectedPaths?.length > 0} onClick={() => setConfirming(true)}>
               Update workshop
             </button>
           </div>
@@ -347,6 +382,7 @@ export function UpdatePanel({ busy, setBusy, onUpdated }) {
         <p role="status" aria-label="Update result">
           {result.ok ? result.message : "Update failed: " + result.error}
           {result.ok && result.stash && !result.stash.restored ? " " + result.stash.message : ""}
+          {result.ok && result.backedUp ? " Backed up " + result.backedUp.paths.length + " file(s) to " + result.backedUp.dir + "." : ""}
           {result.ok && result.hooks?.length ? " Post-update hook: " + result.hooks[0].status + "." : ""}
           {result.ok && result.install?.status && result.install.status !== "skipped" ? " Dependencies: " + result.install.status + "." : ""}
         </p>
@@ -361,6 +397,11 @@ export function UpdatePanel({ busy, setBusy, onUpdated }) {
           onConfirm={apply}
           onCancel={() => setConfirming(false)}
         >
+          {status.overwrites?.length > 0 && (
+            <label>
+              <input type="checkbox" checked={backupOverwritten} onChange={(e) => setBackupOverwritten(e.target.checked)} /> Back up the {status.overwrites.length} local file(s) the update would overwrite (to .workshop/update-backups)
+            </label>
+          )}
           {status.dirtyCount > 0 && (
             <label>
               <input type="checkbox" checked={stash} onChange={(e) => setStash(e.target.checked)} /> Stash my {status.dirtyCount} uncommitted change(s) during the update and re-apply them afterwards

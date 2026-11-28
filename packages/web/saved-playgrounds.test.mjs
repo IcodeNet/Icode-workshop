@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmod, lstat, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { selectWorkspace, workspacePath } from "./workspaces.mjs";
 import {
@@ -139,12 +140,130 @@ test("automatic saves respect the preference and never throw", async () => {
   }
 });
 
-test("symlinks in a playground are refused when saving", { skip: process.platform === "win32" }, async () => {
+test("symlinks (junctions on Windows) in a playground are refused when saving", async () => {
   const root = await nativeCourse();
   try {
     await selectWorkspace(root, "01");
-    await symlink("/etc", join(workspacePath(root, "01"), "escape"));
+    await symlink(tmpdir(), join(workspacePath(root, "01"), "escape"), process.platform === "win32" ? "junction" : "dir");
     await assert.rejects(savePlayground(root, "01"), /Symlinks are not supported/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+/** Directory link that needs no privileges: a symlink on POSIX, a junction on Windows. */
+const linkDir = (target, path) => symlink(target, path, process.platform === "win32" ? "junction" : "dir");
+
+test("nested bin/obj/target/__pycache__/.venv source survives; only node_modules and declared output are left out", async () => {
+  const root = await nativeCourse({
+    course: { buildOutput: ["/dist/", "**/*.log"] },
+    files: { "exercises/02/lab.json": { schemaVersion: 1, runtime: "rust", entry: "src/main.rs", title: "Rust" } },
+  });
+  try {
+    for (const id of ["01", "02"]) await selectWorkspace(root, id);
+    const source = {
+      "src/bin/tool.rs": "fn main() {}\n",
+      "cli/bin/run.mjs": "console.log(1)\n",
+      "bin/start.sh": "#!/bin/sh\necho saved\n",
+      "obj/model.cs": "class Model {}\n",
+      "lib/target/notes.md": "notes\n",
+      "pkg/obj/x.cs": "class X {}\n",
+      "py/__pycache__/helper.py": "def helper(): pass\n",
+      "env/.venv/conf.py": "X = 1\n",
+      ".venv/keep.py": "Y = 2\n",
+      "web/dist/app.js": "nested dist is source\n",
+    };
+    const output = {
+      "node_modules/dep/index.js": "dep\n",
+      "web/node_modules/x/index.js": "x\n",
+      "dist/bundle.js": "built\n",
+      "logs/run.log": "log\n",
+    };
+    const pg1 = workspacePath(root, "01");
+    await writeTree(pg1, { ...source, ...output });
+    const saved = await savePlayground(root, "01");
+    const stored = await savedFilesPath(root, "01", saved.savedId);
+    for (const rel of Object.keys(source)) assert.equal(await readFile(join(stored, rel), "utf8"), source[rel], rel + " saved");
+    for (const rel of Object.keys(output)) await assert.rejects(lstat(join(stored, rel)), /ENOENT/, rel + " left out");
+    assert.deepEqual([...saved.excluded].sort(), ["dist", "logs/run.log", "node_modules", "web/node_modules"]);
+    // Wreck everything, then restore.
+    for (const rel of Object.keys(source)) await writeFile(join(pg1, rel), "changed\n");
+    await rm(join(pg1, "src"), { recursive: true });
+    await restoreSaved(root, "01", saved.savedId);
+    for (const rel of Object.keys(source)) assert.equal(await readFile(join(pg1, rel), "utf8"), source[rel], rel + " restored");
+    for (const rel of Object.keys(output)) assert.equal(await readFile(join(pg1, rel), "utf8"), output[rel], rel + " carried over");
+    // A runtime adapter's declared output is root-anchored: /target/ only.
+    const pg2 = workspacePath(root, "02");
+    await writeTree(pg2, { "target/debug/app": "binary\n", "src/target/mod.rs": "mod t;\n" });
+    const rust = await savePlayground(root, "02");
+    const rustFiles = await savedFilesPath(root, "02", rust.savedId);
+    assert.equal(await readFile(join(rustFiles, "src/target/mod.rs"), "utf8"), "mod t;\n");
+    await assert.rejects(lstat(join(rustFiles, "target")), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("declared output must be anchored or an explicit glob", async () => {
+  const { validateOutputPatterns } = await import("./exclusions.mjs");
+  assert.deepEqual(validateOutputPatterns(["/dist/", "**/*.pyc"]), ["/dist/", "**/*.pyc"]);
+  for (const bad of ["bin", "bin/", "target", "!x", "/../x", "a\\b", ""]) assert.throws(() => validateOutputPatterns([bad]), /Invalid/);
+  const { validateAdapter } = await import("../adapter-api/index.mjs");
+  const adapter = { id: "x", apiVersion: 1, detect() {}, prepare() {}, run() {} };
+  assert.throws(() => validateAdapter({ ...adapter, outputs: ["bin"] }), /root-anchored/);
+  assert.ok(validateAdapter({ ...adapter, outputs: ["/bin/"] }));
+});
+
+test("a linked saved-playgrounds folder is refused", async () => {
+  const root = await nativeCourse();
+  const outside = await mkdtemp(join(tmpdir(), "icode-outside-"));
+  try {
+    await selectWorkspace(root, "01");
+    await linkDir(outside, join(root, ".workshop", "saved-playgrounds"));
+    await assert.rejects(savePlayground(root, "01"), /Symlinks are not supported/);
+    await assert.rejects(listSaved(root, "01"), /Symlinks are not supported/);
+    assert.deepEqual(await readdir(outside), [], "nothing written through the link");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("crashed partial saves are cleaned up", async () => {
+  const root = await nativeCourse();
+  try {
+    await selectWorkspace(root, "01");
+    const stale = join(root, ".workshop", "saved-playgrounds", "01", "20260101T000000000Z-abcdef.partial");
+    await mkdir(join(stale, "files"), { recursive: true });
+    await savePlayground(root, "01");
+    await assert.rejects(lstat(stale), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("reset backups are bounded by count and size, oldest first, newest always kept", async () => {
+  const { resetWorkspace, listBackups, validateBackupConfig } = await import("./workspaces.mjs");
+  const root = await nativeCourse({ course: { backups: { limit: 2, maxMegabytes: 1 } } });
+  try {
+    await selectWorkspace(root, "01");
+    const made = [];
+    for (let i = 0; i < 4; i++) {
+      await writeFile(join(workspacePath(root, "01"), "index.mjs"), "attempt " + i + "\n");
+      made.push((await resetWorkspace(root, "01")).backup.split(/[\\/]/).pop());
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    assert.deepEqual(await listBackups(root, "01"), [made[3], made[2]]);
+    assert.equal(await readFile(join(root, ".workshop/playgrounds", made[3], "index.mjs"), "utf8"), "attempt 3\n");
+    // Size: a 0.7 MB playground fits once in 1 MB; the newest is kept, older evicted.
+    await writeFile(join(workspacePath(root, "01"), "big.bin"), Buffer.alloc(700 * 1024));
+    const first = (await resetWorkspace(root, "01")).backup.split(/[\\/]/).pop();
+    await writeFile(join(workspacePath(root, "01"), "big.bin"), Buffer.alloc(700 * 1024));
+    await new Promise((r) => setTimeout(r, 5));
+    const second = (await resetWorkspace(root, "01")).backup.split(/[\\/]/).pop();
+    assert.deepEqual(await listBackups(root, "01"), [second]);
+    assert.notEqual(first, second);
+    for (const bad of [{ limit: 0 }, { limit: 51 }, { maxMegabytes: 0 }, []]) assert.throws(() => validateBackupConfig(bad));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

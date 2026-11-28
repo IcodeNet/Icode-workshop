@@ -17,17 +17,16 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import { validateId } from "../core/index.mjs";
 import { assertSafePath } from "./files.mjs";
-import { workspacePath } from "./workspaces.mjs";
+import { pruneBackups, workspacePath } from "./workspaces.mjs";
+import { compileIgnore } from "./ignore.mjs";
+import { outputPatterns } from "./exclusions.mjs";
+
+/** Predicate for what a saved playground of `id` leaves out (node_modules and declared build output). */
+export async function savedExclusions(root, id) {
+  return compileIgnore(await outputPatterns(root, [id]));
+}
 
 export const SAVED_ID = /^\d{8}T\d{9}Z-[0-9a-f]{6}$/;
-export const DEPENDENCY_DIRS = new Set([
-  "node_modules",
-  ".venv",
-  "__pycache__",
-  "target",
-  "bin",
-  "obj",
-]);
 export const DEFAULT_LIMIT = 20;
 export const DEFAULT_MAX_MEGABYTES = 50;
 export const MAX_FILES = 5000;
@@ -111,19 +110,24 @@ export async function writePreferences(root, changes) {
 }
 
 /**
- * Walk a playground for snapshotting. Refuses symlinks, skips dependency
- * directories, enforces count and size limits before anything is copied.
+ * Walk a playground for snapshotting. Refuses symlinks, leaves out what
+ * `excluded(rel, isDir)` matches (recorded in `skipped`), and enforces count
+ * and size limits before anything is copied.
  */
-export async function inventory(dir, { maxBytes = Infinity, maxFiles = MAX_FILES } = {}) {
+export async function inventory(dir, { maxBytes = Infinity, maxFiles = MAX_FILES, excluded = () => false } = {}) {
   const files = [],
-    dirs = [];
+    dirs = [],
+    skipped = [];
   let bytes = 0;
   async function walk(current, prefix) {
     for (const item of await readdir(current, { withFileTypes: true })) {
-      if (DEPENDENCY_DIRS.has(item.name) && item.isDirectory()) continue;
       const rel = prefix ? prefix + "/" + item.name : item.name;
       const abs = join(current, item.name);
       const info = await lstat(abs);
+      if (!info.isSymbolicLink() && excluded(rel, info.isDirectory())) {
+        skipped.push(rel);
+        continue;
+      }
       if (info.isSymbolicLink()) throw new Error("Symlinks are not supported: " + rel);
       if (info.isDirectory()) {
         dirs.push({ rel, mode: info.mode });
@@ -142,7 +146,7 @@ export async function inventory(dir, { maxBytes = Infinity, maxFiles = MAX_FILES
     }
   }
   await walk(dir, "");
-  return { files, dirs, bytes };
+  return { files, dirs, bytes, skipped };
 }
 /** Copy an inventory exactly (content, mode, timestamps, empty directories). */
 async function copyTree(from, to, { files, dirs }) {
@@ -227,10 +231,13 @@ export async function savePlayground(root, id, { label, reason = "manual", sourc
   if (!REASONS.has(reason)) throw new Error("Invalid reason");
   label = cleanLabel(label);
   const limits = await savedConfig(root);
-  const tree = await inventory(playground, limits);
+  const tree = await inventory(playground, { ...limits, excluded: await savedExclusions(root, id) });
   const base = savedBase(root, id);
   await assertSafePath(base);
   await mkdir(base, { recursive: true });
+  // Saves are serialised by the mutation gate; anything still partial is from a crash.
+  for (const entry of await readdir(base))
+    if (entry.endsWith(".partial")) await rm(join(base, entry), { recursive: true, force: true });
   const savedId = newSavedId();
   const partial = join(base, savedId + ".partial");
   try {
@@ -243,6 +250,7 @@ export async function savePlayground(root, id, { label, reason = "manual", sourc
       createdAt: new Date().toISOString(),
       files: tree.files.length,
       bytes: tree.bytes,
+      excluded: tree.skipped.slice(0, 100),
       pinned: Boolean(pinned),
     };
     await writeFile(join(partial, "meta.json"), JSON.stringify(meta, null, 2));
@@ -289,9 +297,10 @@ export async function deleteSaved(root, id, savedId) {
 }
 
 /**
- * Replace the playground with a saved playground, exactly. Dependency
- * directories of the current playground are carried over so the app still
- * runs. Staged, then renamed into place; the previous playground is returned
+ * Replace the playground with a saved playground: every saved file and
+ * directory comes back as saved. What saves leave out (node_modules and
+ * declared build output) is carried over from the current playground, at the
+ * same relative path, so the app still runs. Staged, then renamed into place; the previous playground is returned
  * as `previous` (a path) for the caller to keep or remove.
  */
 export async function restoreSaved(root, id, savedId) {
@@ -307,23 +316,31 @@ export async function restoreSaved(root, id, savedId) {
   try {
     await copyTree(source, staging, tree);
     const hadPrevious = await exists(path);
+    let carried = [];
+    if (hadPrevious)
+      try {
+        carried = (await inventory(path, { maxFiles: Infinity, excluded: await savedExclusions(root, id) })).skipped;
+      } catch {
+        // A symlink in the current playground: nothing is carried over.
+      }
     if (hadPrevious) {
       await rename(path, previous);
-      for (const name of DEPENDENCY_DIRS) {
-        const from = join(previous, name);
-        if ((await exists(from)) && !(await exists(join(staging, name)))) {
-          await rename(from, join(staging, name));
-          moved.push(name);
-        }
+      for (const rel of carried) {
+        const target = join(staging, ...rel.split("/"));
+        if (await exists(target)) continue;
+        await mkdir(join(target, ".."), { recursive: true });
+        await rename(join(previous, ...rel.split("/")), target);
+        moved.push(rel);
       }
     }
     try {
       await rename(staging, path);
     } catch (e) {
-      for (const name of moved) await rename(join(staging, name), join(previous, name)).catch(() => {});
+      for (const rel of moved) await rename(join(staging, ...rel.split("/")), join(previous, ...rel.split("/"))).catch(() => {});
       if (hadPrevious) await rename(previous, path);
       throw e;
     }
+    await pruneBackups(root, id);
     return { path, previous: hadPrevious ? previous : null, files: tree.files.length };
   } finally {
     await rm(staging, { recursive: true, force: true });

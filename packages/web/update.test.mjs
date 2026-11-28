@@ -181,3 +181,64 @@ test("porcelain -z parsing keeps odd names and both sides of renames", async () 
   assert.deepEqual(parsePorcelain(" M a b.txt\0R  new.txt\0old.txt\0?? dir/\"q\".md\0"), ["a b.txt", "new.txt", "old.txt", 'dir/"q".md']);
   assert.deepEqual(parsePorcelain(""), []);
 });
+
+test("hostile upstream: tracking .workshop/ is refused and learner playgrounds are untouched", { skip: !hasGit, timeout: 60000 }, async () => {
+  const { base, author, course } = await repos();
+  try {
+    await writeTree(course, { ".workshop/playgrounds/01/index.mjs": "learner work\n" });
+    await writeFile(join(author, ".gitignore"), "");
+    await pushUpstream(author, { ".workshop/playgrounds/01/index.mjs": "upstream text\n" }, "Track the workshop state");
+    const before = head(course);
+    const checked = await checkForUpdates(course);
+    assert.deepEqual(checked.protectedPaths, [".workshop/playgrounds/01/index.mjs"]);
+    for (const options of [{}, { stash: true, backupOverwritten: true }])
+      await assert.rejects(applyUpdate(course, { confirm: "update", ...options }), (e) => e.code === "PROTECTED");
+    assert.equal(head(course), before);
+    assert.equal(await text(join(course, ".workshop/playgrounds/01/index.mjs")), "learner work\n");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("ignored or untracked local files an update would overwrite are refused, or backed up by exact path", { skip: !hasGit, timeout: 60000 }, async () => {
+  const { base, author, course } = await repos();
+  try {
+    await writeFile(join(course, ".git", "info", "exclude"), "my.local\n");
+    await writeTree(course, { "my.local": "learner secret\n", "notes": "a file where upstream needs a directory\n" });
+    await pushUpstream(author, { "my.local": "upstream\n", "notes/readme.md": "upstream notes\n" }, "Add files");
+    const before = head(course);
+    const checked = await checkForUpdates(course);
+    assert.deepEqual(checked.overwrites, ["my.local", "notes"]);
+    await assert.rejects(applyUpdate(course, { confirm: "update" }), (e) => e.code === "OVERWRITE" && e.paths.includes("my.local"));
+    assert.equal(head(course), before);
+    assert.equal(await text(join(course, "my.local")), "learner secret\n");
+    const result = await applyUpdate(course, { confirm: "update", backupOverwritten: true });
+    assert.equal(result.updated, true);
+    assert.deepEqual(result.backedUp.paths, ["my.local", "notes"]);
+    assert.equal(await text(join(course, result.backedUp.dir, "my.local")), "learner secret\n");
+    assert.equal(await text(join(course, result.backedUp.dir, "notes")), "a file where upstream needs a directory\n");
+    assert.equal(await text(join(course, "my.local")), "upstream\n");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("stash takes exactly the dirty paths: an unignored .workshop is neither dirty nor stashed", { skip: !hasGit, timeout: 60000 }, async () => {
+  const { base, author, course } = await repos();
+  try {
+    await writeFile(join(course, ".gitignore"), "");
+    git(course, "update-index", "--assume-unchanged", ".gitignore");
+    await writeTree(course, { ".workshop/playgrounds/01/index.mjs": "learner\n" });
+    assert.equal((await updateStatus(course)).dirtyCount, 0, ".workshop is never dirty");
+    // Upstream and learner change the same line, so the stash cannot pop cleanly.
+    await pushUpstream(author, { "exercises/01/problem/index.mjs": "export default 100\n" });
+    await writeFile(join(course, "exercises/01/problem/index.mjs"), "learner change\n");
+    const result = await applyUpdate(course, { confirm: "update", stash: true });
+    assert.equal(result.stash.restored, false);
+    const stashed = git(course, "stash", "show", "--include-untracked", "--name-only", "stash@{0}").split("\n").filter(Boolean);
+    assert.deepEqual(stashed, ["exercises/01/problem/index.mjs"]);
+    assert.equal(await text(join(course, ".workshop/playgrounds/01/index.mjs")), "learner\n", "not stashed away");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});

@@ -15,6 +15,16 @@ export function validateAdapter(adapter) {
         "Adapter " + adapter.id + " requires " + method + "()",
       );
   }
+  if (
+    adapter.outputs !== undefined &&
+    (!Array.isArray(adapter.outputs) ||
+      adapter.outputs.some(
+        (p) => typeof p !== "string" || !(p.startsWith("/") || p.includes("*")),
+      ))
+  )
+    throw new TypeError(
+      "Adapter outputs must be root-anchored paths or explicit globs",
+    );
   if (adapter.start !== undefined && typeof adapter.start !== "function")
     throw new TypeError("Adapter start must be a function");
   if (adapter.stop !== undefined && typeof adapter.stop !== "function")

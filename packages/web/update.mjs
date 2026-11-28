@@ -2,8 +2,8 @@
 // reinstall dependencies if needed and run the post-update hook. Offline-safe
 // (a failed fetch changes nothing), never prompts for credentials, never
 // resets, rebases or force-pulls, and requires typed confirmation.
-import { realpath, stat } from "node:fs/promises";
-import { join, relative, resolve, sep } from "node:path";
+import { lstat, mkdir, realpath, rename, stat } from "node:fs/promises";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { startProcess } from "../adapter-api/node.mjs";
 import { discoverSteps } from "../core/layout.mjs";
 import { registerProcess } from "./processes.mjs";
@@ -20,6 +20,11 @@ const GIT_ENV = {
   LC_ALL: "C",
 };
 
+// ssh never prompts either (GIT_TERMINAL_PROMPT does not cover it), unless the
+// learner configured their own ssh command.
+const sshEnvironment = () =>
+  process.env.GIT_SSH_COMMAND || process.env.GIT_SSH ? {} : { GIT_SSH_COMMAND: "ssh -o BatchMode=yes" };
+
 /** Run git without a shell. Resolves {code, stdout, stderr}; never rejects for a non-zero exit. */
 export async function git(root, args, { timeoutMs = 30_000, onSpawn, emit, label } = {}) {
   let stdout = "",
@@ -28,7 +33,7 @@ export async function git(root, args, { timeoutMs = 30_000, onSpawn, emit, label
   try {
     session = startProcess("git", args, {
       workspaceRoot: root,
-      env: GIT_ENV,
+      env: { ...GIT_ENV, ...sshEnvironment() },
       outputLimit: Infinity,
       emit: (event) => {
         if (event.type === "stdout") stdout = (stdout + event.text).slice(-200_000);
@@ -70,6 +75,48 @@ export function parsePorcelain(text) {
     if (entry[0] === "R" || entry[0] === "C") paths.push(parts[++i]);
   }
   return paths.filter(Boolean);
+}
+
+const nulList = (text) => text.split("\0").filter(Boolean);
+const isWorkshopState = (path) => path === ".workshop" || path.startsWith(".workshop/");
+async function existsLocally(root, path) {
+  try {
+    await lstat(join(root, ...path.split("/")));
+    return true;
+  } catch {
+    return false;
+  }
+}
+/**
+ * What the incoming commits would do to files git does not protect: paths in
+ * `.workshop/` (the engine's state and learner playgrounds: always refused)
+ * and added paths that already exist locally as ignored or untracked files
+ * (a fast-forward overwrites ignored files silently). Includes a local file
+ * standing where the update needs a directory.
+ */
+export async function incomingConflicts(root) {
+  const all = await git(root, ["diff", "--name-only", "--no-renames", "-z", "HEAD", "@{u}"]);
+  const added = await git(root, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "HEAD", "@{u}"]);
+  if (all.code !== 0 || added.code !== 0) throw new Error("Could not compare with the upstream: " + (all.stderr || added.stderr).trim());
+  const protectedPaths = nulList(all.stdout).filter(isWorkshopState);
+  const overwrites = new Set();
+  for (const path of nulList(added.stdout)) {
+    if (isWorkshopState(path)) continue;
+    if (await existsLocally(root, path)) {
+      overwrites.add(path);
+      continue;
+    }
+    const parts = path.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const parent = parts.slice(0, i).join("/");
+      try {
+        if (!(await lstat(join(root, ...parts.slice(0, i)))).isDirectory()) overwrites.add(parent);
+        else continue;
+      } catch {}
+      break;
+    }
+  }
+  return { protectedPaths: protectedPaths.slice(0, 50), overwrites: [...overwrites].sort() };
 }
 
 /** Map changed paths to step ids (native and Epic layouts). */
@@ -153,8 +200,9 @@ export async function checkForUpdates(root, { onSpawn } = {}) {
     });
     const changed = await git(root, ["diff", "--name-only", "HEAD...@{u}"]);
     steps = changedSteps(root, out(changed).split("\n").filter(Boolean));
+    return { ...status, commits, changedSteps: steps, ...(await incomingConflicts(root)) };
   }
-  return { ...status, commits, changedSteps: steps };
+  return { ...status, commits, changedSteps: steps, protectedPaths: [], overwrites: [] };
 }
 
 /** Reinstall every package root whose dependencies do not match (npm ci, or npm install for an outdated lock). */
@@ -189,10 +237,11 @@ async function reinstall(root, { emit, onSpawn }) {
  * Apply an update. `confirm` must be the typed word "update". A dirty tree is
  * refused unless `stash` is true. Emits {type: step|stdout|stderr, …}.
  */
-export async function applyUpdate(root, { confirm, stash = false, emit = () => {}, onSpawn } = {}) {
+export async function applyUpdate(root, { confirm, stash = false, backupOverwritten = false, emit = () => {}, onSpawn } = {}) {
   root = resolve(root);
   if (confirm !== CONFIRM_WORD) throw new Error('Updating requires typing "' + CONFIRM_WORD + '" to confirm');
   if (typeof stash !== "boolean") throw new Error("Invalid stash flag");
+  if (typeof backupOverwritten !== "boolean") throw new Error("Invalid backup flag");
   const step = (name, text) => emit({ type: "step", step: name, text: text + "\n" });
   const run = (args, label, timeoutMs) => git(root, args, { emit, onSpawn, label, timeoutMs });
   // Validate the post-update hook before changing anything.
@@ -207,6 +256,29 @@ export async function applyUpdate(root, { confirm, stash = false, emit = () => {
   if (!checked.behind) {
     const install = await reinstall(root, { emit, onSpawn });
     return { updated: false, message: "Already up to date.", install, hooks: [] };
+  }
+  if (checked.protectedPaths.length)
+    throw Object.assign(
+      new Error("The update would change the workshop's own state in .workshop/ (" + checked.protectedPaths.slice(0, 5).join(", ") + "). Icode never lets a course update touch learner playgrounds; ask the course author to stop tracking .workshop/."),
+      { code: "PROTECTED", paths: checked.protectedPaths },
+    );
+  let backedUp = null;
+  if (checked.overwrites.length) {
+    if (!backupOverwritten)
+      throw Object.assign(
+        new Error("The update would overwrite local files that git does not track (" + checked.overwrites.slice(0, 5).join(", ") + (checked.overwrites.length > 5 ? ", …" : "") + "). Choose to back them up first, or move them yourself."),
+        { code: "OVERWRITE", paths: checked.overwrites },
+      );
+    // Move each file to .workshop/update-backups/<time>/<same path> before git can touch it.
+    const dir = join(".workshop", "update-backups", new Date().toISOString().replace(/[:.]/g, "-"));
+    step("backup", "Backing up " + checked.overwrites.length + " local file(s) to " + dir.split(sep).join("/") + "…");
+    for (const path of checked.overwrites) {
+      const target = join(root, dir, ...path.split("/"));
+      await mkdir(dirname(target), { recursive: true });
+      await rename(join(root, ...path.split("/")), target);
+    }
+    backedUp = { dir: dir.split(sep).join("/"), paths: checked.overwrites };
+    Object.assign(checked, await updateStatus(root));
   }
   if (checked.dirtyCount && !stash)
     throw Object.assign(new Error("The course has uncommitted changes (" + checked.dirty.slice(0, 5).join(", ") + (checked.dirtyCount > 5 ? ", …" : "") + "). Commit them, or choose to stash them during the update."), { code: "DIRTY", dirty: checked.dirty });
@@ -265,6 +337,7 @@ export async function applyUpdate(root, { confirm, stash = false, emit = () => {
     commits: checked.commits,
     changedSteps: changedSteps(root, changed),
     stash: stashResult,
+    backedUp,
     install,
     hooks: results,
     message: "Updated " + from.slice(0, 7) + " → " + to.slice(0, 7) + ".",

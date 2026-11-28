@@ -15,7 +15,7 @@ import {
   useIndicators,
 } from "./operations.jsx";
 import { DiffView, resolveDiffLink } from "./diff.jsx";
-import { SavedPanel, TouchedFiles, UpdatePanel, operationSummary } from "./workspace.jsx";
+import { SavedPanel, TouchedFiles, UpdateBanner, UpdatePanel, operationSummary } from "./workspace.jsx";
 const api = async (path, options) => {
   const response = await fetch("/api" + path, {
     ...options,
@@ -923,6 +923,7 @@ function App() {
         <main className="content">
           <IndicatorBanner indicators={indicators} />
           <SetupBanner />
+          <UpdateBanner onOpen={() => setPanel("update")} />
           {exercise ? (
             <>
               <div className="heading">

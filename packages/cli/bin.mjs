@@ -10,6 +10,9 @@ import { testLab, labConfig } from "../web/runtime.mjs";
 import { listFiles, readProjectFile } from "../web/files.mjs";
 import { courseOperations } from "../web/operations.mjs";
 import { resolveHooks } from "../web/hooks.mjs";
+import { readFile } from "node:fs/promises";
+import { validateBackupConfig } from "../web/workspaces.mjs";
+import { outputPatterns } from "../web/exclusions.mjs";
 import { listSaved, savePlayground, restoreSaved, savedConfig, savedFilesPath } from "../web/saved-playgrounds.mjs";
 import { withPlaygroundHooks } from "../web/playground-ops.mjs";
 import { diffSides, ignorePatterns, compileIgnore } from "../web/diff.mjs";
@@ -53,6 +56,9 @@ async function main() {
     // Hooks, saved-playground limits and diff ignore rules fail validation loudly.
     for (const step of course.ids) await resolveHooks(content, { stepId: step });
     await savedConfig(content);
+    const manifest = JSON.parse(await readFile(resolve(content, "course.json"), "utf8").catch(() => "{}"));
+    validateBackupConfig(manifest.backups);
+    await outputPatterns(content, course.ids);
     compileIgnore(await ignorePatterns(content, []));
     return console.log(
       "Valid course: " +

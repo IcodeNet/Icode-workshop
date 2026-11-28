@@ -4,10 +4,13 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { copyFile, lstat, mkdir, readdir, readFile, rm } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { validateId } from "../core/index.mjs";
-import { assertSafePath, validateFile, variantRoot } from "./files.mjs";
+import { assertSafePath, variantRoot } from "./files.mjs";
 import { SAVED_ID, savedFilesPath } from "./saved-playgrounds.mjs";
+import { compileIgnore } from "./ignore.mjs";
+import { outputPatterns } from "./exclusions.mjs";
+export { compileIgnore };
 
 export const LARGE_FILE_BYTES = 1024 * 1024;
 export const MAX_SIDE_FILES = 5000;
@@ -17,13 +20,13 @@ export const FILE_INLINE_LINES = 5_000;
 export const SINGLE_FILE_LINES = 50_000;
 export const MAX_LINE_CHARS = 2000;
 export const SYNC_MAX_BYTES = 20 * 1024 * 1024;
+// Never directories by bare name at any depth (src/bin must stay visible):
+// node_modules and declared build output come from exclusions.mjs.
 export const DEFAULT_IGNORE = [
-  ".*",
-  "node_modules/",
-  "__pycache__/",
-  "target/",
-  "bin/",
-  "obj/",
+  ".git/",
+  ".DS_Store",
+  ".vscode/",
+  ".idea/",
   "*.db",
   "*.db-wal",
   "*.db-shm",
@@ -91,65 +94,6 @@ async function sideDirectory(root, side) {
 
 // ---------------------------------------------------------------- ignore
 
-function globToRegex(glob) {
-  let out = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        const slashAfter = glob[i + 2] === "/";
-        out += slashAfter ? "(?:.*/)?" : ".*";
-        i += slashAfter ? 2 : 1;
-      } else out += "[^/]*";
-    } else if (c === "?") out += "[^/]";
-    else if (c === "[") {
-      const end = glob.indexOf("]", i + 1);
-      if (end > i) {
-        out += "[" + glob.slice(i + 1, end).replace(/^!/, "^").replace(/\\/g, "\\\\") + "]";
-        i = end;
-      } else out += "\\[";
-    } else if (c === "\\" && i + 1 < glob.length) out += "\\" + glob[++i];
-    else out += c.replace(/[.+^${}()|\\]/g, "\\$&");
-  }
-  return out;
-}
-/** Compile gitignore-style patterns into a predicate. Last match wins. Pure. */
-export function compileIgnore(patterns) {
-  const rules = [];
-  for (let raw of patterns) {
-    if (typeof raw !== "string") continue;
-    let line = raw.replace(/\r$/, "");
-    if (!line.trim() || line.startsWith("#")) continue;
-    line = line.replace(/(?<!\\)\s+$/, "");
-    let negate = false;
-    if (line.startsWith("!")) {
-      negate = true;
-      line = line.slice(1);
-    }
-    let dirOnly = false;
-    if (line.endsWith("/")) {
-      dirOnly = true;
-      line = line.replace(/\/+$/, "");
-    }
-    if (!line) continue;
-    const anchored = line.includes("/");
-    line = line.replace(/^\//, "");
-    const body = globToRegex(line);
-    rules.push({
-      negate,
-      dirOnly,
-      regex: new RegExp((anchored ? "^" : "(?:^|/)") + body + "$"),
-    });
-  }
-  return (path, isDir = false) => {
-    let ignored = false;
-    for (const rule of rules) {
-      if (rule.dirOnly && !isDir) continue;
-      if (rule.regex.test(path)) ignored = !rule.negate;
-    }
-    return ignored;
-  };
-}
 async function readLines(path) {
   try {
     await assertSafePath(path);
@@ -160,8 +104,27 @@ async function readLines(path) {
     return [];
   }
 }
-/** All ignore patterns for a pair of side directories. */
-export async function ignorePatterns(root, dirs) {
+/**
+ * Validate a relative path inside a side. Unlike editor paths, dotfiles are
+ * allowed (`.env.example` can be part of a step). Pure.
+ */
+export function validateRelativePath(path) {
+  if (
+    typeof path !== "string" ||
+    !path ||
+    path.length > 240 ||
+    path.includes("\\") ||
+    path.includes("\0") ||
+    path.startsWith("/") ||
+    /^[a-zA-Z]:/.test(path) ||
+    path.split("/").some((part) => !part || part === "." || part === "..")
+  )
+    throw new Error("Invalid file path");
+  return path;
+}
+
+/** All ignore patterns for a pair of side directories (and the steps they belong to). */
+export async function ignorePatterns(root, dirs, steps = []) {
   root = resolve(root);
   let course = {};
   try {
@@ -170,7 +133,7 @@ export async function ignorePatterns(root, dirs) {
   const configured = course?.diff?.ignore;
   if (configured !== undefined && (!Array.isArray(configured) || configured.length > 200 || configured.some((p) => typeof p !== "string" || p.length > 200)))
     throw new Error("course.json diff.ignore must be a list of patterns");
-  const patterns = [...DEFAULT_IGNORE, ...(configured ?? [])];
+  const patterns = [...DEFAULT_IGNORE, ...(await outputPatterns(root, steps)), ...(configured ?? [])];
   patterns.push(...(await readLines(join(root, ".gitignore"))));
   patterns.push(...(await readLines(join(root, "epicshop", ".diffignore"))));
   for (const dir of dirs) {
@@ -404,7 +367,7 @@ async function prepare(root, aSpec, bSpec) {
   const a = parseSide(aSpec),
     b = parseSide(bSpec);
   const [aDir, bDir] = [await sideDirectory(root, a), await sideDirectory(root, b)];
-  const ignored = compileIgnore(await ignorePatterns(root, [aDir, bDir]));
+  const ignored = compileIgnore(await ignorePatterns(root, [aDir, bDir], [a.step, b.step]));
   const [aFiles, bFiles] = await Promise.all([walkSide(aDir, ignored), walkSide(bDir, ignored)]);
   return { a, b, aDir, bDir, aFiles, bFiles };
 }
@@ -463,16 +426,21 @@ export async function diffSides(root, aSpec, bSpec, { whitespace = false, contex
     loaded.set(path, { A, B });
   }
   // Renames: an added and a deleted file with identical content.
-  const deleted = new Map();
-  for (const [path, { A, B }] of loaded) if (A && !B && !A.symlink) deleted.set(A.hash, path);
-  const renamed = new Map();
-  for (const [path, { A, B }] of loaded) {
-    if (A || !B || B.symlink) continue;
-    const from = deleted.get(B.hash);
-    if (from && !renamed.has(from)) {
-      renamed.set(from, path);
-      deleted.delete(B.hash);
+  // Only unambiguous pairs: non-empty content that appears once on each side.
+  const count = (pick) => {
+    const map = new Map();
+    for (const [path, entry] of loaded) {
+      const item = pick(entry);
+      if (item && !item.symlink && item.size > 0) map.set(item.hash, map.has(item.hash) ? null : path);
     }
+    return map;
+  };
+  const deleted = count(({ A, B }) => (A && !B ? A : null));
+  const added = count(({ A, B }) => (!A && B ? B : null));
+  const renamed = new Map();
+  for (const [hash, to] of added) {
+    const from = deleted.get(hash);
+    if (to && from) renamed.set(from, to);
   }
   const budget = { remaining: lineBudget, perFile: FILE_INLINE_LINES, defer: true };
   const files = [];
@@ -514,7 +482,7 @@ function normaliseContext(context) {
 
 /** One file of a diff, with a larger budget. `path` must exist on a side. */
 export async function diffFile(root, aSpec, bSpec, path, { whitespace = false, context = 3 } = {}) {
-  validateFile(path);
+  validateRelativePath(path);
   context = normaliseContext(context);
   const { a, b, aDir, bDir, aFiles, bFiles } = await prepare(root, aSpec, bSpec);
   if (!aFiles.has(path) && !bFiles.has(path)) throw new Error("File is not part of this diff");
@@ -540,7 +508,7 @@ export async function touchedFiles(root, id) {
     pgFiles = null;
   try {
     pgDir = await sideDirectory(root, { step: id, variant: "playground" });
-    const ignored = compileIgnore(await ignorePatterns(root, [aDir, bDir, pgDir]));
+    const ignored = compileIgnore(await ignorePatterns(root, [aDir, bDir, pgDir], [id]));
     pgFiles = await walkSide(pgDir, ignored);
   } catch {}
   const hash = async (dir, files, path) => (files?.has(path) ? (await content(dir, path, files.get(path))).hash : null);
@@ -554,8 +522,9 @@ export async function touchedFiles(root, id) {
       path: file.path,
       from: file.from,
       status: file.status,
-      line: first ? Math.max(1, first.aStart || first.bStart || 1) : 1,
-      solutionLine: first ? Math.max(1, first.bStart || 1) : 1,
+      // A pure insertion is reported at the line where the new text goes.
+      line: first ? Math.max(1, first.aLines ? first.aStart : (first.aStart || 0) + 1) : 1,
+      solutionLine: first ? Math.max(1, first.bLines ? first.bStart : (first.bStart || 0) + 1) : 1,
       additions: file.additions,
       deletions: file.deletions,
       playground: "no-playground",
@@ -594,13 +563,14 @@ export async function touchedFiles(root, id) {
  */
 export async function syncFile(root, id, name, fromSpec, { remove = false, dryRun = false } = {}) {
   validateId(id);
-  validateFile(name);
+  validateRelativePath(name);
   const from = parseSide(fromSpec);
   if (from.step === id && from.variant === "playground") throw new Error("Cannot sync a playground onto itself");
   const fromDir = await sideDirectory(root, from);
   const playground = await sideDirectory(root, { step: id, variant: "playground" });
   const source = await assertSafePath(join(fromDir, ...name.split("/")));
   const target = await assertSafePath(join(playground, ...name.split("/")));
+  if (!resolve(target).startsWith(resolve(playground) + sep)) throw new Error("Invalid file path");
   let info = null;
   try {
     info = await lstat(source);

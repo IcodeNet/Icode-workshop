@@ -85,7 +85,7 @@ export async function courseConfig(root) {
   }
   if (seen.size !== ids.length)
     throw new Error("Every exercise must belong to a course module");
-  const { actions, indicators, sidecars, hooks, savedPlaygrounds, diff, ...rest } = course;
+  const { actions, indicators, sidecars, hooks, savedPlaygrounds, diff, backups, buildOutput, ...rest } = course;
   return { ...rest, ids: [...seen] };
 }
 export function validateMedia(media) {

@@ -66,7 +66,7 @@ test("rich diff: deep links, lesson links, keyboard shortcuts, whitespace and sy
   await page.keyboard.press("?");
   await expect(page.getByLabel("Diff keyboard shortcuts")).toContainText("next / previous change");
   await page.keyboard.press("w");
-  await expect(page.getByLabel("Ignore whitespace")).toBeChecked();
+  await expect(page.getByLabel("Ignore whitespace changes")).toBeChecked();
   await expect(page).toHaveURL(/diff=01\.problem\.\.01\.solution.*ws=ignore/);
   await page.keyboard.press("j");
   await expect(page.locator(".diff-file.focused")).toHaveCount(1);
@@ -159,8 +159,11 @@ test("workshop update: check, typed confirmation, fast-forward and post-update h
   await page.goto("/");
   await openLesson(page, /03 Your first live preview/);
   await expect(page.getByRole("article")).not.toContainText("Updated upstream");
-  await page.getByRole("tab", { name: "Update", exact: true }).click();
-  await expect(page.getByLabel("Update status")).toContainText("as of the last check");
+  // The server fetched once at startup, so a banner announces the update.
+  const banner = page.getByRole("region", { name: "Workshop update" });
+  await expect(banner).toContainText("1 update(s) available");
+  await banner.getByRole("button", { name: "Review update" }).click();
+  await expect(page.getByLabel("Update status")).toContainText("1 update(s) available");
   await page.getByRole("button", { name: "Check for updates", exact: true }).click();
   await expect(page.getByLabel("Incoming commits")).toContainText("Upstream lesson fix");
   await expect(page.getByText("Lessons changed by this update: 03")).toBeVisible();
@@ -176,6 +179,8 @@ test("workshop update: check, typed confirmation, fast-forward and post-update h
   await expect(page.getByLabel("Update result")).toContainText("Post-update hook: passed");
   await expect(page.getByLabel("Update output")).toContainText("post-update hook ran from");
   await expect(page.getByLabel("Update status")).toContainText("Up to date");
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Workshop update" })).toHaveCount(0);
   await openLesson(page, /02 Python/);
   await openLesson(page, /03 Your first live preview/);
   await expect(page.getByRole("article")).toContainText("Updated upstream: previews now explain ports.");

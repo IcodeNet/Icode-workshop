@@ -170,7 +170,7 @@ Design notes: [`stage2-workspace-diffs.md`](stage2-workspace-diffs.md). Everythi
 }
 ```
 
-Values are `package.json#scripts` names, validated like action scripts. A step's `lab.json` may override `preSetPlayground`/`postSetPlayground`. Epic-layout courses keep Epic's files instead: `epicshop/pre-set-playground.js` and `epicshop/post-set-playground.js` (the problem/solution app's own first, then the workshop root; never files inside a playground, backup or saved playground) and `package.json#epicshop.scripts.postupdate` (split into words without a shell; shell operators are refused).
+Values are `package.json#scripts` names, validated like action scripts. A step's `lab.json` may override `preSetPlayground`/`postSetPlayground`. Epic-layout courses keep Epic's files instead: `epicshop/pre-set-playground.js` and `epicshop/post-set-playground.js` (the problem/solution app's own first, then the workshop root; never files inside a playground, backup or saved playground) and `package.json#epicshop.scripts.postupdate` (split into words without an implicit shell; shell operators are refused. This is not a sandbox: an author can still name a shell explicitly, for example `sh -c …`, as course code is trusted).
 
 The playground is "set" when it is created (first opening of a lesson), reset, replaced (Use problem/solution, Copy previous playground, Restore backup), migrated, or restored from a saved playground. Order: pre hook → automatic save → stop the step's preview → change → post hook → restart the preview if it was running. A pre hook that fails, times out or is stopped aborts with nothing changed; a post hook failure is reported. Hooks run in the course root as process trees (listed in Processes, stoppable, killed after `timeoutSeconds`, default 120) and receive:
 
@@ -185,7 +185,7 @@ Hook output (last 20,000 characters, ANSI colours kept) is shown in the Console.
 
 ### Saved playgrounds
 
-`.workshop/saved-playgrounds/<step>/<savedId>/` holds exact copies (all files including dotfiles and binaries, modes, times, empty directories; not `node_modules`, `.venv`, `__pycache__`, `target`, `bin`, `obj`). A copy is made automatically before every operation that replaces a playground (learners can turn this off in the **Saved** tab) and on demand with a label. Learners can restore (the current playground is saved first, dependency directories are kept), diff, pin and delete. Limits: `"savedPlaygrounds": { "limit": 20, "maxMegabytes": 50 }` (1–100 and 1–500); the oldest unpinned copies are pruned first; at most 5,000 files per copy.
+`.workshop/saved-playgrounds/<step>/<savedId>/` holds copies of every file and directory (dotfiles, binaries, modes, times and empty directories included). What is left out: `node_modules` at any depth, plus build output declared by the step's runtime adapter (`outputs`, root-anchored: Python `/.venv/`, `/.pytest_cache/`, `**/*.pyc`; Rust `/target/`; .NET `/bin/`, `/obj/`) or by the course (`"buildOutput": ["/dist/", "**/*.log"]`, root-anchored paths or explicit globs only). No directory is ever dropped by bare name at any depth, so `src/bin`, `cli/bin` or `lib/target` are always kept. A copy is made automatically before every operation that replaces a playground (learners can turn this off in the **Saved** tab) and on demand with a label. Learners can restore (the current playground is saved first; what saves leave out is carried over at the same path), diff, pin and delete. Limits: `"savedPlaygrounds": { "limit": 20, "maxMegabytes": 50 }` (1–100 and 1–500); the oldest unpinned copies are pruned first; at most 5,000 files per copy.
 
 ### Touched files
 
@@ -195,13 +195,13 @@ The workbench lists the files the step changes (problem → solution) with the f
 
 The **Diff** tab compares any two of problem, solution, playground or a saved playground, of any lessons: side by side or unified, word highlights, ignore whitespace, 3/10 lines or whole-file context, per-file accordion. Binary files and files over 1 MB are compared by hash; very large diffs are loaded per file on demand. A side that is a playground offers **Use … version** per file (copy or, with confirmation, delete; the playground is saved first). Diffs need no login.
 
-Ignore rules: dot entries, dependency directories, `*.db`/`*.sqlite`, `README.*`, `package-lock.json`, `epicshop/`, a `package.json` whose only change is `name`, then `"diff": { "ignore": ["data/**", "!data/keep.json"] }`, the root `.gitignore` and `epicshop/.diffignore` (root and app; Epic-compatible). Patterns are gitignore-style.
+Ignore rules: `.git/`, `.DS_Store`, `.vscode/`, `.idea/`, `node_modules` and the declared build output above (never bare directory names), `*.db`/`*.sqlite`, `README.*`, `package-lock.json`, `epicshop/`, a `package.json` whose only change is `name`, then `"diff": { "ignore": ["data/**", "!data/keep.json"] }`, the root `.gitignore` and `epicshop/.diffignore` (root and app; Epic-compatible). Patterns are gitignore-style.
 
 Links: `?diff=01.problem..01.solution&file=index.mjs&view=unified&ws=ignore` opens a diff directly; `?diff=01` (problem → solution), `?diff=01.playground` (against the solution), `?diff=01..02` (solution of 01 → problem of 02). In lessons: `[diff](#diff=step)`, `#diff=next`, `#diff=prev`, `#diff=01.solution..02.problem`. Keyboard in the diff: `j`/`k` file, `n`/`p` change, `u` layout, `w` whitespace, `o` expand/collapse, `c` copy link, `?` help.
 
 ### Workshop update
 
-The **Update** tab (and `workshop update`) reports the course repository's branch, upstream and uncommitted changes (`.workshop/` excluded). **Check for updates** runs `git fetch` (no prompts, 60 s timeout; offline changes nothing) and lists incoming commits and changed lessons. **Update workshop** requires typing `update`; it refuses diverged or local-ahead branches and uncommitted changes unless the learner opts to stash them (stashed by exact path, re-applied afterwards, kept in the stash on conflict), fast-forwards with `git merge --ff-only`, reinstalls dependencies if `package.json`/`package-lock.json` changed (`npm ci`, or `npm install` when the lock is outdated), then runs the `postUpdate` hook. Learner playgrounds are never touched.
+The **Update** tab (and `workshop update`) reports the course repository's branch, upstream and uncommitted changes (`.workshop/` excluded). **Check for updates** runs `git fetch` (no prompts, 60 s timeout; offline changes nothing) and lists incoming commits and changed lessons. **Update workshop** requires typing `update`; it refuses diverged or local-ahead branches and uncommitted changes unless the learner opts to stash them (stashed by exact path, re-applied afterwards, kept in the stash on conflict), fast-forwards with `git merge --ff-only`, reinstalls dependencies if `package.json`/`package-lock.json` changed (`npm ci`, or `npm install` when the lock is outdated), then runs the `postUpdate` hook. Before anything changes it also refuses an upstream that touches `.workshop/` (engine state and playgrounds), and refuses to overwrite local files git does not track (ignored or untracked, including a file where a directory is needed) unless the learner opts to back them up by exact path to `.workshop/update-backups/<time>/`. The server fetches once at startup (`ICODE_UPDATE_CHECK=0` disables it) so a banner can announce available updates. ssh runs with `BatchMode=yes` unless `GIT_SSH_COMMAND`/`GIT_SSH` is set.
 
 ### CLI
 
@@ -217,7 +217,7 @@ All endpoints keep the loopback Host/Origin checks and also refuse requests whos
 
 ## Follow-ups
 
-- Reset/replace backups (`<id>.backup-*`) are still unbounded; saved playgrounds are bounded and cover the same need, so backups could be retired.
+- Reset/replace/restore backups (`<id>.backup-*`) are bounded by `"backups": { "limit": 5, "maxMegabytes": 500 }` (oldest evicted first; the newest is always kept).
 - The diff engine caps the edit distance at 2,000 per file and then shows a replacement; a linear-space Myers would remove the cap.
 - After an update, sidecars keep running the old code until restarted (Processes tab).
 

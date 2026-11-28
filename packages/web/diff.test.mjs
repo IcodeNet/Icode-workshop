@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   compileIgnore,
@@ -173,7 +174,7 @@ test("huge diffs stay within budget: binary, 5 MB, 60,000-line and 1,500-file ca
 test("single-file diff refuses paths outside the diff", async () => {
   const root = await nativeCourse();
   try {
-    for (const bad of ["../course.json", "../../package.json", "/etc/passwd", "a/../../x", "..\\..\\x", "", ".env", "C:/x"])
+    for (const bad of ["../course.json", "../../package.json", "/etc/passwd", "a/../../x", "..\\..\\x", "", ".env", "C:/x", "C:\\x"])
       await assert.rejects(diffFile(root, "01.problem", "01.solution", bad), /Invalid file path|not part of this diff/, bad);
     await assert.rejects(diffFile(root, "01.problem", "../01.solution", "index.mjs"), /Invalid diff side|two digits/);
     await assert.rejects(diffSides(root, "01.playground", "01.solution"), /has not been created/);
@@ -184,11 +185,11 @@ test("single-file diff refuses paths outside the diff", async () => {
   }
 });
 
-test("symlinks on a side are listed, never followed", { skip: process.platform === "win32" }, async () => {
+test("symlinks (junctions on Windows) on a side are listed, never followed", async () => {
   const root = await nativeCourse();
   try {
     await selectWorkspace(root, "01");
-    await symlink("/etc/hostname", join(workspacePath(root, "01"), "link.txt"));
+    await symlink(tmpdir(), join(workspacePath(root, "01"), "link.txt"), process.platform === "win32" ? "junction" : "dir");
     const result = await diffSides(root, "01.playground", "01.problem");
     const link = result.files.find((f) => f.path === "link.txt");
     assert.equal(link.symlink, true);
@@ -249,7 +250,7 @@ test("sync copies one file into a playground; removal is explicit; paths are con
     await writeTree(pg, { "mine.mjs": "x\n" });
     await assert.rejects(syncFile(root, "01", "mine.mjs", "01.solution"), /does not exist/);
     assert.deepEqual(await syncFile(root, "01", "mine.mjs", "01.solution", { remove: true }), { synced: true, removed: true, name: "mine.mjs" });
-    for (const bad of ["../../course.json", "../01/solution/index.mjs", "/etc/passwd", ".env", "a\\b"])
+    for (const bad of ["../../course.json", "../01/solution/index.mjs", "/etc/passwd", "a\\b", "C:/x", "a//b", "./x"])
       await assert.rejects(syncFile(root, "01", bad, "01.solution"), /Invalid file path/);
     await assert.rejects(syncFile(root, "01", "index.mjs", "01.playground"), /onto itself/);
     await assert.rejects(syncFile(root, "01", "index.mjs", "../02.solution"), /Invalid diff side|two digits/);
@@ -258,6 +259,113 @@ test("sync copies one file into a playground; removal is explicit; paths are con
     await writeFile(join(pg, "index.mjs"), "after save\n");
     const result = await diffSides(root, "01.saved." + saved.savedId, "01.playground");
     assert.deepEqual(result.files.map((f) => f.path), ["index.mjs"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+const linkDir = (target, path) => symlink(target, path, process.platform === "win32" ? "junction" : "dir");
+
+test("diffs and touched files never drop nested bin/obj/target/__pycache__/.venv; dotfiles are diffable", async () => {
+  const nested = {};
+  for (const dir of ["src/bin", "cli/bin", "lib/target", "pkg/obj", "py/__pycache__", "env/.venv"]) {
+    nested["exercises/01/problem/" + dir + "/file.txt"] = "old\n";
+    nested["exercises/01/solution/" + dir + "/file.txt"] = "new\n";
+  }
+  const root = await nativeCourse({
+    files: {
+      ...nested,
+      "exercises/01/problem/.env.example": "KEY=\n",
+      "exercises/01/solution/.env.example": "KEY=value\n",
+      "exercises/01/problem/node_modules/dep/index.js": "a\n",
+      "exercises/01/solution/node_modules/dep/index.js": "b\n",
+      "exercises/02/lab.json": { schemaVersion: 1, runtime: "rust", entry: "src/main.rs", title: "Rust" },
+      "exercises/02/problem/target/debug/app": "x\n",
+      "exercises/02/solution/target/debug/app": "y\n",
+      "exercises/02/problem/src/target/mod.rs": "a\n",
+      "exercises/02/solution/src/target/mod.rs": "b\n",
+    },
+  });
+  try {
+    const paths = (await diffSides(root, "01.problem", "01.solution")).files.map((f) => f.path);
+    for (const dir of ["src/bin", "cli/bin", "lib/target", "pkg/obj", "py/__pycache__", "env/.venv"]) assert.ok(paths.includes(dir + "/file.txt"), dir);
+    assert.ok(paths.includes(".env.example"));
+    assert.ok(!paths.some((p) => p.startsWith("node_modules")));
+    const touched = (await touchedFiles(root, "01")).files.map((f) => f.path);
+    assert.ok(touched.includes("src/bin/file.txt") && touched.includes(".env.example"));
+    assert.equal((await diffFile(root, "01.problem", "01.solution", ".env.example")).file.additions, 1);
+    await selectWorkspace(root, "01");
+    await syncFile(root, "01", ".env.example", "01.solution");
+    assert.equal(await readFile(join(workspacePath(root, "01"), ".env.example"), "utf8"), "KEY=value\n");
+    const rust = (await diffSides(root, "02.problem", "02.solution")).files.map((f) => f.path);
+    assert.ok(rust.includes("src/target/mod.rs"), "nested target kept");
+    assert.ok(!rust.some((p) => p.startsWith("target/")), "the rust adapter's /target/ is left out");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("sync never writes through a linked file or directory in the playground", async () => {
+  const root = await nativeCourse({ files: { "exercises/01/solution/sub/inner.mjs": "solution\n" } });
+  const outside = await mkdtemp(join(tmpdir(), "icode-outside-"));
+  try {
+    await selectWorkspace(root, "01");
+    const pg = workspacePath(root, "01");
+    await writeFile(join(outside, "inner.mjs"), "outside\n");
+    await linkDir(outside, join(pg, "sub"));
+    await assert.rejects(syncFile(root, "01", "sub/inner.mjs", "01.solution"), /Symlinks are not supported/);
+    assert.equal(await readFile(join(outside, "inner.mjs"), "utf8"), "outside\n");
+    if (process.platform !== "win32") {
+      await rm(join(pg, "sub"));
+      await rm(join(pg, "index.mjs"));
+      await symlink(join(outside, "inner.mjs"), join(pg, "index.mjs"));
+      await assert.rejects(syncFile(root, "01", "index.mjs", "01.solution"), /Symlinks are not supported/);
+      assert.equal(await readFile(join(outside, "inner.mjs"), "utf8"), "outside\n");
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("touched files: a learner-deleted file the step deletes is done; insertions point at the new line", async () => {
+  const root = await nativeCourse({
+    files: {
+      "exercises/01/problem/gone.mjs": "export const gone = 1;\n",
+      "exercises/01/problem/grow.mjs": "a\nb\nc\n",
+      "exercises/01/solution/grow.mjs": "a\nb\nINSERTED\nc\n",
+    },
+  });
+  try {
+    await selectWorkspace(root, "01");
+    await rm(join(workspacePath(root, "01"), "gone.mjs"));
+    const by = Object.fromEntries((await touchedFiles(root, "01")).files.map((f) => [f.path, f]));
+    assert.equal(by["gone.mjs"].playground, "done");
+    assert.equal(by["grow.mjs"].line, 3);
+    assert.equal(by["grow.mjs"].solutionLine, 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("renames pair only unambiguous, non-empty content", async () => {
+  const root = await nativeCourse({
+    files: {
+      "exercises/02/problem/empty-a.txt": "",
+      "exercises/02/solution/empty-b.txt": "",
+      "exercises/02/problem/dup1.txt": "same\n",
+      "exercises/02/problem/dup2.txt": "same\n",
+      "exercises/02/solution/dup3.txt": "same\n",
+      "exercises/02/problem/old.txt": "unique\n",
+      "exercises/02/solution/new.txt": "unique\n",
+    },
+  });
+  try {
+    const by = Object.fromEntries((await diffSides(root, "02.problem", "02.solution")).files.map((f) => [f.path, f]));
+    assert.equal(by["empty-b.txt"].status, "added");
+    assert.equal(by["dup3.txt"].status, "added");
+    assert.equal(by["new.txt"].status, "renamed");
+    assert.equal(by["new.txt"].from, "old.txt");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -38,6 +38,8 @@ export interface WorkshopAdapter {
     command: "test" | "build" | "run",
     context: RuntimeContext,
   ): Promise<RunResult>;
+  /** Build output left out of saved playgrounds and diffs: root-anchored paths ("/target/") or explicit globs ("**\/*.pyc"). */
+  outputs?: readonly string[];
   start?(context: RuntimeContext): Promise<RuntimeSession>;
   stop?(context: RuntimeContext): Promise<void>;
 }

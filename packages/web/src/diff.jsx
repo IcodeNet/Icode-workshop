@@ -328,7 +328,7 @@ export function DiffView({ catalog, selected, initial, dirty, busy, onOpenFile, 
           <button aria-pressed={view === "unified"} onClick={() => setView("unified")}>Unified</button>
         </div>
         <label>
-          <input type="checkbox" checked={whitespace} onChange={(e) => setWhitespace(e.target.checked)} /> Ignore whitespace
+          <input type="checkbox" checked={whitespace} onChange={(e) => setWhitespace(e.target.checked)} /> Ignore whitespace changes
         </label>
         <label>
           Context{" "}

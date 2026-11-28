@@ -63,7 +63,7 @@ import {
   readPreferences,
   writePreferences,
 } from "./saved-playgrounds.mjs";
-import { diffSides, diffFile, touchedFiles, syncFile, parseSide } from "./diff.mjs";
+import { diffSides, diffFile, touchedFiles, syncFile, parseSide, validateRelativePath } from "./diff.mjs";
 import { updateStatus, checkForUpdates, applyUpdate } from "./update.mjs";
 import { fileURLToPath } from "node:url";
 import { validateId } from "../core/index.mjs";
@@ -169,6 +169,9 @@ async function gateDecision(req, pathname) {
     return "Another workshop operation is still running. Please retry when it finishes.";
   return "gated";
 }
+// One background fetch at startup feeds the update banner (offline-safe;
+// ICODE_UPDATE_CHECK=0 disables it). Update routes wait for it.
+let startupCheck = Promise.resolve();
 let lastPortScan = 0;
 let eventStreams = 0;
 const MAX_EVENT_STREAMS = 16;
@@ -562,7 +565,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/file/sync" && req.method === "POST") {
       const { id, name, from, remove = false } = await readBody(req);
       validateId(id);
-      validateFile(name);
+      validateRelativePath(name);
       if (typeof remove !== "boolean") throw new Error("Invalid remove flag");
       // Validate fully before the automatic save.
       await syncFile(root, id, name, from, { remove, dryRun: true });
@@ -582,20 +585,22 @@ const server = createServer(async (req, res) => {
       return json(res, 200, status);
     }
     if (url.pathname === "/api/update/check" && req.method === "POST") {
+      await startupCheck;
       const { allDirty, ...status } = await checkForUpdates(root, { onSpawn: ownGate });
       return json(res, 200, status);
     }
     if (url.pathname === "/api/update/apply" && req.method === "POST") {
-      const { confirm, stash = false } = await readBody(req);
+      const { confirm, stash = false, backupOverwritten = false } = await readBody(req);
+      await startupCheck;
       // Validate before streaming so refusals are plain 400 responses.
       if (confirm !== "update") throw new Error('Updating requires typing "update" to confirm');
       const send = ndjson(res);
       send({ type: "started" });
       try {
-        const result = await applyUpdate(root, { confirm, stash, emit: send, onSpawn: ownGate });
+        const result = await applyUpdate(root, { confirm, stash, backupOverwritten, emit: send, onSpawn: ownGate });
         send({ type: "result", ok: true, ...result });
       } catch (error) {
-        send({ type: "result", ok: false, error: error.message, code: error.code, dirty: error.dirty });
+        send({ type: "result", ok: false, error: error.message, code: error.code, dirty: error.dirty, paths: error.paths });
       }
       return res.end();
     }
@@ -800,6 +805,8 @@ server.listen(port, host, () => {
   console.log(
     "Icode Workshop API on http://" + host + ":" + port + " using " + root,
   );
+  if (process.env.ICODE_UPDATE_CHECK !== "0")
+    startupCheck = checkForUpdates(root).catch(() => {});
   if (process.env.ICODE_SIDECARS !== "0")
     startSidecars(root).catch((error) =>
       console.error("Sidecars not started: " + error.message),

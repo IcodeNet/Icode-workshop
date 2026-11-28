@@ -211,6 +211,13 @@ test("a hook that never exits holds only its own request: listed, stoppable, not
     assert.match(hook.label, /pre-set-playground/);
     const busy = await api.call("/file", { method: "PUT", body: { id: "01", name: "index.mjs", code: "x" } });
     assert.equal(busy.status, 409, "other mutations wait for the gate");
+    for (const [path, method, body] of [
+      ["/saved-playgrounds", "POST", { id: "01" }],
+      ["/file/sync", "POST", { id: "01", name: "index.mjs", from: "01.solution" }],
+      ["/saved-playgrounds/restore", "POST", { id: "01", savedId: "20261127T101112345Z-abcdef" }],
+      ["/preferences", "PUT", { savePlaygrounds: false }],
+    ])
+      assert.equal((await api.call(path, { method, body })).status, 409, path + " is gated");
     const stopped = await api.call("/processes/stop", { method: "POST", body: { id: hook.id } });
     assert.equal(stopped.status, 200, "stopping the gate's own hook is allowed");
     const result = await pending;
@@ -219,6 +226,28 @@ test("a hook that never exits holds only its own request: listed, stoppable, not
     assert.equal(result.body.hooks[0].status, "stopped");
     assert.equal(await readFile(join(root, ".workshop/playgrounds/01/index.mjs"), "utf8"), "keep me\n");
     assert.equal((await api.call("/processes")).body.processes.length, 0);
+  } finally {
+    await api.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("update routes wait for a running course action; playground work does not", { timeout: 90000 }, async () => {
+  const root = await nativeCourse({
+    scripts: { slow: "node slow.mjs" },
+    course: { actions: [{ id: "slow", label: "Slow", script: "slow" }] },
+    files: { "slow.mjs": "setInterval(() => {}, 1000);\n" },
+  });
+  const api = await startServer(root);
+  try {
+    await api.call("/select", { method: "POST", body: { id: "01" } });
+    const run = await api.call("/actions/run", { method: "POST", body: { id: "slow" } });
+    assert.equal(run.status, 200);
+    assert.equal((await api.call("/update/check", { method: "POST", body: {} })).status, 409);
+    assert.equal((await api.call("/update/apply", { method: "POST", body: { confirm: "update" } })).status, 409);
+    assert.equal((await api.call("/saved-playgrounds", { method: "POST", body: { id: "01" } })).status, 200, "playground work continues");
+    await api.call("/actions/cancel", { method: "POST", body: { runId: run.body.runId } });
+    await until(async () => !(await api.call("/operations")).body.running);
   } finally {
     await api.stop();
     await rm(root, { recursive: true, force: true });

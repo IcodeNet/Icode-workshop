@@ -21,6 +21,7 @@ Export a default object implementing `WorkshopAdapter` from `index.d.ts`:
 - `run('test' | 'build' | 'run', context)`: finite operation returning `{exitCode, aborted?}`. Reject unsupported commands. Report no-tests discovery as failure, never a fabricated success.
 - Optional `start(context)`: returns a `RuntimeSession` promptly, with `id`, `completion`, `stop()` and optional `previewUrl`.
 - Optional `stop(context)`: adapter-specific cleanup.
+- Optional `outputs`: build output that saved playgrounds and diffs leave out, as root-anchored paths (`"/target/"`) or explicit globs (`"**/*.pyc"`); bare names that would match at any depth are refused.
 
 `context` supplies workspaceRoot, cancellation signal, optional environment and bounded-output event sink. Use argv arrays rather than shell interpolation. An adapter must own and stop its child processes, honour cancellation and report missing dependencies with setup guidance. Notebook state and outputs remain the responsibility of a Jupyter adapter.
 
