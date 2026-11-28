@@ -1,5 +1,5 @@
 // Fixtures for Stage 2 (hooks, saved playgrounds, diffs, update).
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -12,9 +12,13 @@ export async function writeTree(root, files) {
   return root;
 }
 
+// macOS's tmpdir (/var/folders/…) is reached through the /var symlink, which
+// the engine refuses on purpose; use the real path.
+const tempRoot = async (prefix) => realpath(await mkdtemp(join(tmpdir(), prefix)));
+
 /** Native course: two steps, optional hooks/scripts/extra files. */
 export async function nativeCourse({ hooks, scripts = {}, files = {}, course = {} } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "icode-ws-"));
+  const root = await tempRoot("icode-ws-");
   await writeTree(root, {
     "course.json": { schemaVersion: 1, title: "Workspace course", ...(hooks ? { hooks } : {}), ...course },
     "package.json": { name: "workspace-course", private: true, scripts },
@@ -36,7 +40,7 @@ export async function nativeCourse({ hooks, scripts = {}, files = {}, course = {
 
 /** Epic-layout course with per-app and root hook files. */
 export async function epicCourse({ files = {}, pkg = {} } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "icode-epic-ws-"));
+  const root = await tempRoot("icode-epic-ws-");
   await writeTree(root, {
     "workshop.json": { schemaVersion: 1, format: "epic" },
     "package.json": { name: "epic-course", private: true, ...pkg },

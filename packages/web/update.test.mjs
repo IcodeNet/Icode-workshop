@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyUpdate, changedSteps, checkForUpdates, updateStatus } from "./update.mjs";
@@ -26,7 +26,7 @@ const text = async (path) => (await readFile(path, "utf8")).replace(/\r\n/g, "\n
 
 /** remote.git (bare), author clone for pushing upstream changes, course clone. */
 async function repos() {
-  const base = await mkdtemp(join(tmpdir(), "icode-update-"));
+  const base = await realpath(await mkdtemp(join(tmpdir(), "icode-update-")));
   const remote = join(base, "remote.git"),
     author = join(base, "author"),
     course = join(base, "course");
@@ -58,7 +58,7 @@ async function pushUpstream(author, files, message = "upstream change") {
 }
 
 test("not a repository, nested repository and missing upstream are reported, not errors", { skip: !hasGit }, async () => {
-  const plain = await mkdtemp(join(tmpdir(), "icode-update-plain-"));
+  const plain = await realpath(await mkdtemp(join(tmpdir(), "icode-update-plain-")));
   const { base, course } = await repos();
   try {
     assert.equal((await updateStatus(plain)).git, false);
@@ -162,7 +162,7 @@ test("local commits are never rebased, reset or force-pulled", { skip: !hasGit, 
 });
 
 test("changed paths map to native step ids", async () => {
-  const base = await mkdtemp(join(tmpdir(), "icode-steps-"));
+  const base = await realpath(await mkdtemp(join(tmpdir(), "icode-steps-")));
   try {
     await writeTree(base, {
       "exercises/01/problem/a.mjs": "",
