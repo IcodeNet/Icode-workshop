@@ -10,11 +10,35 @@ const json = async (path, options) => {
   return data;
 };
 
+/**
+ * Once per engine start, clear the sandbox origin (service workers, caches,
+ * storage) by loading its reset page, before any app frame is shown.
+ */
+function resetSandbox(config) {
+  const key = "icode-sandbox-generation";
+  if (!config.sandboxOrigin || !config.sandboxGeneration || localStorage.getItem(key) === config.sandboxGeneration) return Promise.resolve(config);
+  return new Promise((resolve) => {
+    const frame = document.createElement("iframe");
+    frame.hidden = true;
+    frame.title = "Sandbox reset";
+    frame.setAttribute("sandbox", "");
+    const done = () => {
+      clearTimeout(timer);
+      localStorage.setItem(key, config.sandboxGeneration);
+      frame.remove();
+      resolve(config);
+    };
+    const timer = setTimeout(done, 3000);
+    frame.addEventListener("load", done, { once: true });
+    frame.src = config.sandboxOrigin + "/__icode/reset?generation=" + encodeURIComponent(config.sandboxGeneration);
+    document.body.append(frame);
+  });
+}
 let configPromise;
 export function useContentConfig() {
   const [config, setConfig] = useState(null);
   useEffect(() => {
-    configPromise ??= json("/content/config").catch(() => ({ sandboxOrigin: "" }));
+    configPromise ??= json("/content/config").then(resetSandbox).catch(() => ({ sandboxOrigin: "" }));
     configPromise.then(setConfig);
   }, []);
   return config;

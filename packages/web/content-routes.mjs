@@ -9,6 +9,10 @@ import { renderSafe as renderLesson, policy } from "./markdown.mjs";
 import { labConfig } from "./runtime.mjs";
 import { courseConfig, readProgress } from "./course.mjs";
 import { activeNotifications, muteNotification } from "./notifications.mjs";
+import { randomBytes } from "node:crypto";
+
+// Changes on every engine start: the UI resets the sandbox origin once per value.
+export const SANDBOX_GENERATION = randomBytes(8).toString("hex");
 
 const image = (ref, sandboxOrigin) => (!ref ? undefined : ref.url ?? policy(ref.path, { kind: "image", sandboxOrigin }).href);
 
@@ -49,6 +53,7 @@ export async function handleContent({ req, res, url, root, json, readBody, sandb
     const title = c.title ?? course.title;
     return json(res, 200, {
       sandboxOrigin,
+      sandboxGeneration: SANDBOX_GENERATION,
       title,
       subtitle: c.subtitle,
       instructor: c.instructor && { name: c.instructor.name, url: c.instructor.url, avatar: image(c.instructor.avatar, sandboxOrigin) },
