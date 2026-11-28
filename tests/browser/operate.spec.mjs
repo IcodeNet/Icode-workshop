@@ -296,7 +296,7 @@ test("launch editor spawns the configured editor and keeps the VS Code fallback"
     .getByRole("button", { name: "Open in editor", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(
-    "Opened index.mjs in ICODE_EDITOR",
+    "Opened index.mjs in Configured editor (node)",
   );
   await expect
     .poll(() => readFile(log, "utf8").catch(() => ""))

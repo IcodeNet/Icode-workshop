@@ -209,6 +209,34 @@ for (let i = 0; i * 25 < languages.length; i++) {
   for (const variant of ["problem", "solution"]) await writeFile(join(root, "exercises", id, variant, "index.mjs"), "export const value = 1;\n");
 }
 course.modules.push({ id: "code-samples", title: "Code samples (every highlighted language)", steps: codeSteps });
+// Learner layout (step 40): a lesson far taller than a laptop screen, links to
+// another origin, in-course links, section anchors and a long file, for
+// tests/browser/layout.spec.mjs.
+const paragraph = "Retrieval keeps answers grounded in approved content. Each layer of the system narrows what the model may see, and every narrowing step is one the team can test, measure and clear.";
+await mkdir(join(root, "exercises", "40", "problem"), { recursive: true });
+await mkdir(join(root, "exercises", "40", "solution"), { recursive: true });
+await writeFile(join(root, "exercises", "40", "lab.json"), JSON.stringify({ schemaVersion: 1, runtime: "node", entry: "index.mjs", title: "Pane layout", description: "A long lesson beside a long file: read the instructions, edit the code and read the output without losing sight of any of them, or of a warning the team can clear." }));
+await writeFile(
+  join(root, "exercises", "40", "README.md"),
+  [
+    "# Pane layout",
+    "Read the [Azure AI Search documentation](https://learn.microsoft.com/azure/search/) beside this lesson, jump to the [check questions](#h-check-questions), or open the [first lesson](../01/README.md).",
+    "## Concept",
+    ...Array.from({ length: 14 }, (_, i) => `Paragraph ${i + 1}. ${paragraph}`),
+    "```text\nModule 1–2   search foundations and index design, analyzers, tokenizers, scoring profiles and the inverted index in depth\nModule 3     provision and load a real index\n```",
+    "## Read [the training path](https://learn.microsoft.com/training/) and `run the tests`",
+    ...Array.from({ length: 14 }, (_, i) => `Paragraph ${i + 15}. ${paragraph}`),
+    "## Check questions",
+    "Answer from memory, then compare with the lesson.",
+    ...Array.from({ length: 4 }, (_, i) => `Question ${i + 1}. ${paragraph}`),
+    "### Further reading",
+    "A [local dashboard](http://localhost:3999/status) runs beside the workshop.",
+    ...Array.from({ length: 6 }, (_, i) => `Paragraph ${i + 29}. ${paragraph}`),
+  ].join("\n\n") + "\n",
+);
+for (const variant of ["problem", "solution"])
+  await writeFile(join(root, "exercises", "40", variant, "index.mjs"), Array.from({ length: 160 }, (_, i) => `export const line${i + 1} = ${i + 1}; // ${variant} line ${i + 1}`).join("\n") + "\n");
+course.modules.push({ id: "layout", title: "Learner layout", steps: ["40"] });
 await writeFile(join(tmpdir(), "icode-browser-code-steps.json"), JSON.stringify(codeSteps));
 await writeFile(join(tmpdir(), "icode-browser-root.txt"), root);
 await writeFile(join(root, "course.json"), JSON.stringify(course));
@@ -285,6 +313,12 @@ await writeFile(
   `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(editorLog)}, JSON.stringify(process.argv.slice(2)));\n`,
 );
 process.env.ICODE_EDITOR = JSON.stringify([process.execPath, join(root, "ops", "editor.mjs")]);
+// The learner's own editor setting names a known editor: the picker shows a
+// readable label for it, never the name of the setting.
+await mkdir(join(root, "ops", "bin"));
+await writeFile(join(root, "ops", "bin", "code"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+process.env.EDITOR = join(root, "ops", "bin", "code");
+delete process.env.VISUAL;
 const video = await readFile("tests/browser/fixtures/lesson.webm");
 createServer((req, res) => {
   res.setHeader("access-control-allow-origin", "*");

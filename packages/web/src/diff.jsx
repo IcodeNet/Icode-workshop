@@ -2,6 +2,7 @@
 // playground of any lesson), side-by-side or unified, with word highlights,
 // deep links, keyboard shortcuts and per-file sync into a playground.
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Select } from "./controls.jsx";
 
 const request = async (path, options) => {
   const response = await fetch("/api" + path, {
@@ -121,19 +122,19 @@ function Hunks({ file, view }) {
 function SideSelect({ label, step, version, catalog, saved, onChange, disabled }) {
   return (
     <span className="diff-side">
-      <label>
+      <label className="field">
         {label} lesson{" "}
-        <select aria-label={"Diff " + label.toLowerCase() + " lesson"} value={step} disabled={disabled} onChange={(e) => onChange(e.target.value, version.startsWith("saved.") ? "playground" : version)}>
+        <Select aria-label={"Diff " + label.toLowerCase() + " lesson"} value={step} disabled={disabled} onChange={(e) => onChange(e.target.value, version.startsWith("saved.") ? "playground" : version)}>
           {catalog.map((item) => (
             <option key={item.id} value={item.id}>
               {item.id} · {item.title}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
-      <label>
+      <label className="field">
         version{" "}
-        <select aria-label={"Diff " + label.toLowerCase() + " version"} value={version} disabled={disabled} onChange={(e) => onChange(step, e.target.value)}>
+        <Select aria-label={"Diff " + label.toLowerCase() + " version"} value={version} disabled={disabled} onChange={(e) => onChange(step, e.target.value)}>
           {VARIANTS.map((v) => (
             <option key={v} value={v}>
               {v}
@@ -144,7 +145,7 @@ function SideSelect({ label, step, version, catalog, saved, onChange, disabled }
               saved · {new Date(s.createdAt).toLocaleString()} {s.label ? "· " + s.label : ""}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
     </span>
   );
@@ -330,13 +331,13 @@ export function DiffView({ catalog, selected, initial, dirty, busy, onOpenFile, 
         <label>
           <input type="checkbox" checked={whitespace} onChange={(e) => setWhitespace(e.target.checked)} /> Ignore whitespace changes
         </label>
-        <label>
+        <label className="field">
           Context{" "}
-          <select aria-label="Context lines" value={context} onChange={(e) => setContext(e.target.value)}>
+          <Select aria-label="Context lines" value={context} onChange={(e) => setContext(e.target.value)}>
             <option value="3">3 lines</option>
             <option value="10">10 lines</option>
             <option value="all">Whole file</option>
-          </select>
+          </Select>
         </label>
         <button onClick={load} disabled={loading}>Refresh diff</button>
         <button onClick={copyLink}>Copy link</button>

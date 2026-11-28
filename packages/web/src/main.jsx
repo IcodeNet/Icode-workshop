@@ -1,5 +1,4 @@
 import "./session.js";
-import Markdown from "react-markdown";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -45,6 +44,7 @@ import {
   useTheme,
   useWarnings,
 } from "./ux.jsx";
+import { ExternalLink, Prose, Select, TipButton, shortBinding } from "./controls.jsx";
 import { COMMANDS, resolveBindings } from "./ux/shortcuts.js";
 import { THEMES } from "./ux/preferences.js";
 const api = async (path, options) => {
@@ -1012,7 +1012,8 @@ function App() {
   }, [paletteOpen]);
   return (
     <div className={theme.className} style={theme.style}>
-      <header className="topbar">
+      <header className="app-header">
+      <div className="topbar">
         <div className="brand">
           <img className="hippo-logo" src="/hippo.png" alt="Icode hippo" />
           <div>
@@ -1023,16 +1024,32 @@ function App() {
         <div className="top-actions">
           <span className="mode">Local learning environment</span>
           <span className="mode">{course?.title || "AI Engineering Labs"}</span>
-          <ConnectionStatus state={connection.state} />
-          <button className="commands-button" onClick={() => setPaletteOpen(true)} aria-keyshortcuts="Control+Shift+P Meta+Shift+P Control+K Meta+K">
-            Commands
-          </button>
-          <button className="commands-button" onClick={() => setShortcutsOpen(true)} aria-keyshortcuts="Shift+?">
-            Shortcuts
-          </button>
+          <ConnectionStatus state={connection.state} onRetry={connection.retry} />
+          <TipButton
+            iconOnly
+            icon="command"
+            label="Commands"
+            tip="Command palette"
+            binding={shortBinding(bindings["palette.open"])}
+            align="end"
+            className="commands-button"
+            onClick={() => setPaletteOpen(true)}
+            aria-keyshortcuts="Control+Shift+P Meta+Shift+P Control+K Meta+K"
+          />
+          <TipButton
+            iconOnly
+            icon="keyboard"
+            label="Shortcuts"
+            tip="Keyboard shortcuts"
+            binding={shortBinding(bindings["shortcuts.open"])}
+            align="end"
+            className="commands-button"
+            onClick={() => setShortcutsOpen(true)}
+            aria-keyshortcuts="Shift+?"
+          />
 
         </div>
-      </header>
+      </div>
       <div
         className="activity-bar"
         role="log"
@@ -1056,6 +1073,21 @@ function App() {
           Ctrl/⌘ Shift P · Commands &nbsp; ? · Shortcuts &nbsp; Ctrl/⌘ S · Save &nbsp; Ctrl/⌘ Enter · Run tests
         </span>
       </div>
+      {/* Status, cost, setup and course notices stay in the header: they are
+          in view whatever the panes below are scrolled to. */}
+      <div className="header-banners">
+        <ConnectionBanner connection={connection} />
+        <WarningBanner
+          warnings={warnings}
+          dismissed={prefs.ui.dismissedWarnings}
+          onDismissForever={(id) => prefs.update({ dismissedWarnings: [...prefs.ui.dismissedWarnings, id] })}
+        />
+        <IndicatorBanner indicators={indicators} />
+        <SetupBanner />
+        <UpdateBanner onOpen={() => setPanel("update")} />
+        <Notifications sandboxOrigin={sandboxOrigin} />
+      </div>
+      </header>
       {paletteOpen && (
         <PanelBoundary name="command palette">
           <CommandPalette items={paletteItems} onClose={() => setPaletteOpen(false)} />
@@ -1073,7 +1105,7 @@ function App() {
         />
       )}
       <div className="shell">
-        <aside className="sidebar">
+        <aside className="sidebar" aria-label="Course navigation">
           <div className="eyebrow">COURSE</div>
           <h2>Labs</h2>
           <p>
@@ -1142,17 +1174,7 @@ function App() {
             persistent, separate playground.
           </div>
         </aside>
-        <main className="content">
-          <ConnectionBanner connection={connection} />
-          <WarningBanner
-            warnings={warnings}
-            dismissed={prefs.ui.dismissedWarnings}
-            onDismissForever={(id) => prefs.update({ dismissedWarnings: [...prefs.ui.dismissedWarnings, id] })}
-          />
-          <IndicatorBanner indicators={indicators} />
-          <SetupBanner />
-          <UpdateBanner onOpen={() => setPanel("update")} />
-          <Notifications sandboxOrigin={sandboxOrigin} />
+        <main className={!page && exercise ? "content lesson-view" : "content"} data-scroll-pane="content">
           {page === "preferences" && (
             <PanelBoundary name="preferences page">
               <PreferencesPage prefs={prefs} resolvedTheme={theme.resolved} onClose={exercise ? () => setPage(null) : null} />
@@ -1179,14 +1201,14 @@ function App() {
           )}
           {page ? null : exercise ? (
             <>
-              <div className="heading">
+              <div className="heading step-heading">
                 <span className="pill">{exercise.topic}</span>
                 <h1>{exercise.title}</h1>
                 <p>{exercise.description}</p>
               </div>
               <div className="learning-layout">
                 <PanelBoundary name="lesson panel" resetKey={selected}>
-                <article className="lesson-panel" onClick={(event) => {
+                <article className="lesson-panel" data-scroll-pane="lesson" onClick={(event) => {
                   if (contentClick(event)) return;
                   const href = event.target.closest("a")?.getAttribute("href");
                   if (href?.startsWith("#file=")) {
@@ -1207,10 +1229,10 @@ function App() {
                   {exercise.lesson?.html !== undefined ? (
                     <LessonHtml html={exercise.lesson.html} toc={exercise.lesson.toc} sandboxOrigin={sandboxOrigin} label={exercise.title} stepId={selected} />
                   ) : (
-                    <Markdown>{exercise.instructions}</Markdown>
+                    <Prose>{exercise.instructions}</Prose>
                   )}
                   {exercise.documents?.filter(doc => doc.path !== exercise.lesson?.path).map(doc => (
-                    <details key={doc.path}><summary>{doc.title}</summary>{doc.html !== undefined ? <LessonHtml html={doc.html} toc={[]} sandboxOrigin={sandboxOrigin} stepId={selected} /> : <Markdown>{doc.content}</Markdown>}</details>
+                    <details key={doc.path}><summary>{doc.title}</summary>{doc.html !== undefined ? <LessonHtml html={doc.html} toc={[]} sandboxOrigin={sandboxOrigin} stepId={selected} /> : <Prose>{doc.content}</Prose>}</details>
                   ))}
                   <ExerciseComplete app={appInfo} ids={ids} selected={selected} onChoose={(id) => choose(id)} />
                   {exercise.media && (
@@ -1239,7 +1261,7 @@ function App() {
                       {exercise.media.transcript && (
                         <details>
                           <summary>Lesson transcript</summary>
-                          <Markdown>{exercise.media.transcript}</Markdown>
+                          <Prose>{exercise.media.transcript}</Prose>
                         </details>
                       )}
                     </section>
@@ -1271,7 +1293,7 @@ function App() {
                   </small>
                 </article>
                 </PanelBoundary>
-                <div className="workspace-column">
+                <div className="workspace-column" data-scroll-pane="workbench">
                   <PanelBoundary name="code workbench" resetKey={selected}>
                   <section className="workbench" data-live-reload={liveReload}>
                     <div className="workbench-head">
@@ -1330,9 +1352,9 @@ function App() {
                     </div>
                     {["problem", "solution"].includes(tab) ? (
                       <div className="file-tools">
-                        <label>
+                        <label className="field">
                           Reference file{" "}
-                          <select
+                          <Select
                             aria-label="Reference file"
                             value={referenceFile}
                             disabled={busy}
@@ -1341,7 +1363,7 @@ function App() {
                             {referenceFiles.map((name) => (
                               <option key={name}>{name}</option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         <span>
                           Read-only {variant} · tests run in a temporary copy
@@ -1355,9 +1377,9 @@ function App() {
                       </div>
                     ) : (
                       <div className="file-tools">
-                        <label>
+                        <label className="field">
                           Project file{" "}
-                          <select
+                          <Select
                             aria-label="Project file"
                             disabled={busy}
                             value={file}
@@ -1370,7 +1392,7 @@ function App() {
                             {files.map((name) => (
                               <option key={name}>{name}</option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         <button disabled={busy} onClick={restoreBackup}>
                           Restore backup
@@ -1415,9 +1437,9 @@ function App() {
                     <div className="file-tools">
                       {editors.some((e) => e.available) && (
                         <>
-                          <label>
+                          <label className="field">
                             Editor{" "}
-                            <select
+                            <Select
                               aria-label="Editor"
                               value={editorId}
                               disabled={busy}
@@ -1430,7 +1452,7 @@ function App() {
                                     {e.label}
                                   </option>
                                 ))}
-                            </select>
+                            </Select>
                           </label>
                           <button
                             disabled={busy || !(file || referenceFile)}
@@ -1549,7 +1571,7 @@ function App() {
                         onMessage={setResult}
                       />
                     ) : (
-                      <pre className="code">
+                      <pre className="code" tabIndex={0} role="group" aria-label={tab === "description" ? "Lab description and starting code" : "Read-only " + tab + " code"}>
                         {tab === "description"
                           ? exercise.description +
                             "\n\nSTARTING CODE\n" +
@@ -1651,7 +1673,7 @@ function App() {
                                   <strong>
                                     {message.role === "user" ? "You" : "Tutor"}
                                   </strong>
-                                  <Markdown>{message.content}</Markdown>
+                                  <Prose>{message.content}</Prose>
                                 </section>
                               ))}
                             </div>
@@ -1680,9 +1702,9 @@ function App() {
                       <div className="tools-panel app-panel">
                         <div className="app-panel-head">
                           <span>{appInfo.type === "export" ? "Export app: console output and exported values" : "Workshop-served app"}</span>
-                          <label>
+                          <label className="field">
                             Variant{" "}
-                            <select
+                            <Select
                               aria-label="App variant"
                               value={appVariant}
                               onChange={(e) => {
@@ -1694,7 +1716,7 @@ function App() {
                               <option value="playground">playground</option>
                               <option value="problem">problem</option>
                               <option value="solution">solution</option>
-                            </select>
+                            </Select>
                           </label>
                           <label>
                             <input type="checkbox" checked={reloadPreview} onChange={(e) => setReloadPreview(e.target.checked)} /> Reload when playground files change
@@ -1758,14 +1780,9 @@ function App() {
                         )}
                         {preview && (
                           <>
-                            <a
-                              href={preview}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {" "}
+                            <ExternalLink href={preview}>
                               Open preview externally
-                            </a>
+                            </ExternalLink>
                             <AppBrowser
                               base={preview}
                               kind="preview"
@@ -1802,9 +1819,9 @@ function App() {
                             </pre>
                           </section>
                         )}
-                        <label>
+                        <label className="field">
                           Local tool{" "}
-                          <select
+                          <Select
                             aria-label="Local tool"
                             value={toolId}
                             onChange={(e) => setToolId(e.target.value)}
@@ -1814,7 +1831,7 @@ function App() {
                                 {tool.title}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         {!exercise.tools?.length && (
                           <p>
@@ -1827,13 +1844,9 @@ function App() {
                           .map((tool) => (
                             <div key={tool.id}>
                               <p>
-                                <a
-                                  href={tool.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
+                                <ExternalLink href={tool.url}>
                                   Open {tool.title} externally
-                                </a>
+                                </ExternalLink>
                               </p>
                               {tool.mode === "embed" ? (
                                 <>
@@ -1885,20 +1898,20 @@ function App() {
                     )}
                   </section>
                   </PanelBoundary>
+                  <section className="hint">
+                    <span className="hint-icon">i</span>
+                    <div>
+                      <strong>Playground workflow</strong>
+                      <p>
+                        The problem and solution remain unchanged. Save edits to
+                        your playground. Run tests against the saved files. Each
+                        exercise keeps its own playground, so you can return to
+                        earlier work.
+                      </p>
+                    </div>
+                  </section>
                 </div>
               </div>
-              <section className="hint">
-                <span className="hint-icon">i</span>
-                <div>
-                  <strong>Playground workflow</strong>
-                  <p>
-                    The problem and solution remain unchanged. Save edits to
-                    your playground. Run tests against the saved files. Each
-                    exercise keeps its own playground, so you can return to
-                    earlier work.
-                  </p>
-                </div>
-              </section>
             </>
           ) : (
             <>

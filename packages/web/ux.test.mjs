@@ -186,12 +186,16 @@ test("fuzzy: ranking, ranges and prefixes", () => {
   assert.ok(parts.every((p) => typeof p.text === "string"));
 });
 
-// Pull the custom properties of one theme block out of styles.css.
+// Pull the custom properties of a theme selector out of styles.css: every
+// top-level block with exactly that selector, later blocks winning.
 function tokens(css, selector) {
-  const start = css.lastIndexOf("\n" + selector + " {");
-  assert.ok(start !== -1, selector);
-  const body = css.slice(start, css.indexOf("}", start));
-  return Object.fromEntries([...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+  const found = {};
+  for (let start = css.indexOf("\n" + selector + " {"); start !== -1; start = css.indexOf("\n" + selector + " {", start + 1)) {
+    const body = css.slice(start, css.indexOf("}", start));
+    for (const m of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) found[m[1]] = m[2].trim();
+  }
+  assert.ok(Object.keys(found).length, selector);
+  return found;
 }
 test("theme: WCAG AA contrast for every theme's text, links, focus and borders", async () => {
   const css = await read("./src/styles.css");
